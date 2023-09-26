@@ -65,7 +65,16 @@ def select_file(button):
                 lst.insert('end', file) 
 
 def delete_item(button):
-    pass
+        if button == btn_docker_compose_del:
+            lst_docker_compose.delete(tkinter.ANCHOR)
+        if button == btn_app_build_del:
+            lst_app_build.delete(tkinter.ANCHOR)
+        if button == btn_module_build_dir_del:
+            lst_module_build_dir.delete(tkinter.ANCHOR)
+        if button == btn_module_build_del:
+            lst_module_build.delete(tkinter.ANCHOR)
+        if button == btn_app_config_dir_del:
+            lst_app_config_dir.delete(tkinter.ANCHOR)
 
 
 def create_psm_instance():
@@ -130,7 +139,7 @@ lst_docker_compose.pack(side = 'left', fill = 'both', expand = 1)
 btn_docker_compose_add = tkinter.Button(window, text = 'Add Item', width = 10)
 btn_docker_compose_add.configure(command = lambda button = btn_docker_compose_add: select_file(button))
 btn_docker_compose_add.grid(row = 2, column = 3, padx = padding, pady = padding, sticky = 'N')
-btn_docker_compose_del = tkinter.Button(window, text = 'Delete', width = 10, state='disabled')
+btn_docker_compose_del = tkinter.Button(window, text = 'Delete', width = 10)
 btn_docker_compose_del.configure(command = lambda button = btn_docker_compose_del: delete_item(button))
 btn_docker_compose_del.grid(row = 3, column = 3, padx = padding, pady = padding, sticky = 'N')
 
@@ -149,7 +158,7 @@ lst_app_build.pack(side = 'left', fill = 'both', expand = 1)
 btn_app_build_add = tkinter.Button(window, text = 'Add Item', width = 10)
 btn_app_build_add.configure(command = lambda button = btn_app_build_add: select_file(button))
 btn_app_build_add.grid(row = 2, column = 5, padx = padding, pady = padding, sticky = 'N')
-btn_app_build_del = tkinter.Button(window, text = 'Delete', width = 10, state='disabled')
+btn_app_build_del = tkinter.Button(window, text = 'Delete', width = 10)
 btn_app_build_del.configure(command = lambda button = btn_app_build_del: delete_item(button))
 btn_app_build_del.grid(row = 3, column = 5, padx = padding, pady = padding, sticky = 'N')
 
@@ -168,7 +177,7 @@ lst_module_build_dir.pack(side = 'left', fill = 'both', expand = 1)
 btn_module_build_dir_add = tkinter.Button(window, text = 'Add Item', width = 10)
 btn_module_build_dir_add.configure(command = lambda button = btn_module_build_dir_add: select_dir(button))
 btn_module_build_dir_add.grid(row = 8, column = 1, padx = padding, pady = padding, sticky = 'N')
-btn_module_build_dir_del = tkinter.Button(window, text = 'Delete', width = 10, state='disabled')
+btn_module_build_dir_del = tkinter.Button(window, text = 'Delete', width = 10)
 btn_module_build_dir_del.configure(command = lambda button = btn_module_build_dir_del: delete_item(button))
 btn_module_build_dir_del.place(x = 327, y = 267)
 
@@ -187,7 +196,7 @@ lst_module_build.pack(side = 'left', fill = 'both', expand = 1)
 btn_module_build_add = tkinter.Button(window, text = 'Add Item', width = 10)
 btn_module_build_add.configure(command = lambda button = btn_module_build_add: select_file(button))
 btn_module_build_add.grid(row = 8, column = 3, padx = padding, pady = padding, sticky = 'N')
-btn_module_build_del = tkinter.Button(window, text = 'Delete', width = 10, state='disabled')
+btn_module_build_del = tkinter.Button(window, text = 'Delete', width = 10)
 btn_module_build_del.configure(command = lambda button = btn_module_build_del: delete_item(button))
 btn_module_build_del.place(x = 736, y = 267)
 
@@ -206,7 +215,7 @@ lst_app_config_dir.pack(side = 'left', fill = 'both', expand = 1)
 btn_app_config_dir_add = tkinter.Button(window, text = 'Add Item', width = 10)
 btn_app_config_dir_add.configure(command = lambda button = btn_app_config_dir_add: select_dir(button))
 btn_app_config_dir_add.grid(row = 8, column = 5, padx = padding, pady = padding, sticky = 'N')
-btn_app_config_dir_del = tkinter.Button(window, text = 'Delete', width = 10, state='disabled')
+btn_app_config_dir_del = tkinter.Button(window, text = 'Delete', width = 10)
 btn_app_config_dir_del.configure(command = lambda button = btn_app_config_dir_del: delete_item(button))
 btn_app_config_dir_del.place(x = 1145, y = 267)
 
