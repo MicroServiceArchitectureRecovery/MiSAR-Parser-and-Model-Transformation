@@ -1405,3 +1405,5 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
     print(start_time)
     print(end_time)
 
+print("""If the GUI doesn't show up, this means you have launched the wrong python file.
+Please run MisarParserGUI.py""")
