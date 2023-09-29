@@ -7,117 +7,18 @@
 # 25/09/2023
 ############################
 
+from MisarParserMain import *
 import tkinter
 from tkinter import filedialog
 from tkinter import messagebox
-from pyecore.resources import ResourceSet, URI
-from pyecore.utils import DynamicEPackage
-import os
-import yaml
-import xmltodict
-from collections import OrderedDict
-import re
-from datetime import datetime
-import javalang
-from MisarParserMain import *
-
 
 def window_quit():
     window.quit()
     window.destroy()
 
-def select_dir(button):
-    directory = filedialog.askdirectory()
-    if directory:
-        if button == btn_proj_dir:
-            txt_proj_dir.configure(state = 'normal')
-            txt_proj_dir.delete(0, 'end')
-            txt_proj_dir.insert(0, directory)
-            txt_proj_dir.configure(state = 'readonly', readonlybackground = 'white')
-        elif button in [btn_module_build_dir_add, btn_app_config_dir_add]:
-            lst = tkinter.Listbox()
-            if button == btn_module_build_dir_add: 
-                lst = lst_module_build_dir 
-            elif button == btn_app_config_dir_add: 
-                lst = lst_app_config_dir
-            if directory not in lst.get(0, 'end'):
-                lst.insert(lst.size(), directory) 
-
-def select_file(button):
-    if button == btn_psm_ecore:
-        filename = filedialog.askopenfilename()
-        if filename:
-            txt_psm_ecore.configure(state = 'normal')
-            txt_psm_ecore.delete(0, 'end')
-            txt_psm_ecore.insert(0, filename)
-            txt_psm_ecore.configure(state = 'readonly', readonlybackground = 'white')
-    elif button in [btn_docker_compose_add, btn_app_build_add, btn_module_build_add]:
-        files = filedialog.askopenfilenames()
-        lst = tkinter.Listbox()
-        if button == btn_docker_compose_add: 
-            lst = lst_docker_compose 
-        elif button == btn_app_build_add: 
-            lst = lst_app_build
-        elif button == btn_module_build_add: 
-            lst = lst_module_build
-        for file in files: 
-            if file not in lst.get(0, 'end'):
-                lst.insert('end', file)
-                
-"""    
-def select_dir(button):
-    directory = filedialog.askdirectory()
-    if directory:
-        if button == btn_proj_dir:
-            txt_proj_dir.configure(state = 'normal')
-            txt_proj_dir.delete(0, 'end')
-            txt_proj_dir.insert(0, directory)
-            txt_proj_dir.configure(state = 'readonly', readonlybackground = 'white')
-        elif button in [btn_module_build_dir_add, btn_app_config_dir_add]:
-            lst = tkinter.Listbox()
-            if button == btn_module_build_dir_add: 
-                lst = lst_module_build_dir 
-            elif button == btn_app_config_dir_add: 
-                lst = lst_app_config_dir
-            if directory not in lst.get(0, 'end'):
-                lst.insert(lst.size(), directory) 
-
-def select_file(button):
-    if button == btn_psm_ecore:
-        filename = filedialog.askopenfilename()
-        if filename:
-            txt_psm_ecore.configure(state = 'normal')
-            txt_psm_ecore.delete(0, 'end')
-            txt_psm_ecore.insert(0, filename)
-            txt_psm_ecore.configure(state = 'readonly', readonlybackground = 'white')
-    elif button in [btn_docker_compose_add, btn_app_build_add, btn_module_build_add]:
-        files = filedialog.askopenfilenames()
-        lst = tkinter.Listbox()
-        if button == btn_docker_compose_add: 
-            lst = lst_docker_compose 
-        elif button == btn_app_build_add: 
-            lst = lst_app_build
-        elif button == btn_module_build_add: 
-            lst = lst_module_build
-        for file in files: 
-            if file not in lst.get(0, 'end'):
-                lst.insert('end', file) 
-
-def delete_item(button):
-        if button == btn_docker_compose_del:
-            lst_docker_compose.delete(tkinter.ANCHOR)
-        if button == btn_app_build_del:
-            lst_app_build.delete(tkinter.ANCHOR)
-        if button == btn_module_build_dir_del:
-            lst_module_build_dir.delete(tkinter.ANCHOR)
-        if button == btn_module_build_del:
-            lst_module_build.delete(tkinter.ANCHOR)
-        if button == btn_app_config_dir_del:
-            lst_app_config_dir.delete(tkinter.ANCHOR)
-"""
-
 
 def select(inputClass):
+    print(inputClass.fileType)
     if inputClass.fileType == "file":
         if inputClass.name == "psmEcore":
             filename = filedialog.askopenfilename()
@@ -127,66 +28,43 @@ def select(inputClass):
                 inputClass.ent.insert(0, filename)
                 inputClass.ent.configure(state = 'readonly', readonlybackground = 'white')
                 
-        elif inputClass.name in [btn_docker_compose_add, btn_app_build_add, btn_module_build_add]:
+        elif inputClass.name in ["dockerCompose", "appBuild", "moduleBuild"]:
             files = filedialog.askopenfilenames()
-            lst = tkinter.Listbox()
-            if button == btn_docker_compose_add: 
-                lst = lst_docker_compose 
-            elif button == btn_app_build_add: 
-                lst = lst_app_build
-            elif button == btn_module_build_add: 
-                lst = lst_module_build
             for file in files: 
-                if file not in lst.get(0, 'end'):
-                    lst.insert('end', file)
+                if file not in inputClass.lst.get(0, 'end'):
+                    inputClass.lst.insert('end', file)
                     
     elif inputClass.fileType == "directory":
-        print(inputClass.name)
         directory = filedialog.askdirectory()
         if directory:
             if inputClass.name == "projectDir":
                 inputClass.ent.configure(state = 'normal')
                 inputClass.ent.delete(0, 'end')
                 inputClass.ent.insert(0, directory)
-                inputClass.ent.configure(state = 'readonly', readonlybackground = 'white')
-                
-            elif inputClass.name in [btn_module_build_dir_add, btn_app_config_dir_add]:
-                lst = tkinter.Listbox()
-                if button == btn_module_build_dir_add: 
-                    lst = lst_module_build_dir 
-                elif button == btn_app_config_dir_add: 
-                    lst = lst_app_config_dir
-                if directory not in lst.get(0, 'end'):
-                    lst.insert(lst.size(), directory) 
+                inputClass.ent.configure(state = 'readonly', readonlybackground = 'white')                
+            elif inputClass.name in ["moduleBuildDir", "appConfigDir"]:
+                if directory not in inputClass.lst.get(0, 'end'):
+                    inputClass.lst.insert(inputClass.lst.size(), directory) 
 
-def delete_item(button):
-        if button == btn_docker_compose_del:
-            lst_docker_compose.delete(tkinter.ANCHOR)
-        if button == btn_app_build_del:
-            lst_app_build.delete(tkinter.ANCHOR)
-        if button == btn_module_build_dir_del:
-            lst_module_build_dir.delete(tkinter.ANCHOR)
-        if button == btn_module_build_del:
-            lst_module_build.delete(tkinter.ANCHOR)
-        if button == btn_app_config_dir_del:
-            lst_app_config_dir.delete(tkinter.ANCHOR)
-
+def delete_item(inputClass):
+    inputClass.lst.delete(tkinter.ANCHOR)
 
 def create_psm_instance():
     if not txt_proj_name.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'Application Project Name\' !')
-    elif not txt_proj_dir.get().strip():
+    elif not proj_dir.ent.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'Application Project Build Directory\' !')
-    elif not txt_psm_ecore.get().strip():
+    elif not psm_ecore.ent.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'PSM Ecore File\' !') 
-    elif txt_psm_ecore.get().lower().strip().find('.ecore') == -1:
+    elif psm_ecore.ent.get().lower().strip().find('.ecore') == -1:
         messagebox.showerror('Invalid File Type', 'please select an ECORE file type for \'PSM Ecore File\' !') 
-    elif not lst_docker_compose.size():
+    elif not docker_compose.lst.size():
         messagebox.showerror('Missing Values', 'please provide one or more value for \'Docker Compose Files\' !') 
-    elif not lst_module_build_dir.size():
+    elif not module_build_dir.lst.size():
         messagebox.showerror('Missing Values', 'please provide one or more value for \'Microservice Projects Build Directories\' !') 
     else:
-        parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir)
+        parser(txt_proj_name, proj_dir.ent, psm_ecore.ent, docker_compose.lst, app_build.lst, module_build_dir.lst, module_build.lst, app_config_dir.lst)
+
 
 class smallFrame:
     def __init__(self, name, targetWindow, description, inputRow, inputColumn, fileType):
@@ -196,24 +74,12 @@ class smallFrame:
         self.fileType = fileType
         self.lbl = tkinter.Label(self.targetWindow, text = self.description)
         self.lbl.grid(row = inputRow, column = inputColumn, columnspan = 2, sticky = 'W')
-        self.ent = tkinter.Entry(targetWindow, text = '', width = box_width, foreground = fg_color)
+        self.ent = tkinter.Entry(targetWindow, text = '', width = 50, foreground = 'navy')
         self.ent.grid(row = (inputRow+1), column = inputColumn, padx = 2, pady = 2, sticky = 'N')
         self.ent.configure(state ='readonly', readonlybackground = 'white')
         self.addbutton = tkinter.Button(targetWindow, text = 'Browse', width = 10)
         self.addbutton.configure(command = lambda button = self: select(self))
-        self.addbutton.grid(row = (inputRow+1), column = (inputColumn+1), padx = padding, pady = padding, sticky = 'N')
-
-    def getDetails(self):
-        return([self.name, self.lst])
-    
-    def setList(self, inputLst):
-        self.lst = inputLst
-
-    def newItem(self):
-            self.configure(state = 'normal')
-            self.delete(0, 'end')
-            self.insert(0, filename)
-            self.configure(state = 'readonly', readonlybackground = 'white')
+        self.addbutton.grid(row = (inputRow+1), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
         
 class largeFrame:
     def __init__(self, name, targetWindow, description, inputRow, inputColumn, fileType):
@@ -227,165 +93,43 @@ class largeFrame:
         self.frame.grid(row = (inputRow+1), rowspan = 2, column = inputColumn, padx = 2, pady = 2)
         self.xscroll = tkinter.Scrollbar(self.frame, orient='horizontal')
         self.yscroll = tkinter.Scrollbar(self.frame, orient='vertical')
-        self.lst = tkinter.Listbox(self.frame, width = 50, height = 10, xscrollcommand = self.xscroll.set, yscrollcommand = self.yscroll.set, foreground = fg_color)
+        self.lst = tkinter.Listbox(self.frame, width = 50, height = 10, xscrollcommand = self.xscroll.set, yscrollcommand = self.yscroll.set, foreground = 'navy')
         self.xscroll.config(command = self.lst.xview)
         self.xscroll.pack(side = 'bottom', fill = 'x')
         self.yscroll.config(command = self.lst.yview)
         self.yscroll.pack(side = 'right', fill = 'y')
         self.lst.pack(side = 'left', fill = 'both', expand = 1)
         self.addbutton = tkinter.Button(targetWindow, text = 'Add Item', width = 10)
-        self.addbutton.configure(command = lambda button = self.name: select_file(button))
-        self.addbutton.grid(row = (inputRow+1), column = (inputColumn+1), padx = padding, pady = padding, sticky = 'N')
+        self.addbutton.configure(command = lambda button = self: select(button))
+        self.addbutton.grid(row = (inputRow+1), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
         self.delbutton = tkinter.Button(targetWindow, text = 'Delete', width = 10)
-        self.delbutton.configure(command = lambda button = self.name: delete_item(button))
-        self.delbutton.grid(row = (inputRow+2), column = (inputColumn+1), padx = padding, pady = padding, sticky = 'N')
-
-
-    def getDetails(self):
-        return([self.name, self.lst, self.fileType])
+        self.delbutton.configure(command = lambda button = self: delete_item(button))
+        self.delbutton.grid(row = (inputRow+2), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
     
-    def setList(self, inputLst):
-        self.lst = inputLst
-    
+#Generates the window instance
 window = tkinter.Tk()
 window.title('A Python application to parse YAML, XML and JAVA artifacts of a microservice architecture project into a MiSAR PSM model. NEW!')
 window.protocol("WM_DELETE_WINDOW", window_quit)
 
-box_width = 50
-padding = 2
-fg_color = 'navy'
-
+#Generates the project name input
 lbl_proj_name = tkinter.Label(window, text = 'Type Multi-Module Project Name (mandatory):')
 lbl_proj_name.grid(row = 1, column = 0, columnspan = 2, sticky = 'W' + 'S')
-txt_proj_name = tkinter.Entry(window, text = '', width = box_width, foreground = fg_color)
-txt_proj_name.grid(row = 2, column = 0, padx = padding, pady = padding, sticky = 'N')
+txt_proj_name = tkinter.Entry(window, text = '', width = 50, foreground = 'navy')
+txt_proj_name.grid(row = 2, column = 0, padx = 2, pady = 2, sticky = 'N')
 
-"""
-lbl_proj_dir = tkinter.Label(window, text = 'Select Multi-Module Project Build Directory (mandatory):')
-lbl_proj_dir.grid(row = 3, column = 0, columnspan = 2, sticky = 'W' + 'S')
-txt_proj_dir = tkinter.Entry(window, text = '', width = box_width, foreground = fg_color)
-txt_proj_dir.grid(row = 4, column = 0, padx = padding, pady = padding, sticky = 'N')
-txt_proj_dir.configure(state ='readonly', readonlybackground = 'white')
-btn_proj_dir = tkinter.Button(window, text = 'Browse', width = 10)
-btn_proj_dir.configure(command = lambda button = btn_proj_dir: select_dir(button))
-btn_proj_dir.grid(row = 4, column = 1, padx = padding, pady = padding, sticky = 'N')
-"""
-
-project_dir = smallFrame("projectDir", window,"Select Multi-Module Project Build Directory (mandatory):", 3, 0, "directory")
+#Generates the windows
+proj_dir = smallFrame("projectDir", window,"Select Multi-Module Project Build Directory (mandatory):", 3, 0, "directory")
 psm_ecore = smallFrame("psmEcore", window,"Select PSM Ecore File (mandatory):", 5, 0, "file")
-"""
-docker_compose = largeFrame("dockerCompose", wogpeople,"Select Docker Compose Files (mandatory):", 1, 0)
-"""
+docker_compose = largeFrame("dockerCompose", window,"Select Docker Compose Files (mandatory):", 1, 2, "file")
+app_build = largeFrame("appBuild", window,"Select Multi-Module Project POM Build Files (optional):", 1, 4, "file")
+module_build_dir = largeFrame("moduleBuildDir", window,"Select Module Projects Build Directories (mandatory):", 7, 0, "directory")
+module_build = largeFrame("moduleBuild", window,"Select Module Projects POM Build Files (optional):", 7, 2, "file")
+app_config_dir = largeFrame("appConfigDir", window,"Select Centralized Configuration Directories (optional):", 7, 4, "directory")
 
-"""
-lbl_psm_ecore = tkinter.Label(window, text = 'Select PSM Ecore File (mandatory):')
-lbl_psm_ecore.grid(row = 5, column = 0, columnspan = 2, sticky = 'W' + 'S')
-txt_psm_ecore = tkinter.Entry(window, text = '', width = box_width, foreground = fg_color)
-txt_psm_ecore.grid(row = 6, column = 0, padx = padding, pady = padding, sticky = 'N')
-btn_psm_ecore = tkinter.Button(window, text = 'Browse', width = 10)
-btn_psm_ecore.configure(command = lambda button = btn_psm_ecore : select_file(button))
-btn_psm_ecore.grid(row = 6, column = 1, padx = padding, pady = padding, sticky = 'N')
-txt_psm_ecore.configure(state ='readonly', readonlybackground = 'white')
-"""
-
-lbl_docker_compose = tkinter.Label(window, text = 'Select Docker Compose Files (mandatory):')
-lbl_docker_compose.grid(row = 1, column = 2, columnspan = 2, sticky = 'W')
-frame_docker_compose = tkinter.Frame(window)
-frame_docker_compose.grid(row = 2, rowspan= 5, column = 2, padx = padding, pady = padding)
-xscroll_docker_compose = tkinter.Scrollbar(frame_docker_compose, orient='horizontal')
-yscroll_docker_compose = tkinter.Scrollbar(frame_docker_compose, orient='vertical')
-lst_docker_compose = tkinter.Listbox(frame_docker_compose, width = box_width, height = 10, xscrollcommand = xscroll_docker_compose.set, yscrollcommand = yscroll_docker_compose.set, foreground = fg_color)
-xscroll_docker_compose.config(command = lst_docker_compose.xview)
-xscroll_docker_compose.pack(side = 'bottom', fill = 'x')
-yscroll_docker_compose.config(command = lst_docker_compose.yview)
-yscroll_docker_compose.pack(side = 'right', fill = 'y')
-lst_docker_compose.pack(side = 'left', fill = 'both', expand = 1)
-btn_docker_compose_add = tkinter.Button(window, text = 'Add Item', width = 10)
-btn_docker_compose_add.configure(command = lambda button = btn_docker_compose_add: select_file(button))
-btn_docker_compose_add.grid(row = 2, column = 3, padx = padding, pady = padding, sticky = 'N')
-btn_docker_compose_del = tkinter.Button(window, text = 'Delete', width = 10)
-btn_docker_compose_del.configure(command = lambda button = btn_docker_compose_del: delete_item(button))
-btn_docker_compose_del.grid(row = 3, column = 3, padx = padding, pady = padding, sticky = 'N')
-
-lbl_app_build = tkinter.Label(window, text = 'Select Multi-Module Project POM Build Files (optional):')
-lbl_app_build.grid(row = 1, column = 4, columnspan = 2, sticky = 'W')
-frame_app_build = tkinter.Frame(window)
-frame_app_build.grid(row = 2, rowspan= 5, column = 4, padx = padding, pady = padding)
-xscroll_app_build = tkinter.Scrollbar(frame_app_build, orient='horizontal')
-yscroll_app_build = tkinter.Scrollbar(frame_app_build, orient='vertical')
-lst_app_build = tkinter.Listbox(frame_app_build, width = box_width, height = 10, xscrollcommand = xscroll_app_build.set, yscrollcommand = yscroll_app_build.set, foreground = fg_color)
-xscroll_app_build.config(command = lst_app_build.xview)
-xscroll_app_build.pack(side = 'bottom', fill = 'x')
-yscroll_app_build.config(command = lst_app_build.yview)
-yscroll_app_build.pack(side = 'right', fill = 'y')
-lst_app_build.pack(side = 'left', fill = 'both', expand = 1)
-btn_app_build_add = tkinter.Button(window, text = 'Add Item', width = 10)
-btn_app_build_add.configure(command = lambda button = btn_app_build_add: select_file(button))
-btn_app_build_add.grid(row = 2, column = 5, padx = padding, pady = padding, sticky = 'N')
-btn_app_build_del = tkinter.Button(window, text = 'Delete', width = 10)
-btn_app_build_del.configure(command = lambda button = btn_app_build_del: delete_item(button))
-btn_app_build_del.grid(row = 3, column = 5, padx = padding, pady = padding, sticky = 'N')
-
-lbl_module_build_dir = tkinter.Label(window, text = 'Select Module Projects Build Directories (mandatory):')
-lbl_module_build_dir.grid(row = 7, column = 0, columnspan = 2, sticky = 'W')
-frame_module_build_dir = tkinter.Frame(window)
-frame_module_build_dir.grid(row = 8, rowspan= 2, column = 0, padx = padding, pady = padding)
-xscroll_module_build_dir = tkinter.Scrollbar(frame_module_build_dir, orient='horizontal')
-yscroll_module_build_dir = tkinter.Scrollbar(frame_module_build_dir, orient='vertical')
-lst_module_build_dir = tkinter.Listbox(frame_module_build_dir, width = box_width, height = 10, xscrollcommand = xscroll_module_build_dir.set, yscrollcommand = yscroll_module_build_dir.set, foreground = fg_color)
-xscroll_module_build_dir.config(command = lst_module_build_dir.xview)
-xscroll_module_build_dir.pack(side = 'bottom', fill = 'x')
-yscroll_module_build_dir.config(command = lst_module_build_dir.yview)
-yscroll_module_build_dir.pack(side = 'right', fill = 'y')
-lst_module_build_dir.pack(side = 'left', fill = 'both', expand = 1)
-btn_module_build_dir_add = tkinter.Button(window, text = 'Add Item', width = 10)
-btn_module_build_dir_add.configure(command = lambda button = btn_module_build_dir_add: select_dir(button))
-btn_module_build_dir_add.grid(row = 8, column = 1, padx = padding, pady = padding, sticky = 'N')
-btn_module_build_dir_del = tkinter.Button(window, text = 'Delete', width = 10)
-btn_module_build_dir_del.configure(command = lambda button = btn_module_build_dir_del: delete_item(button))
-btn_module_build_dir_del.place(x = 327, y = 267)
-
-lbl_module_build = tkinter.Label(window, text = 'Select Module Projects POM Build Files (optional):')
-lbl_module_build.grid(row = 7, column = 2, columnspan = 2, sticky = 'W')
-frame_module_build = tkinter.Frame(window)
-frame_module_build.grid(row = 8, rowspan= 2, column = 2, padx = padding, pady = padding)
-xscroll_module_build = tkinter.Scrollbar(frame_module_build, orient='horizontal')
-yscroll_module_build = tkinter.Scrollbar(frame_module_build, orient='vertical')
-lst_module_build = tkinter.Listbox(frame_module_build, width = box_width, height = 10, xscrollcommand = xscroll_module_build.set, yscrollcommand = yscroll_module_build.set, foreground = fg_color)
-xscroll_module_build.config(command = lst_module_build.xview)
-xscroll_module_build.pack(side = 'bottom', fill = 'x')
-yscroll_module_build.config(command = lst_module_build.yview)
-yscroll_module_build.pack(side = 'right', fill = 'y')
-lst_module_build.pack(side = 'left', fill = 'both', expand = 1)
-btn_module_build_add = tkinter.Button(window, text = 'Add Item', width = 10)
-btn_module_build_add.configure(command = lambda button = btn_module_build_add: select_file(button))
-btn_module_build_add.grid(row = 8, column = 3, padx = padding, pady = padding, sticky = 'N')
-btn_module_build_del = tkinter.Button(window, text = 'Delete', width = 10)
-btn_module_build_del.configure(command = lambda button = btn_module_build_del: delete_item(button))
-btn_module_build_del.place(x = 736, y = 267)
-
-lbl_app_config_dir = tkinter.Label(window, text = 'Select Centralized Configuration Directories (optional):')
-lbl_app_config_dir.grid(row = 7, column = 4, columnspan = 2, sticky = 'W')
-frame_app_config_dir = tkinter.Frame(window)
-frame_app_config_dir.grid(row = 8, rowspan = 2, column = 4, padx = padding, pady = padding)
-xscroll_app_config_dir = tkinter.Scrollbar(frame_app_config_dir, orient='horizontal')
-yscroll_app_config_dir = tkinter.Scrollbar(frame_app_config_dir, orient='vertical')
-lst_app_config_dir = tkinter.Listbox(frame_app_config_dir, width = box_width, height = 10, xscrollcommand = xscroll_app_config_dir.set, yscrollcommand = yscroll_app_config_dir.set, foreground = fg_color)
-xscroll_app_config_dir.config(command = lst_app_config_dir.xview)
-xscroll_app_config_dir.pack(side = 'bottom', fill = 'x')
-yscroll_app_config_dir.config(command = lst_app_config_dir.yview)
-yscroll_app_config_dir.pack(side = 'right', fill = 'y')
-lst_app_config_dir.pack(side = 'left', fill = 'both', expand = 1)
-btn_app_config_dir_add = tkinter.Button(window, text = 'Add Item', width = 10)
-btn_app_config_dir_add.configure(command = lambda button = btn_app_config_dir_add: select_dir(button))
-btn_app_config_dir_add.grid(row = 8, column = 5, padx = padding, pady = padding, sticky = 'N')
-btn_app_config_dir_del = tkinter.Button(window, text = 'Delete', width = 10)
-btn_app_config_dir_del.configure(command = lambda button = btn_app_config_dir_del: delete_item(button))
-btn_app_config_dir_del.place(x = 1145, y = 267)
-
+#Generates the create PSM button
 btn_psm_instance = tkinter.Button(window, text = 'Create PSM Model', width = 30)
 btn_psm_instance.configure(command = lambda button = btn_psm_instance: create_psm_instance())
-btn_psm_instance.grid(row = 10, column = 0, columnspan = 6, padx = padding, pady = padding*5)
+btn_psm_instance.grid(row = 10, column = 0, columnspan = 6, padx = 2, pady = 10)
 
 window.mainloop()
 
