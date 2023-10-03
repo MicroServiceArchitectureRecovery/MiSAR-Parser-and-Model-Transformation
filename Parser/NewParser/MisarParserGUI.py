@@ -11,6 +11,7 @@ from MisarParserMain import *
 import tkinter
 from tkinter import filedialog
 from tkinter import messagebox
+import os
 
 def window_quit():
     window.quit()
@@ -41,13 +42,57 @@ def select(inputClass):
                 inputClass.ent.configure(state = 'normal')
                 inputClass.ent.delete(0, 'end')
                 inputClass.ent.insert(0, directory)
-                inputClass.ent.configure(state = 'readonly', readonlybackground = 'white')                
+                inputClass.ent.configure(state = 'readonly', readonlybackground = 'white')
+                autoImporter(directory)
+                pomScanner(inputClass, directory)
             elif inputClass.name in ["moduleBuildDir", "appConfigDir"]:
                 if directory not in inputClass.lst.get(0, 'end'):
-                    inputClass.lst.insert(inputClass.lst.size(), directory) 
+                    inputClass.lst.insert(inputClass.lst.size(), directory)
+                    if inputClass.name == "moduleBuildDir":
+                        pomScanner(inputClass, directory)
+                    
 
 def delete_item(inputClass):
     inputClass.lst.delete(tkinter.ANCHOR)
+
+def autoImporter(inputDirectory):
+    automatic = messagebox.askquestion("Automatic Importer", "Would you like to try and automaticaly import all of the files from this micro company?", icon = "info")
+    if automatic == "yes":
+        for file in os.listdir(inputDirectory):
+            targetDirectory = inputDirectory+"/"+file
+            if os.path.isdir(targetDirectory):
+                if os.path.isfile(targetDirectory+"/pom.xml"):
+                    if targetDirectory not in module_build_dir.lst.get(0, 'end'):
+                        module_build_dir.lst.insert('end', targetDirectory)
+                    if targetDirectory+"/pom.xml" not in module_build.lst.get(0, 'end'):
+                        module_build.lst.insert('end', targetDirectory+"/pom.xml")
+                elif os.path.isfile(targetDirectory+"/docker-compose-v3.yml"):
+                    if targetDirectory+"/docker-compose-v3.yml" not in docker_compose.lst.get(0, 'end'):
+                        docker_compose.lst.insert('end', targetDirectory+"/docker-compose-v3.yml")
+            if os.path.isfile(inputDirectory+"/pom.xml"):
+                if inputDirectory+"/pom.xml" not in app_build.lst.get(0, 'end'):
+                    app_build.lst.insert('end', inputDirectory+"/pom.xml")
+                
+                    
+                        
+                    
+
+def pomScanner(inputClass, inputDirectory):
+    pomScan = messagebox.askquestion("POM Scanner", "Would you like to add any corresponding POM files that exist within this directory?", icon = "info")
+    if pomScan == "yes":
+        inputDirectory = inputDirectory + "/pom.xml"
+        print(inputDirectory)
+        print(os.path.isfile(inputDirectory))
+        if os.path.isfile(inputDirectory):
+            if inputClass.name == "projectDir":
+                if inputDirectory not in app_build.lst.get(0, 'end'):
+                    app_build.lst.insert('end', inputDirectory)
+            if inputClass.name == "moduleBuildDir":
+                if inputDirectory not in module_build.lst.get(0, 'end'):
+                    module_build.lst.insert('end', inputDirectory)   
+        else:
+            messagebox.showerror('POM Scanner', 'This folder does not have a corresponding POM file.')
+    
 
 def create_psm_instance():
     if not txt_proj_name.get().strip():
