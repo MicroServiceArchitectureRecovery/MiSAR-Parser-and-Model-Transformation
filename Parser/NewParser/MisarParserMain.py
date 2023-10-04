@@ -7,6 +7,9 @@
 # 25/09/2023
 ############################
 
+import tkinter
+from tkinter import filedialog
+from tkinter import messagebox
 from pyecore.resources import ResourceSet, URI
 from pyecore.utils import DynamicEPackage
 import os
@@ -277,20 +280,6 @@ def evaluate_member_reference(member_reference, element):
     if isinstance(element, javalang.tree.ClassDeclaration):
         for path, _field in element.filter(javalang.tree.FieldDeclaration):
             if _field.declarators:
-                evaluate_member_reference_extension(_field.declarators)             
-    elif isinstance(element, javalang.tree.MethodDeclaration):
-        for path, _variable in element.filter(javalang.tree.LocalVariableDeclaration):
-            if _variable.declarators:
-                evaluate_member_reference_extension(_variable.declarators)
-
-    return literal_value
-
-#BACKUP
-"""def evaluate_member_reference(member_reference, element):
-    literal_value = ''    
-    if isinstance(element, javalang.tree.ClassDeclaration):
-        for path, _field in element.filter(javalang.tree.FieldDeclaration):
-            if _field.declarators:
                 for _declarator in _field.declarators:
                     if isinstance(_declarator, javalang.tree.VariableDeclarator):
                         if _declarator.name ==  member_reference.member:
@@ -314,18 +303,6 @@ def evaluate_member_reference(member_reference, element):
                     break
 
     return literal_value
-"""
-
-#EXTENSION
-def evaluate_member_reference_extension(declaratorType):
-    for _declarator in declaratorType:
-            if isinstance(_declarator, javalang.tree.VariableDeclarator):
-                if _declarator.name ==  member_reference.member:
-                    if _declarator.initializer:
-                        if isinstance(_declarator.initializer, javalang.tree.Literal):
-                            literal_value = _declarator.initializer.value
-                            break
-
 
 def get_member_reference_type(member_reference_name, element):
     type_value = ''    
@@ -1133,6 +1110,229 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             java_method.invokes.append(java_invoked_method)
                                                 
                                                 java_element.methods.append(java_method)
+                                                
+                                                
+                                                
+                                        
+                                        """
+                                        for _declaration in _type.body:
+                                            if isinstance(_declaration, javalang.tree.MethodDeclaration):
+                                                java_method = metamodel.JavaMethod()
+                                                java_method.ParentProjectName = module_name
+                                                java_method.ArtifactFileName = java_file
+                                                java_method.ElementIdentifier = _declaration.name
+                                                java_method.ElementProfile = 'COMPILE'
+                                                if _declaration.annotations:
+                                                    for annotation in get_annotations(_declaration):
+                                                        java_annotation = metamodel.JavaAnnotation()
+                                                        java_annotation.ParentProjectName = module_name
+                                                        java_annotation.ArtifactFileName = java_file
+                                                        java_annotation.AnnotationName = annotation['name']
+                                                        for parameter in annotation['parameters']:
+                                                            annotation_parameter = metamodel.JavaAnnotationParameter()
+                                                            annotation_parameter.ParentProjectName = module_name
+                                                            annotation_parameter.ArtifactFileName = java_file
+                                                            annotation_parameter.ParameterName = parameter['name']
+                                                            if not annotation_parameter.ParameterName:
+                                                                annotation_parameter.ParameterName = 'NOT_AVAILABLE'
+                                                            annotation_parameter.ParameterValue = parameter['value']
+                                                            if not annotation_parameter.ParameterValue:
+                                                                annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
+                                                            java_annotation.parameters.append(annotation_parameter)
+                                                        java_method.annotations.append(java_annotation)
+                                                
+                                                if _declaration.return_type:
+                                                    if isinstance(_declaration.return_type, javalang.tree.ReferenceType):
+                                                        element_identifier = get_reference_type(_declaration.return_type)
+                                                        java_data_type = metamodel.JavaDataType()
+                                                        java_data_type.ParentProjectName = module_name
+                                                        java_data_type.ArtifactFileName = java_file
+                                                        java_data_type.ElementIdentifier = element_identifier
+                                                        java_data_type.ElementProfile = 'COMPILE'
+                                                        java_data_type.JsonSchema = ''
+                                                        for _import in imports:
+                                                            parts = _import.split('.')
+                                                            if '<' in element_identifier:
+                                                                element_identifier = element_identifier[:element_identifier.index('<')]
+                                                            if parts[-1] == element_identifier:
+                                                                java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
+                                                        java_method.returns = java_data_type
+                                                
+                                                if _declaration.parameters:
+                                                    parameter_order = 0
+                                                    for _parameter in _declaration.parameters:
+                                                        if isinstance(_parameter, javalang.tree.FormalParameter):
+                                                            parameter_order += 1
+                                                            java_method_parameter = metamodel.JavaMethodParameter()
+                                                            java_method_parameter.ParentProjectName = module_name
+                                                            java_method_parameter.ArtifactFileName = java_file
+                                                            java_method_parameter.ElementIdentifier = _parameter.name
+                                                            java_method_parameter.ElementProfile = 'COMPILE'
+                                                            java_method_parameter.FieldValue = 'NOT_AVAILABLE'
+                                                            java_method_parameter.ParameterOrder = parameter_order                                                                
+                                                            
+                                                            if _parameter.annotations:
+                                                                for annotation in get_annotations(_parameter):
+                                                                    java_annotation = metamodel.JavaAnnotation()
+                                                                    java_annotation.ParentProjectName = module_name
+                                                                    java_annotation.ArtifactFileName = java_file
+                                                                    java_annotation.AnnotationName = annotation['name']
+                                                                    for parameter in annotation['parameters']:
+                                                                        annotation_parameter = metamodel.JavaAnnotationParameter()
+                                                                        annotation_parameter.ParentProjectName = module_name
+                                                                        annotation_parameter.ArtifactFileName = java_file
+                                                                        annotation_parameter.ParameterName = parameter['name']
+                                                                        if not annotation_parameter.ParameterName:
+                                                                            annotation_parameter.ParameterName = 'NOT_AVAILABLE'
+                                                                        annotation_parameter.ParameterValue = parameter['value']
+                                                                        if not annotation_parameter.ParameterValue:
+                                                                            annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
+                                                                        java_annotation.parameters.append(annotation_parameter)
+                                                                    java_method_parameter.annotations.append(java_annotation)
+                                                            
+                                                            if _parameter.type:
+                                                                if isinstance(_parameter.type, javalang.tree.ReferenceType): 
+                                                                    element_identifier = get_reference_type(_parameter.type)
+                                                                    java_data_type = metamodel.JavaDataType()
+                                                                    java_data_type.ParentProjectName = module_name
+                                                                    java_data_type.ArtifactFileName = java_file
+                                                                    java_data_type.ElementIdentifier = element_identifier
+                                                                    java_data_type.ElementProfile = 'COMPILE'
+                                                                    java_data_type.JsonSchema = ''
+                                                                    for _import in imports:
+                                                                        parts = _import.split('.')
+                                                                        if '<' in element_identifier:
+                                                                            element_identifier = element_identifier[:element_identifier.index('<')]
+                                                                        if parts[-1] == element_identifier:
+                                                                            java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
+                                                                    java_method_parameter.type = java_data_type
+                                                            java_method.parameters.append(java_method_parameter)
+                                                
+                                                if _declaration.body:
+                                                    #if 'RabbitConfiguration' in java_file:
+                                                        ## print(_declaration.name)
+                                                    for body_element in _declaration.body:
+                                                        for path, _invocation in body_element.filter(javalang.tree.MethodInvocation):
+                                                            element_identifier = _invocation.member
+                                                            java_invoked_method = metamodel.JavaMethod()
+                                                            java_invoked_method.ParentProjectName = module_name
+                                                            java_invoked_method.ArtifactFileName = java_file
+                                                            java_invoked_method.ElementIdentifier = element_identifier
+                                                            java_invoked_method.ElementProfile = 'COMPILE'
+                                                            java_invoked_method.RootCallingMethod = _declaration.name + '()'
+                                                            
+                                                            if _invocation.qualifier: 
+                                                                element_identifier = _invocation.qualifier
+                                                                java_user_defined_type = metamodel.JavaUserDefinedType()
+                                                                java_user_defined_type.ParentProjectName = module_name
+                                                                java_user_defined_type.ArtifactFileName = java_file
+                                                                java_user_defined_type.ElementIdentifier = element_identifier
+                                                                java_user_defined_type.ElementProfile = 'COMPILE'
+                                                                java_user_defined_type.JsonSchema = ''
+                                                                java_user_defined_type.PackageName = ''
+                                                                for _import in imports:
+                                                                    parts = _import.split('.')
+                                                                    if '<' in element_identifier:
+                                                                        element_identifier = element_identifier[:element_identifier.index('<')]
+                                                                    if parts[-1] == element_identifier:
+                                                                        java_user_defined_type.PackageName = _import[:(_import.index(element_identifier)-1)]
+                                                                    
+                                                                if not java_user_defined_type.PackageName:
+                                                                    if _declaration.parameters:
+                                                                        for _parameter in _declaration.parameters:
+                                                                            if isinstance(_parameter, javalang.tree.FormalParameter):
+                                                                                if _invocation.qualifier == _parameter.name:
+                                                                                    if _parameter.type:
+                                                                                        if isinstance(_parameter.type, javalang.tree.ReferenceType):
+                                                                                            type_identifier = _parameter.type.name 
+                                                                                            java_user_defined_type.ElementIdentifier = type_identifier
+                                                                                            for _import in imports:
+                                                                                                parts = _import.split('.')
+                                                                                                if '<' in type_identifier:
+                                                                                                    type_identifier = type_identifier[:type_identifier.index('<')]
+                                                                                                if parts[-1] == type_identifier:
+                                                                                                    java_user_defined_type.PackageName = _import[:(_import.index(type_identifier)-1)]
+                                                                                                    break
+                                                                
+                                                                if not java_user_defined_type.PackageName:
+                                                                    type_identifier = get_member_reference_type(_invocation.qualifier, _declaration)
+                                                                    if type_identifier:
+                                                                        java_user_defined_type.ElementIdentifier = type_identifier
+                                                                    for _import in imports:
+                                                                        parts = _import.split('.')
+                                                                        if '<' in type_identifier:
+                                                                            type_identifier = type_identifier[:type_identifier.index('<')]
+                                                                        if parts[-1] == type_identifier:
+                                                                            java_user_defined_type.PackageName = _import[:(_import.index(type_identifier)-1)]
+                                                                            break
+                                                                
+                                                                if not java_user_defined_type.PackageName:
+                                                                    type_identifier = get_member_reference_type(_invocation.qualifier, _type)
+                                                                    if type_identifier:
+                                                                        java_user_defined_type.ElementIdentifier = type_identifier
+                                                                    for _import in imports:
+                                                                        parts = _import.split('.')
+                                                                        if '<' in type_identifier:
+                                                                            type_identifier = type_identifier[:type_identifier.index('<')]
+                                                                        if parts[-1] == type_identifier:
+                                                                            java_user_defined_type.PackageName = _import[:(_import.index(type_identifier)-1)]
+                                                                            break
+                                                                        
+                                                                if java_user_defined_type.ElementIdentifier in ['String', 'Boolean', 'Integer', 'Float', 'Object']:
+                                                                    java_user_defined_type.PackageName = 'java.lang'
+                                                                    
+                                                                if java_user_defined_type.PackageName:
+                                                                    java_invoked_method.parent = java_user_defined_type
+                                                                    
+                                                            if _invocation.arguments:
+                                                                if isinstance(_invocation.arguments, list):
+                                                                    argument_order = 0
+                                                                    for _argument in _invocation.arguments:
+                                                                        argument = None
+                                                                        if isinstance(_argument, javalang.tree.Literal):
+                                                                            argument = {'name':'', 'value':_argument.value}
+                                                                        elif isinstance(_argument, javalang.tree.ClassReference):
+                                                                            if isinstance(_argument.type, javalang.tree.ReferenceType):
+                                                                                argument = {'name':get_reference_type(_argument.type) , 'value':''}
+                                                                        elif isinstance(_argument, javalang.tree.MemberReference):
+                                                                            argument = get_member(_argument, _declaration)
+                                                                            if not argument['value']:
+                                                                                argument = get_member(_argument, _type)
+                                                                        elif isinstance(_argument, javalang.tree.BinaryOperation):
+                                                                            literal_value = ''
+                                                                            if isinstance(_argument.operandl, javalang.tree.Literal):
+                                                                                literal_value = _argument.operandl.value
+                                                                            elif isinstance(_argument.operandl, javalang.tree.MemberReference):
+                                                                                literal_value = get_member(_argument.operandl, _declaration)['value']
+                                                                                if not literal_value:
+                                                                                    literal_value = get_member(_argument.operandl, _type)['value']
+                                                                            if isinstance(_argument.operandr, javalang.tree.Literal):
+                                                                                literal_value += _argument.operandr.value
+                                                                            elif isinstance(_argument.operandr, javalang.tree.MemberReference):
+                                                                                literal_value += get_member(_argument.operandr, _declaration)['value']
+                                                                                if not literal_value:
+                                                                                    literal_value += get_member(_argument.operandr, _type)['value']        
+                                                                            argument = {'name':'', 'value':re.sub(r'\"', '', literal_value)}                                                          
+                                                                        
+                                                                        if argument:
+                                                                            argument_order += 1
+                                                                            if not argument['name']:
+                                                                                argument['name'] = 'NOT_AVAILABLE'
+                                                                            if not argument['value']:
+                                                                                argument['value'] = 'NOT_AVAILABLE'
+                                                                            java_method_argument = metamodel.JavaMethodParameter()
+                                                                            java_method_argument.ParentProjectName = module_name
+                                                                            java_method_argument.ArtifactFileName = java_file
+                                                                            java_method_argument.ElementIdentifier = argument['name']
+                                                                            java_method_argument.ElementProfile = 'COMPILE'
+                                                                            java_method_argument.FieldValue = argument['value']
+                                                                            java_method_argument.ParameterOrder = argument_order 
+                                                                            java_invoked_method.parameters.append(java_method_argument)
+                                                                        
+                                                            java_method.invokes.append(java_invoked_method)
+                                                            
+                                                java_element.methods.append(java_method)
+                                            """
                                     
                                     module_project.layers[-1].elements.append(java_element)
                     
@@ -1160,7 +1360,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
     xmlns_xsi = ''
     xsi_schemaLocation = ''
     psm_ecore_dict = xml_to_dict(psm_ecore_file)
-    if 'ecore:EPackage' in psm_ecore_dict: 
+    if 'ecore:EPackage' in psm_ecore_dict:
         if '@xmlns:xsi' in psm_ecore_dict['ecore:EPackage']:
             xmlns_xsi = psm_ecore_dict['ecore:EPackage']['@xmlns:xsi']
         if '@nsURI' in psm_ecore_dict['ecore:EPackage'] and '@name' in psm_ecore_dict['ecore:EPackage']:
@@ -1169,8 +1369,10 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
     if xmlns_xsi and xsi_schemaLocation:
         file_lines = [line.rstrip() for line in open(psm_instance_file, encoding='utf8')]
         file_lines[1] = file_lines[1].rstrip('>') + ' xsi:schemaLocation="' + xsi_schemaLocation + '" >'
+        """
         if xmlns_xsi:
             file_lines[1] = file_lines[1].rstrip('>') + ' xmlns:xsi="' + xmlns_xsi + '" >'
+        """
         with open(psm_instance_file, 'w') as file:
             file.writelines("%s\n" % line for line in file_lines)
             
