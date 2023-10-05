@@ -4,14 +4,22 @@
 # Updated by RanaFakeeh-87
 # 11/01/2022
 # Updated by kevinvahdat01
-# 25/09/2023
+# 05/10/2023
 ############################
 
 from MisarParserMain import *
 import tkinter
 from tkinter import filedialog
 from tkinter import messagebox
+from pyecore.resources import ResourceSet, URI
+from pyecore.utils import DynamicEPackage
 import os
+import yaml
+import xmltodict
+from collections import OrderedDict
+import re
+from datetime import datetime
+import javalang
 
 def window_quit():
     window.quit()

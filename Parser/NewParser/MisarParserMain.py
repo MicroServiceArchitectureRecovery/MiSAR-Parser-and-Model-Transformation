@@ -4,7 +4,7 @@
 # Updated by RanaFakeeh-87
 # 11/01/2022
 # Updated by kevinvahdat01
-# 25/09/2023
+# 05/10/2023
 ############################
 
 import tkinter
@@ -428,6 +428,13 @@ def evaluate_method_field(field1, method1, type_name, properties, module_name, a
     
     return field_value
 
+def metamodelItemBuilder(inputMetamodel, inputArray):
+    for x in range (len(inputArray)):
+        if inputArray[x][0] == "ContainerName":
+            inputMetamodel.ContainerName = inputArray[x][1]
+            
+            print(inputArray[x][1])   
+
 def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir):
     start_time = datetime.now().strftime("%H:%M:%S")
     multi_module_project_name = ''
@@ -549,7 +556,10 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
     # create containers instance and append it to application instance
     for container_name in application_containers:
         container = metamodel.DockerContainerDefinition()           
-        container.ContainerName = container_name
+        #container.ContainerName = container_name
+        
+        metamodelItemBuilder(container, [["ContainerName", container_name]])
+        
         container.BuildField = application_containers[container_name]['build'] 
         container.ImageField = application_containers[container_name]['image']
         container.GeneratesLogs = application_containers[container_name]['logging']
