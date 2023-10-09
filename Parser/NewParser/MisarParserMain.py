@@ -428,13 +428,41 @@ def evaluate_method_field(field1, method1, type_name, properties, module_name, a
     
     return field_value
 
-def metamodelItemBuilder(inputMetamodel, inputArray):
+def metamodelBuilder(inputMetamodel, inputArray):
     for x in range (len(inputArray)):
         if inputArray[x][0] == "ContainerName":
             inputMetamodel.ContainerName = inputArray[x][1]
+        elif inputArray[x][0] == "BuildField":
+            inputMetamodel.BuildField = inputArray[x][1]
+        elif inputArray[x][0] == "ImageField":
+            inputMetamodel.ImageField = inputArray[x][1]
+        elif inputArray[x][0] == "GeneratesLogs":
+            inputMetamodel.GeneratesLogs = inputArray[x][1]
+        elif inputArray[x][0] == "ParentProjectName":
+            inputMetamodel.ParentProjectName = inputArray[x][1]
+        elif inputArray[x][0] == "ArtifactFileName":
+            inputMetamodel.ArtifactFileName = inputArray[x][1]
+        elif inputArray[x][0] == "ProjectArtifactId":
+            inputMetamodel.ProjectArtifactId = inputArray[x][1]
+        elif inputArray[x][0] == "FullyQualifiedPropertyName":
+            inputMetamodel.FullyQualifiedPropertyName = inputArray[x][1]
+        elif inputArray[x][0] == "PropertyValue":
+            inputMetamodel.PropertyValue = inputArray[x][1]
+        elif inputArray[x][0] == "ConfigurationProfile":
+            inputMetamodel.ConfigurationProfile = inputArray[x][1]
+        elif inputArray[x][0] == "LayerName":
+            inputMetamodel.LayerName = inputArray[x][1]
+        elif inputArray[x][0] == "ElementIdentifier":
+            inputMetamodel.ElementIdentifier = inputArray[x][1]
+        elif inputArray[x][0] == "ElementProfile":
+            inputMetamodel.ElementProfile = inputArray[x][1]
+        elif inputArray[x][0] == "JsonSchema":
+            inputMetamodel.JsonSchema = inputArray[x][1]
+        elif inputArray[x][0] == "PackageName":
+            inputMetamodel.PackageName = inputArray[x][1]
+        elif inputArray[x][0] == "IsPrimitive":
+            inputMetamodel.IsPrimitive = inputArray[x][1]
             
-            print(inputArray[x][1])   
-
 def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir):
     start_time = datetime.now().strftime("%H:%M:%S")
     multi_module_project_name = ''
@@ -556,15 +584,17 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
     # create containers instance and append it to application instance
     for container_name in application_containers:
         container = metamodel.DockerContainerDefinition()           
-        #container.ContainerName = container_name
-        
-        metamodelItemBuilder(container, [["ContainerName", container_name]])
-        
+        metamodelBuilder(container, [["ContainerName", container_name], ["BuildField", application_containers[container_name]['build'] ], ["ImageField", application_containers[container_name]['image'] ],
+                                         ["GeneratesLogs", application_containers[container_name]['logging']], ["ParentProjectName", application_containers[container_name]['parent']],
+                                         ["ArtifactFileName", application_containers[container_name]['filename']]])
+        """
+        container.ContainerName = container_name
         container.BuildField = application_containers[container_name]['build'] 
         container.ImageField = application_containers[container_name]['image']
         container.GeneratesLogs = application_containers[container_name]['logging']
         container.ParentProjectName = application_containers[container_name]['parent']
         container.ArtifactFileName = application_containers[container_name]['filename']
+        """
         for port in application_containers[container_name]['ports']:
             ports = metamodel.DockerContainerPort(ExposesPortsField = port, ParentProjectName = application_containers[container_name]['parent'], ArtifactFileName = application_containers[container_name]['filename'])
             container.ports.append(ports)            
@@ -593,10 +623,13 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
     
     # create application project instance
     application_project = metamodel.ApplicationProject()
+    
+    metamodelBuilder(application_project, [ ["ParentProjectName", multi_module_project['parent']] , ["ArtifactFileName", multi_module_project['build']] , ["ProjectArtifactId", multi_module_project['artifactId']] ])
+    """
     application_project.ParentProjectName = multi_module_project['parent']
     application_project.ArtifactFileName = multi_module_project['build']
     application_project.ProjectArtifactId = multi_module_project['artifactId']
-    
+    """
     # create modules for application project
     for module_build_dir in module_build_dirs:
         # get module name from project folder name
@@ -651,19 +684,33 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                 module_project = metamodel.JavaSpringWebFluxApplicationProject()
             else:
                 module_project = metamodel.JavaSpringMVCApplicationProject()
+
+        metamodelBuilder(module_project, [["ParentProjectName", (multi_module_project['modules'][module_name]['parent'])],
+                                          ["ArtifactFileName", (multi_module_project['modules'][module_name]['build'])],
+                                          ["ProjectArtifactId", module_name]])
+        """
         module_project.ParentProjectName = multi_module_project['modules'][module_name]['parent']
         module_project.ArtifactFileName = multi_module_project['modules'][module_name]['build']
         module_project.ProjectArtifactId = module_name
+        """
 
         # create dependency library instance and append it to module project
         for library in module_libraries:
             dependency_library = metamodel.DependencyLibrary()
+            """
+            metamodelBuilder = (dependency_library, [["ParentProjectName", module_name],
+                                ["ArtifactFileName", library['filename']],
+                                ["LibraryGroupName", library['groupId']],
+                                ["LibraryName", library['artifactId']],
+                                ["LibraryScope", library['scope']]])
+            """
             dependency_library.ParentProjectName = module_name
             dependency_library.ArtifactFileName = library['filename']
             dependency_library.LibraryGroupName = library['groupId']
             dependency_library.LibraryName = library['artifactId']
             dependency_library.LibraryScope = library['scope']
             module_project.libraries.append(dependency_library)
+
          
         # fetch module properties
         module_properties = []
@@ -697,19 +744,32 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
         # create configuration property instance and append it to module project
         for module_property in multi_module_project['modules'][module_name]['properties']:
             configuration_property = metamodel.ConfigurationProperty()
+            """            
+            metamodelBuilder(configuration_property, [["ParentProjectName", module_name],
+                                                      ["ArtifactFileName", module_property['filename']],
+                                                      ["FullyQualifiedPropertyName", module_property['property']],
+                                                      ["PropertyValue",module_property['value']],
+                                                      ["ConfigurationProfile",module_property['profile']]])
+            """
             configuration_property.ParentProjectName = module_name
             configuration_property.ArtifactFileName = module_property['filename']
             configuration_property.FullyQualifiedPropertyName = module_property['property']
             configuration_property.PropertyValue = module_property['value']
             configuration_property.ConfigurationProfile = module_property['profile']
-            module_project.properties.append(configuration_property) 
+            module_project.properties.append(configuration_property)
+
                     
         if spring_boot_app:   
             # parse java files
             java_layer = metamodel.SpringWebApplicationLayer()
+            """
+            metamodelBuilder(java_layer, [["ParentProjectName", module_name], ["LayerName", 'SpringWebApplicationLayer']])
+
+            """
             java_layer.ParentProjectName = module_name
             java_layer.LayerName = 'SpringWebApplicationLayer'
             module_project.layers.append(java_layer)
+
             
             for java_file in fetch_artifacts('.java', module_name, app_root_dir):
                 if '/src/test/' not in java_file:
@@ -735,11 +795,20 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                             if isinstance(_type.implements, javalang.tree.ReferenceType): 
                                                 element_identifier = get_reference_type(_type.implements)
                                                 java_interface = metamodel.JavaInterfaceType()
+
+                                                """
+                                                metamodelBuilder(java_interface, [["ParentProjectName", module_name],
+                                                                                  ["ArtifactFileName", java_file],
+                                                                                  ["ElementIdentifier", element_identifier],
+                                                                                  ["ElementProfile", 'COMPILE'],
+                                                                                  ["JsonSchema", '']])
+                                                """
                                                 java_interface.ParentProjectName = module_name
                                                 java_interface.ArtifactFileName = java_file
                                                 java_interface.ElementIdentifier = element_identifier
                                                 java_interface.ElementProfile = 'COMPILE'
                                                 java_interface.JsonSchema = ''
+
                                                 for _import in imports:
                                                     parts = _import.split('.')
                                                     if '<' in element_identifier:
@@ -752,6 +821,13 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                     if isinstance(_interface, javalang.tree.ReferenceType):
                                                         element_identifier = get_reference_type(_interface)
                                                         java_interface = metamodel.JavaInterfaceType()
+                                                        """
+                                                        metamodelBuilder(java_interface, [["ParentProjectName", module_name],
+                                                                                          ["ArtifactFileName", java_file],
+                                                                                          ["ElementIdentifier", element_identifier],
+                                                                                          ["ElementProfile", 'COMPILE'],
+                                                                                          ["JsonSchema", '']])
+                                                        """                  
                                                         java_interface.ParentProjectName = module_name
                                                         java_interface.ArtifactFileName = java_file
                                                         java_interface.ElementIdentifier = element_identifier
@@ -766,20 +842,34 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                         java_element.implements.append(java_interface)               
                                     elif isinstance(_type, javalang.tree.InterfaceDeclaration):
                                         java_element = metamodel.JavaInterfaceType()
-                                            
+                                    """
+                                    metamodelBuilder(java_element, [["ParentProjectName", module_name],
+                                                                    ["ArtifactFileName", java_file],
+                                                                    ["ElementIdentifier", _type.name],
+                                                                    ["ElementProfile", 'COMPILE'],
+                                                                    ["JsonSchema", ''],
+                                                                    ["PackageName", package_name]])
+                                    """
                                     java_element.ParentProjectName = module_name
                                     java_element.ArtifactFileName = java_file
                                     java_element.ElementIdentifier = _type.name
                                     java_element.ElementProfile = 'COMPILE'
                                     java_element.JsonSchema = ''
                                     java_element.PackageName = package_name
+
                                     
                                     # add import list 
                                     for _import in imports:
                                         parts = _import.split('.')
+
+                                        
                                         java_imported_user_defined_type = metamodel.JavaUserDefinedType()
+
+                                        metamodelBuilder(java_imported_user_defined_type, [["ParentProjectName", module_name], ["ArtifactFileName", java_file]])
+                                        """
                                         java_imported_user_defined_type.ParentProjectName = module_name
                                         java_imported_user_defined_type.ArtifactFileName = java_file
+                                        """
                                         java_imported_user_defined_type.ElementIdentifier = parts[-1]
                                         java_imported_user_defined_type.ElementProfile = 'COMPILE'
                                         java_imported_user_defined_type.IsPrimitive = False

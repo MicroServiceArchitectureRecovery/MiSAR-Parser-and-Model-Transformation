@@ -64,7 +64,7 @@ def delete_item(inputClass):
     inputClass.lst.delete(tkinter.ANCHOR)
 
 def autoImporter(inputDirectory):
-    automatic = messagebox.askquestion("Automatic Importer", "Would you like to try and automaticaly import all of the files from this micro company?", icon = "info")
+    automatic = messagebox.askquestion("Automatic Importer", "Would you like to try and automatically import all of the files from this micro company?", icon = "info")
     if automatic == "yes":
         for file in os.listdir(inputDirectory):
             targetDirectory = inputDirectory+"/"+file
