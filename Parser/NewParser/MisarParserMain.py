@@ -348,56 +348,8 @@ def evaluate_method_field(field1, method1, type_name, properties, module_name, a
 
     return field_value
 
-def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir):
-    start_time = datetime.now().strftime("%H:%M:%S")
-    multi_module_project_name = ''
-    app_root_dir = ''
-    psm_ecore_file = ''
-    docker_compose_files = []
-    app_build_files = []
-    module_build_dirs = []
-    module_build_files = []
-    app_config_dirs = []
-    psm_instance_file = ''
 
-    multi_module_project_name = txt_proj_name.get().strip()
-    app_root_dir = txt_proj_dir.get().strip()
-    psm_ecore_file = txt_psm_ecore.get().strip()
-    for docker_compose_file in lst_docker_compose.get(0, 'end'):
-        if docker_compose_file.strip():
-            docker_compose_files.append(docker_compose_file)
-    for app_build_file in lst_app_build.get(0, 'end'):
-        if app_build_file.strip():
-            app_build_files.append(app_build_file)
-    for module_build_dir in lst_module_build_dir.get(0, 'end'):
-        if module_build_dir.strip():
-            module_build_dirs.append(module_build_dir)
-    for module_build_file in lst_module_build.get(0, 'end'):
-        if module_build_file.strip():
-            module_build_files.append(module_build_file)
-    for app_config_dir in lst_app_config_dir.get(0, 'end'):
-        if app_config_dir.strip():
-            app_config_dirs.append(app_config_dir)
-
-    psm_instance_file_name = multi_module_project_name+'.xmi'
-    psm_instance_file = psm_ecore_file.replace(os.path.basename(psm_ecore_file), psm_instance_file_name)
-
-    # load metamodel from XMI file
-    metamodel_resource_set = ResourceSet()
-    metamodel_resource = metamodel_resource_set.get_resource(URI(psm_ecore_file))
-    metamodel_root = metamodel_resource.contents[0]
-    metamodel_resource_set.metamodel_registry[metamodel_root.nsURI] = metamodel_root
-    metamodel = DynamicEPackage(metamodel_root)
-
-    # create instance model
-    model = metamodel.RootPSM()
-
-    # create application instance
-    application = metamodel.DistributedApplicationProject()
-    application.ApplicationName = multi_module_project_name
-    application.ProjectPackageURL = app_root_dir
-
-    # parse docker compose artifacts into containers 
+def docker_container_part1(docker_compose_files, multi_module_project_name):
     application_containers = {}
     for docker_compose_file in docker_compose_files:
         docker_compose_dict = {}
@@ -445,11 +397,12 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                     for link in docker_compose_dict[container_name]['depends_on']:
                         if link not in application_containers[container_name]['links']:
                             application_containers[container_name]['links'].append(link)
+    return application_containers
 
-    # parse dockerfile artifacts to update image and ports information
+def docker_container_part2(application_containers, app_root_dir):
     for container_name in application_containers:
-        # ASSUMPTION: every container_name container that has a local project must have a 'build' value 
-        # that matches the root directory of the project 
+        # ASSUMPTION: every container_name container that has a local project must have a 'build' value
+        # that matches the root directory of the project
         dockerfile_build_dir = re.findall(r'[\.*\./]*(.+)', application_containers[container_name]['build'])
         if len(dockerfile_build_dir) > 0:
             dockerfile_build_dir = dockerfile_build_dir[0].rstrip('/')
@@ -466,7 +419,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                         elif len(expose_commands) > 0:
                             application_containers[container_name]['ports'].append(expose_commands[0])
 
-    # create containers instance and append it to application instance
+def docker_container_part3(application_containers, application, metamodel):
     for container_name in application_containers:
         container = metamodel.DockerContainerDefinition()
         container.ContainerName = container_name
@@ -485,7 +438,62 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
             container.links.append(links)
         application.containers.append(container)
 
-    # parse multi module project build artifacts (pom.xml / build.gradle) into application project and its module projects 
+def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir):
+    start_time = datetime.now().strftime("%H:%M:%S")
+    docker_compose_files = []
+    app_build_files = []
+    module_build_dirs = []
+    module_build_files = []
+    app_config_dirs = []
+
+    multi_module_project_name = txt_proj_name.get().strip()
+    app_root_dir = txt_proj_dir.get().strip()
+    psm_ecore_file = txt_psm_ecore.get().strip()
+    for docker_compose_file in lst_docker_compose.get(0, 'end'):
+        if docker_compose_file.strip():
+            docker_compose_files.append(docker_compose_file)
+    for app_build_file in lst_app_build.get(0, 'end'):
+        if app_build_file.strip():
+            app_build_files.append(app_build_file)
+    for module_build_dir in lst_module_build_dir.get(0, 'end'):
+        if module_build_dir.strip():
+            module_build_dirs.append(module_build_dir)
+    for module_build_file in lst_module_build.get(0, 'end'):
+        if module_build_file.strip():
+            module_build_files.append(module_build_file)
+    for app_config_dir in lst_app_config_dir.get(0, 'end'):
+        if app_config_dir.strip():
+            app_config_dirs.append(app_config_dir)
+
+    psm_instance_file_name = multi_module_project_name+"-PSM"+'.xmi'
+    psm_instance_file = psm_ecore_file.replace(os.path.basename(psm_ecore_file), psm_instance_file_name)
+
+    # load metamodel from XMI file
+    metamodel_resource_set = ResourceSet()
+    metamodel_resource = metamodel_resource_set.get_resource(URI(psm_ecore_file))
+    metamodel_root = metamodel_resource.contents[0]
+    metamodel_resource_set.metamodel_registry[metamodel_root.nsURI] = metamodel_root
+    metamodel = DynamicEPackage(metamodel_root)
+    
+    # create instance model
+    model = metamodel.RootPSM()
+    
+    # create application instance
+    application = metamodel.DistributedApplicationProject() 
+    application.ApplicationName = multi_module_project_name
+    application.ProjectPackageURL = app_root_dir
+
+
+    # parse docker compose artifacts into containers
+    application_containers = docker_container_part1(docker_compose_files, multi_module_project_name)
+
+    # parse dockerfile artifacts to update image and ports information
+    docker_container_part2(application_containers, app_root_dir)
+
+    # create containers instance and append it to application instance
+    docker_container_part3(application_containers, application, metamodel)
+
+    # parse multi module project build artifacts (pom.xml / build.gradle) into application project and its module projects
     multi_module_project = {}
     multi_module_project['parent'] = multi_module_project_name
     multi_module_project['build'] = ''
@@ -524,11 +532,6 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
         for module_build_file in module_build_files:
             if module_build_file.startswith(module_build_dir):
                 build_file = module_build_file
-                pom_xml = xml_to_dict(module_build_file)
-                #if 'project' in pom_xml:
-                    #if 'artifactId' in pom_xml['project']:
-                        #module_name = pom_xml['project']['artifactId']
-                #break
         multi_module_project['modules'][module_name] = {}
         multi_module_project['modules'][module_name]['parent'] = multi_module_project_name
         multi_module_project['modules'][module_name]['build'] = build_file
@@ -614,13 +617,13 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
             configuration_property.ConfigurationProfile = module_property['profile']
             module_project.properties.append(configuration_property)
 
-        if spring_boot_app:
+        if spring_boot_app:   
             # parse java files
             java_layer = metamodel.SpringWebApplicationLayer()
             java_layer.ParentProjectName = module_name
             java_layer.LayerName = 'SpringWebApplicationLayer'
             module_project.layers.append(java_layer)
-
+            
             for java_file in fetch_artifacts('.java', module_name, app_root_dir):
                 if '/src/test/' not in java_file:
                     print('java_file = {}'.format(os.path.basename(java_file)))
@@ -636,13 +639,13 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                     imports.append(_import.path)
                             package_name = ''
                             if tree.package:
-                                package_name = tree.package.name
+                                package_name = tree.package.name 
                             for _type in tree.types:
                                 if isinstance(_type, javalang.tree.ClassDeclaration) or isinstance(_type, javalang.tree.InterfaceDeclaration):
                                     if isinstance(_type, javalang.tree.ClassDeclaration):
                                         java_element = metamodel.JavaClassType()
                                         if _type.implements:
-                                            if isinstance(_type.implements, javalang.tree.ReferenceType):
+                                            if isinstance(_type.implements, javalang.tree.ReferenceType): 
                                                 element_identifier = get_reference_type(_type.implements)
                                                 java_interface = metamodel.JavaInterfaceType()
                                                 java_interface.ParentProjectName = module_name
@@ -657,7 +660,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                     if parts[-1] == element_identifier:
                                                         java_interface.PackageName = _import[:(_import.index(element_identifier)-1)]
                                                 java_element.implements.append(java_interface)
-                                            elif isinstance(_type.implements, list):
+                                            elif isinstance(_type.implements, list): 
                                                 for _interface in _type.implements:
                                                     if isinstance(_interface, javalang.tree.ReferenceType):
                                                         element_identifier = get_reference_type(_interface)
@@ -673,17 +676,17 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                                 element_identifier = element_identifier[:element_identifier.index('<')]
                                                             if parts[-1] == element_identifier:
                                                                 java_interface.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                                        java_element.implements.append(java_interface)
+                                                        java_element.implements.append(java_interface)               
                                     elif isinstance(_type, javalang.tree.InterfaceDeclaration):
                                         java_element = metamodel.JavaInterfaceType()
-
+                                            
                                     java_element.ParentProjectName = module_name
                                     java_element.ArtifactFileName = java_file
                                     java_element.ElementIdentifier = _type.name
                                     java_element.ElementProfile = 'COMPILE'
                                     java_element.JsonSchema = ''
                                     java_element.PackageName = package_name
-
+                                    
                                     # add import list 
                                     for _import in imports:
                                         parts = _import.split('.')
@@ -696,7 +699,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                         java_imported_user_defined_type.JsonSchema = ''
                                         java_imported_user_defined_type.PackageName = '.'.join(parts[:-1])
                                         java_element.imports.append(java_imported_user_defined_type)
-
+                                            
                                     if _type.extends:
                                         if isinstance(_type.extends, javalang.tree.ReferenceType):
                                             element_identifier = get_reference_type(_type.extends)
@@ -712,8 +715,8 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                     element_identifier = element_identifier[:element_identifier.index('<')]
                                                 if parts[-1] == element_identifier:
                                                     java_user_defined_type.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                            java_element.extends.append(java_user_defined_type)
-                                        elif isinstance(_type.extends, list):
+                                            java_element.extends.append(java_user_defined_type)               
+                                        elif isinstance(_type.extends, list): 
                                             for _super in _type.extends:
                                                 if isinstance(_super, javalang.tree.ReferenceType):
                                                     element_identifier = get_reference_type(_super)
@@ -729,8 +732,8 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             element_identifier = element_identifier[:element_identifier.index('<')]
                                                         if parts[-1] == element_identifier:
                                                             java_user_defined_type.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                                    java_element.extends.append(java_user_defined_type)
-
+                                                    java_element.extends.append(java_user_defined_type)                                                                                                       
+                                    
                                     if _type.annotations:
                                         for annotation in get_annotations(_type, multi_module_project['modules'][module_name]['properties']):
                                             java_annotation = metamodel.JavaAnnotation()
@@ -769,7 +772,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             break
                                                 # parse field annotations   
                                                 if _field_declaration.annotations:
-                                                    for annotation in get_annotations(_field_declaration, multi_module_project['modules'][module_name]['properties']):
+                                                    for annotation in get_annotations(_field_declaration, multi_module_project['modules'][module_name]['properties']):                            
                                                         java_annotation = metamodel.JavaAnnotation()
                                                         java_annotation.ParentProjectName = module_name
                                                         java_annotation.ArtifactFileName = java_file
@@ -785,7 +788,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             if not annotation_parameter.ParameterValue:
                                                                 annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
                                                             java_annotation.parameters.append(annotation_parameter)
-                                                        java_field.annotations.append(java_annotation)
+                                                        java_field.annotations.append(java_annotation)                                                    
                                                 # parse field value
                                                 java_field.FieldValue = evaluate_field(_field_declaration, _type.name, multi_module_project['modules'][module_name]['properties'], module_name, app_root_dir)
                                                 # print('field value ->', java_field.FieldValue)
@@ -813,7 +816,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             if parts[-1] == element_identifier:
                                                                 java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
                                                     java_field.type = java_data_type
-
+                                                    
                                                 java_element.fields.append(java_field)
                                             # parse type methods
                                             for path, _method_declaration in _declaration.filter(javalang.tree.MethodDeclaration):
@@ -832,11 +835,11 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                 java_user_defined_data_type.ElementIdentifier = java_element.ElementIdentifier
                                                 java_user_defined_data_type.ElementProfile = java_element.ElementProfile
                                                 java_user_defined_data_type.JsonSchema = java_element.JsonSchema
-                                                java_user_defined_data_type.PackageName = java_element.PackageName
+                                                java_user_defined_data_type.PackageName = java_element.PackageName                                                    
                                                 java_method.parent = java_user_defined_data_type
                                                 # parse method annotations  
                                                 if _method_declaration.annotations:
-                                                    for annotation in get_annotations(_method_declaration, multi_module_project['modules'][module_name]['properties']):
+                                                    for annotation in get_annotations(_method_declaration, multi_module_project['modules'][module_name]['properties']):                            
                                                         java_annotation = metamodel.JavaAnnotation()
                                                         java_annotation.ParentProjectName = module_name
                                                         java_annotation.ArtifactFileName = java_file
@@ -876,7 +879,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                                 element_identifier = element_identifier[:element_identifier.index('<')]
                                                             if parts[-1] == element_identifier:
                                                                 java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                                    java_method.returns = java_data_type
+                                                    java_method.returns = java_data_type 
                                                 # parse method parameters
                                                 if _method_declaration.parameters:
                                                     parameter_order = 0
@@ -889,7 +892,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             java_method_parameter.ElementIdentifier = _parameter.name
                                                             java_method_parameter.ElementProfile = 'COMPILE'
                                                             java_method_parameter.FieldValue = 'NOT_AVAILABLE'
-                                                            java_method_parameter.ParameterOrder = parameter_order
+                                                            java_method_parameter.ParameterOrder = parameter_order                                                                
                                                             # parse method parameter annotations
                                                             if _parameter.annotations:
                                                                 for annotation in get_annotations(_parameter, multi_module_project['modules'][module_name]['properties']):
@@ -939,7 +942,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                     for _element in _method_declaration.body:
                                                         # parse method fields
                                                         for path, _local_variable in _element.filter(javalang.tree.LocalVariableDeclaration):
-                                                            # if 'AdminBasicInfoServiceImpl' in java_file:    
+                                                            # if 'AdminBasicInfoServiceImpl' in java_file:
                                                                 # print('_local_variable ->',_local_variable)
                                                             java_field = metamodel.JavaDataField()
                                                             java_field.ParentProjectName = module_name
@@ -952,12 +955,12 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                                     if isinstance(_declarator, javalang.tree.VariableDeclarator):
                                                                         java_field.ElementIdentifier = _declarator.name
                                                                         break
-
+                                                                    
                                                             # parse field value
                                                             java_field.FieldValue = evaluate_method_field(_local_variable, _method_declaration, _type.name, multi_module_project['modules'][module_name]['properties'], module_name, app_root_dir)
                                                             # print('method field value ->', java_field.FieldValue)
-
-
+                                                            
+                                                            
                                                             # parse field type
                                                             if _local_variable.type:
                                                                     element_identifier = get_reference_type(_local_variable.type)
@@ -982,13 +985,13 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                                                     if parts[-1] == element_identifier:
                                                                                             java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
                                                                     java_field.type = java_data_type
-
+                                                                    
                                                             java_method.fields.append(java_field)
-
-
+                                                        
+                                                        
                                                         # parse method invokes
                                                         for path, _invocation in _element.filter(javalang.tree.MethodInvocation):
-                                                            # if 'AdminBasicInfoServiceImpl' in java_file:    
+                                                            # if 'AdminBasicInfoServiceImpl' in java_file:
                                                                 # print('_invocation ->',_invocation)
                                                             element_identifier = _invocation.member
                                                             java_invoked_method = metamodel.JavaMethod()
@@ -997,7 +1000,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             java_invoked_method.ElementIdentifier = element_identifier
                                                             java_invoked_method.ElementProfile = 'COMPILE'
                                                             java_invoked_method.RootCallingMethod = _method_declaration.name
-
+                                                            
                                                             # parse invoked method parameters
                                                             if _invocation.arguments:
                                                                 argument_order = 0
@@ -1009,7 +1012,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                                         argument_name = _argument.member
 
                                                                     #argument_value = evaluate_method_field(_argument)
-
+                                                                        
                                                                     java_method_argument = metamodel.JavaMethodParameter()
                                                                     java_method_argument.ParentProjectName = module_name
                                                                     java_method_argument.ArtifactFileName = java_file
@@ -1017,20 +1020,20 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                                     java_method_argument.ElementProfile = 'COMPILE'
                                                                     java_method_argument.FieldValue = argument_value
                                                                     java_method_argument.ParameterOrder = argument_order
-
+                                                                    
                                                                     # parse type of invoked method parameter
 
-
+                                                                    
                                                                     java_invoked_method.parameters.append(java_method_argument)
-
+                                                                    
                                                                 # endfor _argument in _invocation.arguments:
                                                             # endif _invocation.arguments:
-
-
+                                                            
+                                                            
                                                             java_method.invokes.append(java_invoked_method)
-
+                                                
                                                 java_element.methods.append(java_method)
-
+                                                
                                     module_project.layers[-1].elements.append(java_element)
 
                     except Exception as e:
