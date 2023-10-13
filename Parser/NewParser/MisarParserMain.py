@@ -383,6 +383,88 @@ def multi_module_part2(module_build_dirs, module_build_files, multi_module_proje
         multi_module_project['modules'][module_name]['properties'] = []
         multi_module_project['modules'][module_name]['java_elements'] = []
 
+def multi_module_library_part(multi_module_project, module_name, app_root_dir, metamodel):
+    print('\nmodule_name = {}'.format(module_name))
+    spring_boot_app = False
+    spring_web_flux_app = False
+
+    # fetch module libraries
+    module_build_file = multi_module_project['modules'][module_name]['build']
+    module_libraries = []
+    module_libraries = get_library_list(module_libraries, module_build_file, app_root_dir)
+    for library in module_libraries:
+        if library['groupId'] in ['org.springframework.boot', 'org.springframework.cloud']:
+            spring_boot_app = True
+        if 'webflux' in library['artifactId'] or 'reactive' in library['artifactId'] or 'reactor' in library[
+            'artifactId']:
+            spring_web_flux_app = True
+        multi_module_project['modules'][module_name]['libraries'].append(library)
+
+    # create microservice project instance
+    module_project = metamodel.MicroserviceProject()
+    if spring_boot_app:
+        if spring_web_flux_app:
+            module_project = metamodel.JavaSpringWebFluxApplicationProject()
+        else:
+            module_project = metamodel.JavaSpringMVCApplicationProject()
+    module_project.ParentProjectName = multi_module_project['modules'][module_name]['parent']
+    module_project.ArtifactFileName = multi_module_project['modules'][module_name]['build']
+    module_project.ProjectArtifactId = module_name
+
+    # create dependency library instance and append it to module project
+    for library in module_libraries:
+        dependency_library = metamodel.DependencyLibrary()
+        dependency_library.ParentProjectName = module_name
+        dependency_library.ArtifactFileName = library['filename']
+        dependency_library.LibraryGroupName = library['groupId']
+        dependency_library.LibraryName = library['artifactId']
+        dependency_library.LibraryScope = library['scope']
+        module_project.libraries.append(dependency_library)
+
+    return([module_project, spring_boot_app])
+
+def annotation_generator(metamodel, module_name, java_file, annotation):
+    java_annotation = metamodel.JavaAnnotation()
+    java_annotation.ParentProjectName = module_name
+    java_annotation.ArtifactFileName = java_file
+    java_annotation.AnnotationName = annotation['name']
+    for parameter in annotation['parameters']:
+        annotation_parameter = metamodel.JavaAnnotationParameter()
+        annotation_parameter.ParentProjectName = module_name
+        annotation_parameter.ArtifactFileName = java_file
+        annotation_parameter.ParameterName = parameter['name']
+        if not annotation_parameter.ParameterName:
+            annotation_parameter.ParameterName = 'NOT_AVAILABLE'
+        annotation_parameter.ParameterValue = parameter['value']
+        if not annotation_parameter.ParameterValue:
+            annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
+        java_annotation.parameters.append(annotation_parameter)
+    return (java_annotation)
+
+def data_type_generator(input_target, metamodel, module_name, java_file, imports):
+    element_identifier = get_reference_type(input_target)
+    java_data_type = metamodel.JavaDataType()
+    java_data_type.ParentProjectName = module_name
+    java_data_type.ArtifactFileName = java_file
+    java_data_type.ElementIdentifier = element_identifier
+    java_data_type.ElementProfile = 'COMPILE'
+    java_data_type.PackageName = 'java.lang'
+    java_data_type.IsPrimitive = True
+    java_data_type.JsonSchema = '{"title":"' + element_identifier + '","type":"number"}'
+    if element_identifier.lower() in ['string', 'boolean']:
+        java_data_type.JsonSchema = '{"title":"' + element_identifier + '","type":"' + element_identifier.lower() + '"}'
+    if isinstance(input_target, javalang.tree.ReferenceType):
+        java_data_type.IsPrimitive = False
+        if element_identifier.lower() not in ['string', 'boolean']:
+            java_data_type.JsonSchema = '{"title":"' + element_identifier + '","type":"object","properties":{}}'
+        for _import in imports:
+            parts = _import.split('.')
+            if '<' in element_identifier:
+                element_identifier = element_identifier[:element_identifier.index('<')]
+            if parts[-1] == element_identifier:
+                java_data_type.PackageName = _import[:(_import.index(element_identifier) - 1)]
+    return java_data_type
+
 def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir):
     start_time = datetime.now().strftime("%H:%M:%S")
     docker_compose_files = []
@@ -453,41 +535,10 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
 
     # create libraries and properties instances for every module project
     for module_name in multi_module_project['modules']:
-        print('\nmodule_name = {}'.format(module_name))
-        spring_boot_app = False
-        spring_web_flux_app = False
 
-        # fetch module libraries
-        module_build_file = multi_module_project['modules'][module_name]['build']
-        module_libraries = []
-        module_libraries = get_library_list(module_libraries, module_build_file, app_root_dir)
-        for library in module_libraries:
-            if library['groupId'] in ['org.springframework.boot', 'org.springframework.cloud']:
-                spring_boot_app = True
-            if 'webflux' in library['artifactId'] or 'reactive' in library['artifactId'] or 'reactor' in library['artifactId']:
-                spring_web_flux_app = True
-            multi_module_project['modules'][module_name]['libraries'].append(library)
+        project_initialiser = multi_module_library_part(multi_module_project, module_name, app_root_dir, metamodel)
 
-        # create microservice project instance
-        module_project = metamodel.MicroserviceProject()
-        if spring_boot_app:
-            if spring_web_flux_app:
-                module_project = metamodel.JavaSpringWebFluxApplicationProject()
-            else:
-                module_project = metamodel.JavaSpringMVCApplicationProject()
-        module_project.ParentProjectName = multi_module_project['modules'][module_name]['parent']
-        module_project.ArtifactFileName = multi_module_project['modules'][module_name]['build']
-        module_project.ProjectArtifactId = module_name
-
-        # create dependency library instance and append it to module project
-        for library in module_libraries:
-            dependency_library = metamodel.DependencyLibrary()
-            dependency_library.ParentProjectName = module_name
-            dependency_library.ArtifactFileName = library['filename']
-            dependency_library.LibraryGroupName = library['groupId']
-            dependency_library.LibraryName = library['artifactId']
-            dependency_library.LibraryScope = library['scope']
-            module_project.libraries.append(dependency_library)
+        module_project = project_initialiser[0]
 
         # fetch module properties
         module_properties = []
@@ -528,7 +579,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
             configuration_property.ConfigurationProfile = module_property['profile']
             module_project.properties.append(configuration_property)
 
-        if spring_boot_app:   
+        if project_initialiser[1]:
             # parse java files
             java_layer = metamodel.SpringWebApplicationLayer()
             java_layer.ParentProjectName = module_name
@@ -647,22 +698,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                     
                                     if _type.annotations:
                                         for annotation in get_annotations(_type, multi_module_project['modules'][module_name]['properties']):
-                                            java_annotation = metamodel.JavaAnnotation()
-                                            java_annotation.ParentProjectName = module_name
-                                            java_annotation.ArtifactFileName = java_file
-                                            java_annotation.AnnotationName = annotation['name']
-                                            for parameter in annotation['parameters']:
-                                                annotation_parameter = metamodel.JavaAnnotationParameter()
-                                                annotation_parameter.ParentProjectName = module_name
-                                                annotation_parameter.ArtifactFileName = java_file
-                                                annotation_parameter.ParameterName = parameter['name']
-                                                if not annotation_parameter.ParameterName:
-                                                    annotation_parameter.ParameterName = 'NOT_AVAILABLE'
-                                                annotation_parameter.ParameterValue = parameter['value']
-                                                if not annotation_parameter.ParameterValue:
-                                                    annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
-                                                java_annotation.parameters.append(annotation_parameter)
-                                            java_element.annotations.append(java_annotation)
+                                            java_element.annotations.append(annotation_generator(metamodel, module_name, java_file, annotation))
                                     # parse type body
                                     if _type.body:
                                         for _declaration in _type.body:
@@ -683,56 +719,19 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             break
                                                 # parse field annotations   
                                                 if _field_declaration.annotations:
-                                                    for annotation in get_annotations(_field_declaration, multi_module_project['modules'][module_name]['properties']):                            
-                                                        java_annotation = metamodel.JavaAnnotation()
-                                                        java_annotation.ParentProjectName = module_name
-                                                        java_annotation.ArtifactFileName = java_file
-                                                        java_annotation.AnnotationName = annotation['name']
-                                                        for parameter in annotation['parameters']:
-                                                            annotation_parameter = metamodel.JavaAnnotationParameter()
-                                                            annotation_parameter.ParentProjectName = module_name
-                                                            annotation_parameter.ArtifactFileName = java_file
-                                                            annotation_parameter.ParameterName = parameter['name']
-                                                            if not annotation_parameter.ParameterName:
-                                                                annotation_parameter.ParameterName = 'NOT_AVAILABLE'
-                                                            annotation_parameter.ParameterValue = parameter['value']
-                                                            if not annotation_parameter.ParameterValue:
-                                                                annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
-                                                            java_annotation.parameters.append(annotation_parameter)
-                                                        java_field.annotations.append(java_annotation)                                                    
+                                                    for annotation in get_annotations(_field_declaration, multi_module_project['modules'][module_name]['properties']):
+                                                        java_field.annotations.append(annotation_generator(metamodel, module_name, java_file, annotation))
                                                 # parse field value
                                                 java_field.FieldValue = evaluate_field(_field_declaration, _type.name, multi_module_project['modules'][module_name]['properties'], module_name, app_root_dir)
                                                 # print('field value ->', java_field.FieldValue)
                                                 # parse field type
                                                 if _field_declaration.type:
-                                                    element_identifier = get_reference_type(_field_declaration.type)
-                                                    java_data_type = metamodel.JavaDataType()
-                                                    java_data_type.ParentProjectName = module_name
-                                                    java_data_type.ArtifactFileName = java_file
-                                                    java_data_type.ElementIdentifier = element_identifier
-                                                    java_data_type.ElementProfile = 'COMPILE'
-                                                    java_data_type.PackageName = 'java.lang'
-                                                    java_data_type.IsPrimitive = True
-                                                    java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"number"}'
-                                                    if element_identifier.lower() in ['string','boolean']:
-                                                        java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"'+element_identifier.lower()+'"}'
-                                                    if isinstance(_field_declaration.type, javalang.tree.ReferenceType):
-                                                        java_data_type.IsPrimitive = False
-                                                        if element_identifier.lower() not in ['string','boolean']:
-                                                            java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"object","properties":{}}'
-                                                        for _import in imports:
-                                                            parts = _import.split('.')
-                                                            if '<' in element_identifier:
-                                                                element_identifier = element_identifier[:element_identifier.index('<')]
-                                                            if parts[-1] == element_identifier:
-                                                                java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                                    java_field.type = java_data_type
+                                                    java_field.type = data_type_generator(_field_declaration.type, metamodel, module_name, java_file, imports)
                                                     
                                                 java_element.fields.append(java_field)
                                             # parse type methods
                                             for path, _method_declaration in _declaration.filter(javalang.tree.MethodDeclaration):
-                                                # if 'AdminBasicInfoServiceImpl' in java_file:    
-                                                    # print('_method_declaration ->',_method_declaration)
+
                                                 java_method = metamodel.JavaMethod()
                                                 java_method.ParentProjectName = module_name
                                                 java_method.ArtifactFileName = java_file
@@ -750,47 +749,11 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                 java_method.parent = java_user_defined_data_type
                                                 # parse method annotations  
                                                 if _method_declaration.annotations:
-                                                    for annotation in get_annotations(_method_declaration, multi_module_project['modules'][module_name]['properties']):                            
-                                                        java_annotation = metamodel.JavaAnnotation()
-                                                        java_annotation.ParentProjectName = module_name
-                                                        java_annotation.ArtifactFileName = java_file
-                                                        java_annotation.AnnotationName = annotation['name']
-                                                        for parameter in annotation['parameters']:
-                                                            annotation_parameter = metamodel.JavaAnnotationParameter()
-                                                            annotation_parameter.ParentProjectName = module_name
-                                                            annotation_parameter.ArtifactFileName = java_file
-                                                            annotation_parameter.ParameterName = parameter['name']
-                                                            if not annotation_parameter.ParameterName:
-                                                                annotation_parameter.ParameterName = 'NOT_AVAILABLE'
-                                                            annotation_parameter.ParameterValue = parameter['value']
-                                                            if not annotation_parameter.ParameterValue:
-                                                                annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
-                                                            java_annotation.parameters.append(annotation_parameter)
-                                                        java_method.annotations.append(java_annotation)
+                                                    for annotation in get_annotations(_method_declaration, multi_module_project['modules'][module_name]['properties']):
+                                                        java_method.annotations.append(annotation_generator(metamodel, module_name, java_file, annotation))
                                                 # parse method returns
                                                 if _method_declaration.return_type:
-                                                    element_identifier = get_reference_type(_method_declaration.return_type)
-                                                    java_data_type = metamodel.JavaDataType()
-                                                    java_data_type.ParentProjectName = module_name
-                                                    java_data_type.ArtifactFileName = java_file
-                                                    java_data_type.ElementIdentifier = element_identifier
-                                                    java_data_type.ElementProfile = 'COMPILE'
-                                                    java_data_type.PackageName = 'java.lang'
-                                                    java_data_type.IsPrimitive = True
-                                                    java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"number"}'
-                                                    if element_identifier.lower() in ['string','boolean']:
-                                                        java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"'+element_identifier.lower()+'"}'
-                                                    if isinstance(_method_declaration.return_type, javalang.tree.ReferenceType):
-                                                        java_data_type.IsPrimitive = False
-                                                        if element_identifier.lower() not in ['string','boolean']:
-                                                            java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"object","properties":{}}'
-                                                        for _import in imports:
-                                                            parts = _import.split('.')
-                                                            if '<' in element_identifier:
-                                                                element_identifier = element_identifier[:element_identifier.index('<')]
-                                                            if parts[-1] == element_identifier:
-                                                                java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                                    java_method.returns = java_data_type 
+                                                    java_method.returns = data_type_generator(_method_declaration.return_type, metamodel, module_name, java_file, imports)
                                                 # parse method parameters
                                                 if _method_declaration.parameters:
                                                     parameter_order = 0
@@ -807,46 +770,10 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             # parse method parameter annotations
                                                             if _parameter.annotations:
                                                                 for annotation in get_annotations(_parameter, multi_module_project['modules'][module_name]['properties']):
-                                                                    java_annotation = metamodel.JavaAnnotation()
-                                                                    java_annotation.ParentProjectName = module_name
-                                                                    java_annotation.ArtifactFileName = java_file
-                                                                    java_annotation.AnnotationName = annotation['name']
-                                                                    for parameter in annotation['parameters']:
-                                                                        annotation_parameter = metamodel.JavaAnnotationParameter()
-                                                                        annotation_parameter.ParentProjectName = module_name
-                                                                        annotation_parameter.ArtifactFileName = java_file
-                                                                        annotation_parameter.ParameterName = parameter['name']
-                                                                        if not annotation_parameter.ParameterName:
-                                                                            annotation_parameter.ParameterName = 'NOT_AVAILABLE'
-                                                                        annotation_parameter.ParameterValue = parameter['value']
-                                                                        if not annotation_parameter.ParameterValue:
-                                                                            annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
-                                                                        java_annotation.parameters.append(annotation_parameter)
-                                                                    java_method_parameter.annotations.append(java_annotation)
+                                                                    java_method_parameter.annotations.append(annotation_generator(metamodel, module_name, java_file, annotation))
                                                             # parse method parameter type
                                                             if _parameter.type:
-                                                                element_identifier = get_reference_type(_parameter.type)
-                                                                java_data_type = metamodel.JavaDataType()
-                                                                java_data_type.ParentProjectName = module_name
-                                                                java_data_type.ArtifactFileName = java_file
-                                                                java_data_type.ElementIdentifier = element_identifier
-                                                                java_data_type.ElementProfile = 'COMPILE'
-                                                                java_data_type.PackageName = 'java.lang'
-                                                                java_data_type.IsPrimitive = True
-                                                                java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"number"}'
-                                                                if element_identifier.lower() in ['string','boolean']:
-                                                                    java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"'+element_identifier.lower()+'"}'
-                                                                if isinstance(_parameter.type, javalang.tree.ReferenceType):
-                                                                    java_data_type.IsPrimitive = False
-                                                                    if element_identifier.lower() not in ['string','boolean']:
-                                                                        java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"object","properties":{}}'
-                                                                    for _import in imports:
-                                                                        parts = _import.split('.')
-                                                                        if '<' in element_identifier:
-                                                                            element_identifier = element_identifier[:element_identifier.index('<')]
-                                                                        if parts[-1] == element_identifier:
-                                                                            java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                                                java_method_parameter.type = java_data_type
+                                                                java_method_parameter.type = data_type_generator(_parameter.type, metamodel, module_name, java_file, imports)
                                                             java_method.parameters.append(java_method_parameter)
 
                                                 if _method_declaration.body:
@@ -874,36 +801,12 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
                                                             
                                                             # parse field type
                                                             if _local_variable.type:
-                                                                    element_identifier = get_reference_type(_local_variable.type)
-                                                                    java_data_type = metamodel.JavaDataType()
-                                                                    java_data_type.ParentProjectName = module_name
-                                                                    java_data_type.ArtifactFileName = java_file
-                                                                    java_data_type.ElementIdentifier = element_identifier
-                                                                    java_data_type.ElementProfile = 'COMPILE'
-                                                                    java_data_type.PackageName = 'java.lang'
-                                                                    java_data_type.IsPrimitive = True
-                                                                    java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"number"}'
-                                                                    if element_identifier.lower() in ['string','boolean']:
-                                                                            java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"'+element_identifier.lower()+'"}'
-                                                                    if isinstance(_local_variable.type, javalang.tree.ReferenceType):
-                                                                            java_data_type.IsPrimitive = False
-                                                                            if element_identifier.lower() not in ['string','boolean']:
-                                                                                    java_data_type.JsonSchema = '{"title":"'+element_identifier+'","type":"object","properties":{}}'
-                                                                            for _import in imports:
-                                                                                    parts = _import.split('.')
-                                                                                    if '<' in element_identifier:
-                                                                                            element_identifier = element_identifier[:element_identifier.index('<')]
-                                                                                    if parts[-1] == element_identifier:
-                                                                                            java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                                                    java_field.type = java_data_type
-                                                                    
+                                                                    java_field.type = data_type_generator(_local_variable.type, metamodel, module_name, java_file, imports)
                                                             java_method.fields.append(java_field)
                                                         
                                                         
                                                         # parse method invokes
                                                         for path, _invocation in _element.filter(javalang.tree.MethodInvocation):
-                                                            # if 'AdminBasicInfoServiceImpl' in java_file:
-                                                                # print('_invocation ->',_invocation)
                                                             element_identifier = _invocation.member
                                                             java_invoked_method = metamodel.JavaMethod()
                                                             java_invoked_method.ParentProjectName = module_name
