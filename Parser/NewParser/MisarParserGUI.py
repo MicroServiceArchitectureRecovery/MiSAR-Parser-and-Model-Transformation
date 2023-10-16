@@ -46,13 +46,14 @@ def select(inputClass):
     elif inputClass.fileType == "directory":
         directory = filedialog.askdirectory()
         if directory:
-            if inputClass.name == "projectDir":
+            if inputClass.name in ["projectDir", "outputDir"]:
                 inputClass.ent.configure(state = 'normal')
                 inputClass.ent.delete(0, 'end')
                 inputClass.ent.insert(0, directory)
                 inputClass.ent.configure(state = 'readonly', readonlybackground = 'white')
-                autoImporter(directory)
-                pomScanner(inputClass, directory)
+                if inputClass.name == "projectDir":
+                    autoImporter(directory)
+                    pomScanner(inputClass, directory)
             elif inputClass.name in ["moduleBuildDir", "appConfigDir"]:
                 if directory not in inputClass.lst.get(0, 'end'):
                     inputClass.lst.insert(inputClass.lst.size(), directory)
@@ -80,10 +81,7 @@ def autoImporter(inputDirectory):
             if os.path.isfile(inputDirectory+"/pom.xml"):
                 if inputDirectory+"/pom.xml" not in app_build.lst.get(0, 'end'):
                     app_build.lst.insert('end', inputDirectory+"/pom.xml")
-                
-                    
-                        
-                    
+
 
 def pomScanner(inputClass, inputDirectory):
     pomScan = messagebox.askquestion("POM Scanner", "Would you like to add any corresponding POM files that exist within this directory?", icon = "info")
@@ -115,8 +113,14 @@ def create_psm_instance():
         messagebox.showerror('Missing Values', 'please provide one or more value for \'Docker Compose Files\' !') 
     elif not module_build_dir.lst.size():
         messagebox.showerror('Missing Values', 'please provide one or more value for \'Microservice Projects Build Directories\' !') 
+    elif not output_dir.ent.get():
+        outputPrompt = messagebox.askquestion("Empty Output Box",
+                                           "You have not selected any output directory. Would you like to add one? If you select no, the output metamodel will be located in the same directory as the PSM.ecore file.",
+                                           icon="info")
+        if outputPrompt == "no":
+            parser(txt_proj_name, proj_dir.ent, psm_ecore.ent, docker_compose.lst, app_build.lst, module_build_dir.lst, module_build.lst, app_config_dir.lst, output_dir.ent)
     else:
-        parser(txt_proj_name, proj_dir.ent, psm_ecore.ent, docker_compose.lst, app_build.lst, module_build_dir.lst, module_build.lst, app_config_dir.lst)
+        parser(txt_proj_name, proj_dir.ent, psm_ecore.ent, docker_compose.lst, app_build.lst, module_build_dir.lst, module_build.lst, app_config_dir.lst, output_dir.ent)
 
 
 class smallFrame:
@@ -179,10 +183,29 @@ module_build_dir = largeFrame("moduleBuildDir", window,"Select Module Projects B
 module_build = largeFrame("moduleBuild", window,"Select Module Projects POM Build Files (optional):", 7, 2, "file")
 app_config_dir = largeFrame("appConfigDir", window,"Select Centralized Configuration Directories (optional):", 7, 4, "directory")
 
+"""
+#Generates the create PSM button
+self.lbl = tkinter.Label(self.targetWindow, text=self.description)
+self.lbl.grid(row=inputRow, column=inputColumn, columnspan=2, sticky='W')
+
+lbl_dir_select = tkinter.Button(window, text = 'Create PSM Model', width = 30)
+lbl_dir_select.configure(command = lambda button = btn_psm_instance: create_psm_instance())
+lbl_dir_select.grid(row = 10, column = 0, columnspan = 6, padx = 2, pady = 10)
+
+#Generates the create PSM button
+btn_dir_select = tkinter.Button(window, text = 'Select output directory', width = 30)
+btn_dir_select.configure(command = lambda button = btn_psm_instance: create_psm_instance())
+btn_dir_select.grid(row = 10, column = 1, columnspan = 6, padx = 2, pady = 10)
+"""
+
+#Generates the output section
+output_dir = smallFrame("outputDir", window, "Select output directory (optional)", 10, 0, "directory")
+
 #Generates the create PSM button
 btn_psm_instance = tkinter.Button(window, text = 'Create PSM Model', width = 30)
 btn_psm_instance.configure(command = lambda button = btn_psm_instance: create_psm_instance())
-btn_psm_instance.grid(row = 10, column = 0, columnspan = 6, padx = 2, pady = 10)
+btn_psm_instance.grid(row = 11, column = 0, columnspan = 6, padx = 2, pady = 10)
+
 
 window.mainloop()
 

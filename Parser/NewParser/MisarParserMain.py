@@ -465,7 +465,7 @@ def data_type_generator(input_target, metamodel, module_name, java_file, imports
                 java_data_type.PackageName = _import[:(_import.index(element_identifier) - 1)]
     return java_data_type
 
-def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir):
+def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir, txt_output_dir):
     start_time = datetime.now().strftime("%H:%M:%S")
     docker_compose_files = []
     app_build_files = []
@@ -476,6 +476,7 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
     multi_module_project_name = txt_proj_name.get().strip()
     app_root_dir = txt_proj_dir.get().strip()
     psm_ecore_file = txt_psm_ecore.get().strip()
+    output_dir = txt_output_dir.get().strip()
     for docker_compose_file in lst_docker_compose.get(0, 'end'):
         if docker_compose_file.strip():
             docker_compose_files.append(docker_compose_file)
@@ -492,8 +493,12 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
         if app_config_dir.strip():
             app_config_dirs.append(app_config_dir)
 
+
     psm_instance_file_name = multi_module_project_name+"-PSM"+'.xmi'
-    psm_instance_file = psm_ecore_file.replace(os.path.basename(psm_ecore_file), psm_instance_file_name)
+    if len(output_dir) != 0:
+        psm_instance_file = output_dir+"/"+psm_instance_file_name
+    else:
+        psm_instance_file = psm_ecore_file.replace(os.path.basename(psm_ecore_file), psm_instance_file_name)
 
     # load metamodel from XMI file
     metamodel_resource_set = ResourceSet()
