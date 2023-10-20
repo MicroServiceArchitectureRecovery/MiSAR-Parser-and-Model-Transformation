@@ -3,10 +3,7 @@ from tkinter import messagebox
 import os
 import shutil
 import stat
-import subprocess
-import sys
 from git import Repo
-import pip
 
 
 """try:
@@ -25,7 +22,7 @@ def checkImports():
     try:
         import yaml
     except ModuleNotFoundError:
-        errors.append("yaml")
+        errors.append("pyYaml")
     try:
         import xmltodict
     except ModuleNotFoundError:
@@ -34,20 +31,35 @@ def checkImports():
         import javalang
     except ModuleNotFoundError:
         errors.append("javalang")
-    return errors
-
-class preRequisits:
-    def __init__(self, importName, inputRow, inputColumn, status):
-        self.importName = importName
-        self.inputRow = inputRow
-        self.inputColumn = inputColumn
-
-
+    if len(errors) > 0:
+        errStr = ""
+        for z in range (0, len(errors)):
+            errStr = errStr + errors[z]+"\n"
+        if len(errors) == 1:
+            strAdd = "\nThis import is mandatory for the function of the Parser.\nWould you like to install it now?"
+        else:
+            strAdd = "\nThese imports are mandatory for the function of the Parser.\nWould you like to install them now?"
+        installImports = messagebox.askquestion("Missing Imports", ("The following imports are currently not installed:\n\n"+errStr+strAdd))
+        if installImports == "yes":
+            try:
+                os.system('pip3 install pyecore')
+                os.system('pip3 install pyYaml')
+                os.system('pip3 install xmltodict')
+                os.system('pip3 install javalang')
+                messagebox.showinfo("Success!", "The operation completed successfully.")
+                return True
+            except Exception as e:
+                print(e)
+            return False
+        else:
+            return False
+    else:
+        return True
 def buttonStuff(inputClass):
     targetLink = ""
     if inputClass.name == "MiSAR Parser":
         if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == False:
-            MisarChecker = messagebox.askquestion("Parser Installer", "To use the MiSAR Parser, you must first install it.\n Would you to like to install it now?")
+            MisarChecker = messagebox.askquestion("Parser Installer", "To use the MiSAR Parser, you must first install it.\nWould you to like to install it now?")
             if MisarChecker == "yes":
                 readOnly = True
                 while readOnly:
@@ -70,7 +82,10 @@ def buttonStuff(inputClass):
                             print(targetLink)
                             os.chmod(targetLink, stat.S_IWRITE)
                             os.unlink(targetLink)
-                            shutil.rmtree(targetLink)
+                            try:
+                                shutil.rmtree(targetLink)
+                            except FileNotFoundError:
+                                pass
                             targetLink = ""
                             readOnly = True
                     if readOnly == False:
@@ -79,10 +94,12 @@ def buttonStuff(inputClass):
                             try:
                                 Repo.clone_from(
                                     "https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation.git",
-                                    (os.path.expanduser('~') + "/" + "MiSAR"))
+                                    (os.path.expanduser('~') + "/" + "MiSAR"), branch = "2123833-(Kevin's-branch)")
                                 if os.path.isfile((os.path.expanduser('~') + "/MisAR/MisarQVTv3/source/PSM.ecore")) == True:
                                     messagebox.showinfo("Success!", "The operation completed successfully.")
-                            except Exception as fail:
+                            except ModuleNotFoundError as fail:
+                                print(str(fail))
+                                print(fail)
                                 if os.path.isfile((os.path.expanduser('~') + "/MisAR/MisarQVTv3/source/PSM.ecore")) == True:
                                     messagebox.showinfo("Success!", "The operation completed successfully.")
                                 else:
@@ -94,7 +111,8 @@ def buttonStuff(inputClass):
                                             fail)))
 
         else:
-            import MisarParserGUI
+            if checkImports():
+                import MisarParserGUI
 class programOfChoice:
     def __init__(self, name, version, inputRow, inputColumn, targetWindow):
         self.name = name
