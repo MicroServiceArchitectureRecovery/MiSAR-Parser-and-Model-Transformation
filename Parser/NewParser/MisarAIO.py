@@ -3,15 +3,18 @@ from tkinter import messagebox
 import os
 import shutil
 import stat
-from git import Repo
 
 
-"""try:
-    import github
+try:
+    from git import Repo
 except ModuleNotFoundError:
-    installGit = messagebox.askquestion("Git not installed!", "Git is a mandatory module which isn't installed. Install it now?")
+    installGit = messagebox.askquestion("Git not installed!", "GitPython and pyGit are mandatory modules which aren't installed. Install them now?")
     if installGit == "yes":
-        os.system('pip3 install github')"""
+        os.system('pip3 install pyGit')
+        os.system('pip3 install gitPython')
+    else:
+        messagebox.showerror("You said no...","MiSAR cannot run without the two modules listed earlier, please restart the program.")
+        raise Exception ("Hint, SAY YES.")
 
 def checkImports():
     errors = []
@@ -121,7 +124,7 @@ class programOfChoice:
         self.inputColumn = inputColumn
         self.moduleName = tkinter.Label(targetWindow, text = name, font = 15)
         self.moduleName.grid(row = inputRow, column = inputColumn)
-        self.launchButton = tkinter.Button(targetWindow, text = "Launch", width = 10)
+        self.launchButton = tkinter.Button(targetWindow, text = "Install", width = 10)
         self.launchButton.configure(command = lambda button = self: buttonStuff(button))
         self.launchButton.grid(row = inputRow+1, column = inputColumn)
 def window_quit():
@@ -137,6 +140,10 @@ welcome.grid(row = 0, column = 0)
 theParser = programOfChoice("MiSAR Parser", "V1.0", 1, 0, mainWindow)
 theTransformationEngine = programOfChoice("MiSAR Transformation Engine", "V1.0", 3, 0, mainWindow)
 theGraphicalModelGenerator = programOfChoice("MiSAR Graphical Model Generator", "V1.0", 5, 0, mainWindow)
+
+if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == True:
+    theParser.launchButton.configure(text = "Launch")
+
 
 mainWindow.protocol("WM_DELETE_WINDOW", window_quit)
 
