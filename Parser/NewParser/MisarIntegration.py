@@ -119,8 +119,8 @@ def parserUninstaller(parserLocation):
     while readOnly:
         readOnly = False
         try:
-            os.mkdir(os.path.expanduser('~') + "\\" + parserLocation)
-        except FileExistsError:
+            os.rmdir(os.path.expanduser('~') + "\\" + parserLocation)
+        except OSError:
             try:
                 shutil.rmtree((os.path.expanduser('~') + "\\" + parserLocation))
             except PermissionError as fail:
@@ -178,42 +178,45 @@ def misar_updater():
             if os.path.isfile(
                     (os.path.expanduser('~') + "\\MiSARTemp\\MisarQVTv3\\source\\PSM.ecore")) == True:
                 parserUninstaller("MiSARTemp")
-            else:
-                if checkIfGitIsInstalled(None):
-                    if parserInstaller("MiSARTemp") == True:
-                        os.chdir((os.path.expanduser('~') + "\\MisARTemp"))
-                        newestVersion = os.popen("git log -1").read()
-                        updatedDate = ""
-                        colonCount = 0
-                        targetCutOff = 999999
-                        for x in range(0, len(newestVersion)):
-                            if targetCutOff > x:
-                                updatedDate = updatedDate + newestVersion[x]
-                                # print(updatedDate)
-                                if newestVersion[x] == ":" and colonCount < 2:
-                                    updatedDate = ""
-                                    colonCount = colonCount + 1
-                                if colonCount >= 2 and newestVersion[x + 1] == "+" or newestVersion[x + 1] == "-":
-                                    break
-                        updatedDate = updatedDate.strip()
-                        print(updatedDate)
-                        onlineVersion = datetime.strptime(updatedDate, '%a %b %d %H:%M:%S %Y')
-                        currentVersion = datetime.fromtimestamp(
-                            (os.path.getctime((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore"))))
-                        if onlineVersion > currentVersion:
-                            print(onlineVersion)
-                            print(currentVersion)
-                            updateAvailable = messagebox.askquestion("Update Available!",
-                                                                     "An update is available! Would you like to install it now?")
-                            if updateAvailable == "yes":
-                                print("nig")
-                                parserUninstaller("MiSARTemp")
-                                if parserInstaller(updateAvailable) == True:
-                                    messagebox.showinfo("Success!",
-                                                        "The update completed successfully!")
-                                else:
-                                    messagebox.showerror("Failure!",
-                                                        "The update has failed.")
+
+            if checkIfGitIsInstalled(None):
+                if parserInstaller("MiSARTemp") == True:
+                    previousDirectory = os.getcwd()
+                    os.chdir((os.path.expanduser('~') + "\\MisARTemp"))
+                    newestVersion = os.popen("git log -1").read()
+                    updatedDate = ""
+                    colonCount = 0
+                    targetCutOff = 999999
+                    for x in range(0, len(newestVersion)):
+                        if targetCutOff > x:
+                            updatedDate = updatedDate + newestVersion[x]
+                            # print(updatedDate)
+                            if newestVersion[x] == ":" and colonCount < 2:
+                                updatedDate = ""
+                                colonCount = colonCount + 1
+                            if colonCount >= 2 and newestVersion[x + 1] == "+" or newestVersion[x + 1] == "-":
+                                break
+                    updatedDate = updatedDate.strip()
+                    #updatedDate = "Fri Oct 31 16:45:46 2023"
+                    print(updatedDate)
+                    onlineVersion = datetime.strptime(updatedDate, '%a %b %d %H:%M:%S %Y')
+                    currentVersion = datetime.fromtimestamp(
+                        (os.path.getctime((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore"))))
+                    if onlineVersion > currentVersion:
+                        print(onlineVersion)
+                        print(currentVersion)
+                        os.chdir(previousDirectory)
+                        updateAvailable = messagebox.askquestion("Update Available!",
+                                                                 "An update is available! Would you like to install it now?")
+                        if updateAvailable == "yes":
+                            parserUninstaller("MiSARTemp")
+                            parserUninstaller("MiSAR")
+                            if parserInstaller("MiSAR") == True:
+                                messagebox.showinfo("Success!",
+                                                    "The update completed successfully!")
+                            else:
+                                messagebox.showerror("Failure!",
+                                                     "The update has failed.")
                 """
                 #parserUninstaller("MiSARTemp")
                         MisarChecker = "yes"
@@ -248,7 +251,6 @@ def misar_updater():
                                         print(currentVersion)
                                         updateAvailable = messagebox.askquestion("Update Available!", "An update is available! Would you like to install it now?")
                                         if updateAvailable == "yes":
-                                            print("nig")
                                             parserInstaller(updateAvailable)
 
                             except Exception as fail:
