@@ -5,6 +5,7 @@ import shutil
 import stat
 from urllib.request import urlopen as url
 from datetime import *
+import webbrowser
 
 def checkInternet():
     try:
@@ -172,6 +173,25 @@ def buttonStuff(inputClass):
             if checkImports(inputClass):
                 import MisarParserGUI
 
+
+    elif inputClass.name == "Need help or more information about this program?":
+        messagebox.showinfo("MiSAR Help!", "Hello! And welcome to MiSAR!\n"
+                                           "\nMiSAR is an approach that follows the Model Driven Architecture to semi-automatically generate architectural models of implemented microservice systems.")
+        messagebox.showinfo("MiSAR Help!", "MiSAR consists of the following components:\n"
+                                           "\nA Parser, that creates a Platform Specific Model from existing systems.\n"
+                                           "\nA Model Tranformation engine, that transforms platform Specifc Models into Platform Independent Model instances.\n"
+                                           "An instance of a MiSAR Platform Independent Model is the recovered architectural model of the implemented microservice system.\n"
+                                           "\nA Graphical Model generator, which converts the architectural model exported from the Transformation engine into a UML based format.")
+        demo = messagebox.askquestion("Need more?", "Would you like to view a short demonstration for the MiSAR toolset?\n"
+                                                    "This requires an internet connection.")
+        if demo == "yes":
+            if checkInternet():
+                webbrowser.open("https://www.youtube.com/watch?v=sdRDkLesyS0&ab_channel=NourAli", new = 2)
+            else:
+                messagebox.showerror("No Internet Connection!",
+                                     "An internet connection is required to view the MiSAR Demonstration Video.")
+
+
 def misar_updater():
     if checkInternet():
         if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == True:
@@ -246,10 +266,13 @@ welcome.grid(row = 0, column = 0)
 theParser = programOfChoice("MiSAR Parser", "V1.0", 1, 0, mainWindow)
 theTransformationEngine = programOfChoice("MiSAR Transformation Engine", "V1.0", 3, 0, mainWindow)
 theGraphicalModelGenerator = programOfChoice("MiSAR Graphical Model Generator", "V1.0", 5, 0, mainWindow)
+theHelpButton = programOfChoice("Need help or more information about this program?", "V1.0", 7, 0, mainWindow)
+theHelpButton.launchButton.configure(text = "Help")
 
 if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == True:
     theParser.launchButton.configure(text = "Launch")
 
 mainWindow.protocol("WM_DELETE_WINDOW", window_quit)
+
 
 mainWindow.mainloop()
