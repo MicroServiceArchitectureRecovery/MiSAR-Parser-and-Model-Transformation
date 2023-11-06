@@ -4,24 +4,14 @@
 # Updated by RanaFakeeh-87
 # 11/01/2022
 # Updated by kevinvahdat01
-# 05/10/2023
+# 08/11/2023
 ############################
 import tkinter.messagebox
-
 from MisarParserMain import *
 import tkinter
 from tkinter import filedialog
 from tkinter import messagebox
-from pyecore.resources import ResourceSet, URI
-from pyecore.utils import DynamicEPackage
 import os
-import yaml
-import xmltodict
-from collections import OrderedDict
-import re
-from datetime import datetime
-import javalang
-from git import Repo
 
 def window_quit():
     window.quit()
@@ -100,39 +90,22 @@ def pomScanner(inputClass, inputDirectory):
                     module_build.lst.insert('end', inputDirectory)   
         else:
             messagebox.showerror('POM Scanner', 'This folder does not have a corresponding POM file.')
-    
-def preperation_parser():
-    if manualImport == True:
-        parser(txt_proj_name, proj_dir.ent, psm_ecore.ent, docker_compose.lst, app_build.lst, module_build_dir.lst,
-               module_build.lst, app_config_dir.lst, output_dir.ent)
-    else:
-        parser(txt_proj_name, proj_dir.ent, psm_ecore, docker_compose.lst, app_build.lst, module_build_dir.lst,
-               module_build.lst, app_config_dir.lst, output_dir.ent)
 
 def create_psm_instance():
     missingValueGenerator = ""
     if not txt_proj_name.get().strip():
-        missingValueGenerator = missingValueGenerator + "Application Project Name missing"
+        missingValueGenerator = missingValueGenerator + "\nApplication Project Name missing"
     if not proj_dir.ent.get().strip():
-        missingValueGenerator = missingValueGenerator + ", Application Project Build Directory missing"
-    if manualImport == True:
-        if not psm_ecore.ent.get().strip():
-            missingValueGenerator = missingValueGenerator + ", PSM Ecore File missing"
-        elif psm_ecore.ent.get().lower().strip().find('.ecore') == -1:
-            missingValueGenerator = missingValueGenerator + ", PSM Ecore File invalid"
+        missingValueGenerator = missingValueGenerator + "\nApplication Project Build Directory missing"
     if not docker_compose.lst.size():
-        missingValueGenerator = missingValueGenerator + ", Docker Compose Files missing"
+        missingValueGenerator = missingValueGenerator + "\nDocker Compose Files missing"
     if not module_build_dir.lst.size():
-        missingValueGenerator = missingValueGenerator + ", Microservice Projects Build Directories missing"
+        missingValueGenerator = missingValueGenerator + "\nMicroservice Projects Build Directories missing"
+    if not output_dir.ent.get():
+        missingValueGenerator = missingValueGenerator + "\nOutput Directory missing"
     if len(missingValueGenerator) <= 0:
-        if not output_dir.ent.get():
-            outputPrompt = messagebox.askquestion("Empty Output Box",
-                                               "You have not selected any output directory. Would you like to add one? If you select no, the output metamodel will be located in the same directory as the PSM.ecore file.",
-                                               icon="info")
-            if outputPrompt == "no":
-                preperation_parser()
-        else:
-            preperation_parser()
+        parser(txt_proj_name, proj_dir.ent, psm_ecore, docker_compose.lst, app_build.lst, module_build_dir.lst,
+               module_build.lst, app_config_dir.lst, output_dir.ent)
     else:
         messagebox.showerror('Error!', ('The following errors are present: ' + missingValueGenerator))
 
@@ -177,28 +150,6 @@ class largeFrame:
         self.delbutton.configure(command = lambda button = self: delete_item(button))
         self.delbutton.grid(row = (inputRow+2), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
 
-manualImport = False
-if os.path.isfile((os.path.expanduser('~')+"/MisAR/MisarQVTv3/source/PSM.ecore")) == False:
-    MisarChecker = messagebox.askquestion("PSM not found!", "The PSM is missing! Would you like to retrieve it?")
-    if MisarChecker == "yes":
-        os.mkdir(os.path.expanduser('~')+"/"+ "MisAR")
-        while MisarChecker == "yes":
-            MisarChecker = "no"
-            try:
-                Repo.clone_from("https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation.git",(os.path.expanduser('~')+"/"+ "MiSAR"))
-            except Exception as fail:
-                if os.path.isfile((os.path.expanduser('~')+"/MisAR/MisarQVTv3/source/PSM.ecore")) == True:
-                    messagebox.showinfo("Success!", "The operation completed successfully.")
-                else:
-                    messagebox.showerror("Retrieval failure!", (
-                                "PSM retrieval failed! Would you like to try again?                   Error code:" + str(fail)))
-                    MisarChecker = messagebox.askquestion("Manual Input?", ("Would you instead like to import the PSM manually?"))
-                    if MisarChecker == "yes":
-                        MisarChecker = "no"
-                        manualImport = True
-    else:
-        manualImport = True
-
 #Generates the window instance
 window = tkinter.Tk()
 window.title('A Python application to parse YAML, XML and JAVA artifacts of a microservice architecture project into a MiSAR PSM model. NEW!')
@@ -212,14 +163,11 @@ txt_proj_name.grid(row = 2, column = 0, padx = 2, pady = 2, sticky = 'N')
 
 #Generates the windows
 proj_dir = smallFrame("projectDir", window,"Select Multi-Module Project Build Directory (mandatory):", 3, 0, "directory")
-if manualImport == True:
-    psm_ecore = smallFrame("psmEcore", window,"Select PSM Ecore File (mandatory):", 5, 0, "file")
-else:
-    psm_ecore = tkinter.Entry(window,  text = '', width = 50, foreground = 'navy')
-    psm_ecore.configure(state='normal')
-    psm_ecore.delete(0, 'end')
-    psm_ecore.insert(0, str(os.path.expanduser('~')+"\MisAR\MisarQVTv3\source\PSM.ecore"))
-    psm_ecore.configure(state='readonly', readonlybackground='white')
+psm_ecore = tkinter.Entry(window,  text = '', width = 50, foreground = 'navy')
+psm_ecore.configure(state='normal')
+psm_ecore.delete(0, 'end')
+psm_ecore.insert(0, str(os.path.expanduser('~')+"\MisAR\MisarQVTv3\source\PSM.ecore"))
+psm_ecore.configure(state='readonly', readonlybackground='white')
 docker_compose = largeFrame("dockerCompose", window,"Select Docker Compose Files (mandatory):", 1, 2, "file")
 app_build = largeFrame("appBuild", window,"Select Multi-Module Project POM Build Files (optional):", 1, 4, "file")
 module_build_dir = largeFrame("moduleBuildDir", window,"Select Module Projects Build Directories (mandatory):", 7, 0, "directory")
@@ -227,7 +175,7 @@ module_build = largeFrame("moduleBuild", window,"Select Module Projects POM Buil
 app_config_dir = largeFrame("appConfigDir", window,"Select Centralized Configuration Directories (optional):", 7, 4, "directory")
 
 #Generates the output section
-output_dir = smallFrame("outputDir", window, "Select output directory (optional)", 10, 0, "directory")
+output_dir = smallFrame("outputDir", window, "Select output directory (mandatory)", 10, 0, "directory")
 
 #Generates the create PSM button
 btn_psm_instance = tkinter.Button(window, text = 'Create PSM Model', width = 30)

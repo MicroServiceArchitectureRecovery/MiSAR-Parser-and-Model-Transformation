@@ -6,6 +6,7 @@ import stat
 from urllib.request import urlopen as url
 from datetime import *
 import webbrowser
+import subprocess
 
 def checkInternet():
     try:
@@ -190,7 +191,17 @@ def buttonStuff(inputClass):
             else:
                 messagebox.showerror("No Internet Connection!",
                                      "An internet connection is required to view the MiSAR Demonstration Video.")
-
+                demo = messagebox.askquestion("Need more?",
+                                              "Would you instead like to view the manual for MiSAR?\n"
+                                              "This does NOT requires an internet connection.")
+                if demo == "yes":
+                    subprocess.Popen((os.path.expanduser('~') + "\\MisAR\\MiSAR Parser - manualfinal.pdf"), shell=True)
+        else:
+            demo = messagebox.askquestion("Need more?",
+                                          "Would you instead like to view the manual for MiSAR?\n"
+                                          "This does NOT requires an internet connection.")
+            if demo == "yes":
+                subprocess.Popen((os.path.expanduser('~') + "\\MisAR\\MiSAR Parser - manualfinal.pdf"), shell=True)
 
 def misar_updater():
     if checkInternet():
