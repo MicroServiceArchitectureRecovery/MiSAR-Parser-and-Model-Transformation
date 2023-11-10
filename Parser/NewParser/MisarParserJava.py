@@ -382,6 +382,23 @@ def java_interface_generator(java_interface, module_name, java_file, element_ide
                     _import.index(element_identifier) - 1)]
     return java_interface
 
+def java_user_defined_type_generator(java_user_defined_type, module_name, java_file, element_identifier, imports):
+    java_user_defined_type.ParentProjectName = module_name
+    java_user_defined_type.ArtifactFileName = java_file
+    java_user_defined_type.ElementIdentifier = element_identifier
+    java_user_defined_type.ElementProfile = 'COMPILE'
+    java_user_defined_type.JsonSchema = ''
+    for _import in imports:
+        parts = _import.split('.')
+        if '<' in element_identifier:
+            element_identifier = element_identifier[
+                                 :element_identifier.index('<')]
+        if parts[-1] == element_identifier:
+            java_user_defined_type.PackageName = _import[:(
+                    _import.index(element_identifier) - 1)]
+    return java_user_defined_type
+
+
 def java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir):
     # parse java files
     java_layer = metamodel.SpringWebApplicationLayer()
@@ -406,8 +423,7 @@ def java_main_parser(metamodel, module_name, module_project, multi_module_projec
                     if tree.package:
                         package_name = tree.package.name
                     for _type in tree.types:
-                        if isinstance(_type, javalang.tree.ClassDeclaration) or isinstance(_type,
-                                                                                           javalang.tree.InterfaceDeclaration):
+                        if isinstance(_type, javalang.tree.ClassDeclaration) or isinstance(_type, javalang.tree.InterfaceDeclaration):
                             if isinstance(_type, javalang.tree.ClassDeclaration):
                                 java_element = metamodel.JavaClassType()
                                 if _type.implements:
@@ -448,39 +464,13 @@ def java_main_parser(metamodel, module_name, module_project, multi_module_projec
                                 if isinstance(_type.extends, javalang.tree.ReferenceType):
                                     element_identifier = get_reference_type(_type.extends)
                                     java_user_defined_type = metamodel.JavaUserDefinedType()
-                                    java_user_defined_type.ParentProjectName = module_name
-                                    java_user_defined_type.ArtifactFileName = java_file
-                                    java_user_defined_type.ElementIdentifier = element_identifier
-                                    java_user_defined_type.ElementProfile = 'COMPILE'
-                                    java_user_defined_type.JsonSchema = ''
-                                    for _import in imports:
-                                        parts = _import.split('.')
-                                        if '<' in element_identifier:
-                                            element_identifier = element_identifier[
-                                                                 :element_identifier.index('<')]
-                                        if parts[-1] == element_identifier:
-                                            java_user_defined_type.PackageName = _import[:(
-                                                    _import.index(element_identifier) - 1)]
-                                    java_element.extends.append(java_user_defined_type)
+                                    java_element.extends.append(java_user_defined_type_generator(java_user_defined_type, module_name, java_file, element_identifier, imports))
                                 elif isinstance(_type.extends, list):
                                     for _super in _type.extends:
                                         if isinstance(_super, javalang.tree.ReferenceType):
                                             element_identifier = get_reference_type(_super)
                                             java_user_defined_type = metamodel.JavaUserDefinedType()
-                                            java_user_defined_type.ParentProjectName = module_name
-                                            java_user_defined_type.ArtifactFileName = java_file
-                                            java_user_defined_type.ElementIdentifier = element_identifier
-                                            java_user_defined_type.ElementProfile = 'COMPILE'
-                                            java_user_defined_type.JsonSchema = ''
-                                            for _import in imports:
-                                                parts = _import.split('.')
-                                                if '<' in element_identifier:
-                                                    element_identifier = element_identifier[
-                                                                         :element_identifier.index('<')]
-                                                if parts[-1] == element_identifier:
-                                                    java_user_defined_type.PackageName = _import[:(
-                                                            _import.index(element_identifier) - 1)]
-                                            java_element.extends.append(java_user_defined_type)
+                                            java_element.extends.append(java_user_defined_type_generator(java_user_defined_type, module_name, java_file, element_identifier, imports))
 
                             if _type.annotations:
                                 for annotation in get_annotations(_type,
