@@ -116,12 +116,12 @@ class smallFrame:
         self.targetWindow = targetWindow
         self.description = description
         self.fileType = fileType
-        self.lbl = tkinter.Label(self.targetWindow, text = self.description)
+        self.lbl = tkinter.Label(self.targetWindow, text = self.description, font =("Arial", 12))
         self.lbl.grid(row = inputRow, column = inputColumn, columnspan = 2, sticky = 'W')
-        self.ent = tkinter.Entry(targetWindow, text = '', width = 50, foreground = 'navy')
+        self.ent = tkinter.Entry(targetWindow, text = '', width = 50, foreground = 'navy', font =("Arial", 12))
         self.ent.grid(row = (inputRow+1), column = inputColumn, padx = 2, pady = 2, sticky = 'N')
         self.ent.configure(state ='readonly', readonlybackground = 'white')
-        self.addbutton = tkinter.Button(targetWindow, text = 'Browse', width = 10)
+        self.addbutton = tkinter.Button(targetWindow, text = 'Browse', width = 10, font =("Arial", 18))
         self.addbutton.configure(command = lambda button = self: select(self))
         self.addbutton.grid(row = (inputRow+1), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
         
@@ -131,22 +131,22 @@ class largeFrame:
         self.targetWindow = targetWindow
         self.description = description
         self.fileType = fileType
-        self.lbl = tkinter.Label(self.targetWindow, text = self.description)
+        self.lbl = tkinter.Label(self.targetWindow, text = self.description, font =("Arial", 12))
         self.lbl.grid(row = inputRow, column = inputColumn, columnspan = 2, sticky = 'W')
         self.frame = tkinter.Frame(targetWindow)
         self.frame.grid(row = (inputRow+1), rowspan = 2, column = inputColumn, padx = 2, pady = 2)
         self.xscroll = tkinter.Scrollbar(self.frame, orient='horizontal')
         self.yscroll = tkinter.Scrollbar(self.frame, orient='vertical')
-        self.lst = tkinter.Listbox(self.frame, width = 50, height = 10, xscrollcommand = self.xscroll.set, yscrollcommand = self.yscroll.set, foreground = 'navy')
+        self.lst = tkinter.Listbox(self.frame, width = 50, height = 10, xscrollcommand = self.xscroll.set, yscrollcommand = self.yscroll.set, foreground = 'navy', font =("Arial", 12))
         self.xscroll.config(command = self.lst.xview)
         self.xscroll.pack(side = 'bottom', fill = 'x')
         self.yscroll.config(command = self.lst.yview)
         self.yscroll.pack(side = 'right', fill = 'y')
         self.lst.pack(side = 'left', fill = 'both', expand = 1)
-        self.addbutton = tkinter.Button(targetWindow, text = 'Add Item', width = 10)
+        self.addbutton = tkinter.Button(targetWindow, text = 'Add Item', width = 10, font =("Arial", 18))
         self.addbutton.configure(command = lambda button = self: select(button))
         self.addbutton.grid(row = (inputRow+1), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
-        self.delbutton = tkinter.Button(targetWindow, text = 'Delete', width = 10)
+        self.delbutton = tkinter.Button(targetWindow, text = 'Delete', width = 10, font =("Arial", 18))
         self.delbutton.configure(command = lambda button = self: delete_item(button))
         self.delbutton.grid(row = (inputRow+2), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
 
@@ -156,9 +156,9 @@ window.title('A Python application to parse YAML, XML and JAVA artifacts of a mi
 window.protocol("WM_DELETE_WINDOW", window_quit)
 
 #Generates the project name input
-lbl_proj_name = tkinter.Label(window, text = 'Type Multi-Module Project Name (mandatory):')
+lbl_proj_name = tkinter.Label(window, text = 'Type Multi-Module Project Name (mandatory):', font =("Arial", 12))
 lbl_proj_name.grid(row = 1, column = 0, columnspan = 2, sticky = 'W' + 'S')
-txt_proj_name = tkinter.Entry(window, text = '', width = 50, foreground = 'navy')
+txt_proj_name = tkinter.Entry(window, text = '', width = 50, foreground = 'navy', font =("Arial", 12))
 txt_proj_name.grid(row = 2, column = 0, padx = 2, pady = 2, sticky = 'N')
 
 #Generates the windows
@@ -178,7 +178,7 @@ app_config_dir = largeFrame("appConfigDir", window,"Select Centralized Configura
 output_dir = smallFrame("outputDir", window, "Select output directory (mandatory)", 10, 0, "directory")
 
 #Generates the create PSM button
-btn_psm_instance = tkinter.Button(window, text = 'Create PSM Model', width = 30)
+btn_psm_instance = tkinter.Button(window, text = 'Create PSM Model', width = 30, font =("Arial", 18))
 btn_psm_instance.configure(command = lambda button = btn_psm_instance: create_psm_instance())
 btn_psm_instance.grid(row = 11, column = 0, columnspan = 6, padx = 2, pady = 10)
 

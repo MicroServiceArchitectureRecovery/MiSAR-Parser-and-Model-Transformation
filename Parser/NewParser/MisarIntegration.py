@@ -257,9 +257,9 @@ class programOfChoice:
         self.version = version
         self.inputRow = inputRow
         self.inputColumn = inputColumn
-        self.moduleName = tkinter.Label(targetWindow, text = name, font = 15)
+        self.moduleName = tkinter.Label(targetWindow, text = name, font =("Arial", 20))
         self.moduleName.grid(row = inputRow, column = inputColumn)
-        self.launchButton = tkinter.Button(targetWindow, text = "Install", width = 10)
+        self.launchButton = tkinter.Button(targetWindow, text = "Install", font =("Arial", 20), width = 10)
         self.launchButton.configure(command = lambda button = self: buttonStuff(button))
         self.launchButton.grid(row = inputRow+1, column = inputColumn)
 def window_quit():
@@ -271,14 +271,14 @@ misar_updater()
 mainWindow = tkinter.Tk()
 
 mainWindow.title("MicroService Architecture Recovery")
-welcome = tkinter.Label(mainWindow, text = "Hello and welcome to the MiSAR AIO!\n Please select a program you would like to use from the list below:", font = 15)
+welcome = tkinter.Label(mainWindow, text = "Hello and welcome to the MiSAR AIO!\n Please select a program you would like to use from the list below:", font =("Arial", 20))
 welcome.grid(row = 0, column = 0)
 
 theParser = programOfChoice("MiSAR Parser", "V1.0", 1, 0, mainWindow)
 theTransformationEngine = programOfChoice("MiSAR Transformation Engine", "V1.0", 3, 0, mainWindow)
 theGraphicalModelGenerator = programOfChoice("MiSAR Graphical Model Generator", "V1.0", 5, 0, mainWindow)
 theHelpButton = programOfChoice("Need help or more information about this program?", "V1.0", 7, 0, mainWindow)
-theHelpButton.launchButton.configure(text = "Help")
+theHelpButton.launchButton.configure(text = "Help", font =("Arial", 20))
 
 if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == True:
     theParser.launchButton.configure(text = "Launch")
