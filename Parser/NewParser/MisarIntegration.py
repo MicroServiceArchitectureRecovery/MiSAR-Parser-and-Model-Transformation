@@ -201,7 +201,7 @@ def buttonStuff(inputClass):
                                           "Would you instead like to view the manual for MiSAR?\n"
                                           "This does NOT requires an internet connection.")
             if demo == "yes":
-                subprocess.Popen((os.path.expanduser('~') + "\\MisAR\\MiSAR Parser - manualfinal.pdf"), shell=True)
+                subprocess.Popen((os.path.expanduser('~') + "\\MisAR\\MiSAR Manual v1.pdf"), shell=True)
 
 def misar_updater():
     if checkInternet():
