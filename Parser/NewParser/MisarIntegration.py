@@ -103,6 +103,37 @@ def checkImports(inputClass):
     else:
         return True
 
+def checkImportsTransform(inputClass):
+    errors = []
+    try:
+        import motra
+    except ModuleNotFoundError:
+        errors.append("motra")
+    if len(errors) > 0:
+        errStr = ""
+        for z in range (0, len(errors)):
+            errStr = errStr + errors[z]+"\n"
+        if len(errors) == 1:
+            strAdd = "The following import is currently not installed:\n\n"+errStr+"\nThis import is mandatory for the function of the Transformation Engine.\nWould you like to install it now?"
+        else:
+            strAdd = "The following imports are currently not installed:\n\n"+errStr+"\nThese imports are mandatory for the function of the Transformation Engine.\nWould you like to install it now?"
+        installImports = messagebox.askquestion("Missing Imports", (strAdd))
+        if installImports == "yes" and checkInternet():
+            try:
+                os.system('pip3 install motra')
+                import motra
+                messagebox.showinfo("Success!", "The operation completed successfully.")
+                return True
+            except ModuleNotFoundError:
+                messagebox.showerror("Error",
+                                     "An unknown error occurred.")
+            return False
+        else:
+            return False
+    else:
+        return True
+
+
 def parserInstaller(parserLocation):
     from git import Repo
     try:
@@ -111,6 +142,18 @@ def parserInstaller(parserLocation):
             (os.path.expanduser('~') + "/" + parserLocation), branch="2123833-(Kevin's-branch)")
         if os.path.isfile(
                 (os.path.expanduser('~') + "\\" + parserLocation + "\\MisarQVTv3\\source\\PSM.ecore")) == True:
+            return True
+    except Exception as fail:
+        return False
+
+def gmgInstaller(gmgLocation):
+    from git import Repo
+    try:
+        Repo.clone_from(
+            "https://github.com/MicroServiceArchitectureRecovery/misar-plantUML.git",
+            (os.path.expanduser('~') + "/" + gmgLocation), branch="main")
+        if os.path.isfile(
+                (os.path.expanduser('~') + "\\" + gmgLocation + "\\Runnable Jar File\\MiSAR.jar")) == True:
             return True
     except Exception as fail:
         return False
@@ -145,7 +188,35 @@ def parserUninstaller(parserLocation):
                 targetLink = ""
                 readOnly = True
 
-
+def gmgUninstaller(gmgLocation):
+    targetLink = ""
+    readOnly = True
+    while readOnly:
+        readOnly = False
+        try:
+            os.rmdir(os.path.expanduser('~') + "\\" + gmgLocation)
+        except OSError:
+            try:
+                shutil.rmtree((os.path.expanduser('~') + "\\" + gmgLocation))
+            except PermissionError as fail:
+                failEdit = (str(fail))
+                commaActivate = False
+                for x in range(0, len(failEdit)):
+                    if failEdit[x] == "'" and commaActivate == True:
+                        commaActivate = False
+                    if commaActivate == True:
+                        targetLink = targetLink + failEdit[x]
+                    if failEdit[x] == "'" and commaActivate == False:
+                        commaActivate = True
+                #print(targetLink)
+                os.chmod(targetLink, stat.S_IWRITE)
+                os.unlink(targetLink)
+                try:
+                    shutil.rmtree(targetLink)
+                except FileNotFoundError:
+                    pass
+                targetLink = ""
+                readOnly = True
 
 def buttonStuff(inputClass):
     if inputClass.name == "MiSAR Parser":
@@ -173,6 +244,35 @@ def buttonStuff(inputClass):
         else:
             if checkImports(inputClass):
                 import MisarParserGUI
+
+    elif inputClass.name == "MiSAR Transformation Engine":
+        if checkImportsTransform(inputClass):
+            import MisarTransformationEngine
+
+    elif inputClass.name == "MiSAR Graphical Model Generator":
+        if os.path.isfile((os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")) == False:
+            MisarChecker = messagebox.askquestion("Graphical Model Generator Installer", "To use the "+ inputClass.name + ", you must first install it.\nWould you to like to install it now?")
+            if MisarChecker == "yes":
+                if checkInternet():
+                    if checkIfGitIsInstalled(inputClass):
+                        if gmgInstaller("GMG") == True:
+                            messagebox.showinfo("Success!",
+                                                "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + os.path.expanduser(
+                                                    '~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")
+                            theGraphicalModelGenerator.launchButton.configure(text="Launch")
+                        else:
+                            gmgUninstaller("GMG")
+                            if gmgInstaller("GMG") == True:
+                                messagebox.showinfo("Success!",
+                                                    "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + os.path.expanduser(
+                                                        '~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")
+                                theGraphicalModelGenerator.launchButton.configure(text="Launch")
+                else:
+                    messagebox.showerror("No Internet Connection!",
+                                         "An internet connection is required to install the "+inputClass.name+".")
+                    return False
+        else:
+            subprocess.call(['java', '-jar', (os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")])
 
 
     elif inputClass.name == "Need help or more information about this program?":
@@ -282,6 +382,11 @@ theHelpButton.launchButton.configure(text = "Help", font =("Arial", 20))
 
 if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == True:
     theParser.launchButton.configure(text = "Launch")
+
+if os.path.isfile((os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")) == True:
+    theGraphicalModelGenerator.launchButton.configure(text = "Launch")
+
+theTransformationEngine.launchButton.configure(text = "Launch")
 
 mainWindow.protocol("WM_DELETE_WINDOW", window_quit)
 
