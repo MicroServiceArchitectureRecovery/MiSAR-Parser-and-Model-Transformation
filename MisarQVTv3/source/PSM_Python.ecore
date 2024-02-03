@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="PSM" nsURI="http://localhost/mdd/PSM.ecore" nsPrefix="PSM">
+  <eClassifiers xsi:type="ecore:EClass" name="ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ParentProjectName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ArtifactFileName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="GeneratingLinesOfCode"
+        upperBound="-1" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="RootPSM">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="application" lowerBound="1"
+        eType="#//DistributedApplicationProject" containment="true"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="DistributedApplicationProject">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ApplicationName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ProjectPackageURL" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="containers" lowerBound="1"
+        upperBound="-1" eType="#//DockerContainerDefinition" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="application_project" lowerBound="1"
+        eType="#//ApplicationProject" containment="true"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="DockerContainerDefinition" eSuperTypes="#//ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ContainerName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="GeneratesLogs" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EBoolean"
+        defaultValueLiteral="false"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ImageField" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="BuildField" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="links" upperBound="-1"
+        eType="#//DockerContainerLink" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="ports" lowerBound="1" upperBound="-1"
+        eType="#//DockerContainerPort" containment="true"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="DockerContainerLink" eSuperTypes="#//ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="DependencyOrder" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EInt"
+        defaultValueLiteral="1"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="LinksDependsOnField" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"
+        defaultValueLiteral=""/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="DockerContainerPort" eSuperTypes="#//ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ExposesPortsField" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"
+        defaultValueLiteral=""/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="ApplicationProject" eSuperTypes="#//ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ProjectArtifactId" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="modules" lowerBound="1"
+        upperBound="-1" eType="#//MicroserviceProject" containment="true"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="MicroserviceProject" eSuperTypes="#//ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ProjectArtifactId" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="libraries" lowerBound="1"
+        upperBound="-1" eType="#//DependencyLibrary" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="properties" lowerBound="1"
+        upperBound="-1" eType="#//ConfigurationProperty" containment="true"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="DependencyLibrary" eSuperTypes="#//ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="LibraryGroupName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="LibraryName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="LibraryScope" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+  </eClassifiers>
+
+  <eClassifiers xsi:type="ecore:EClass" name="PythonDjangoApplicationProject" eSuperTypes="#//MicroserviceProject">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="layers" lowerBound="2"
+        upperBound="-1" eType="#//SpringWebApplicationLayer" containment="true"/>
+  </eClassifiers>
+
+  <eClassifiers xsi:type="ecore:EClass" name="DjangoApplicationProject" eSuperTypes="#//ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="LayerName" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="elements" lowerBound="1"
+        upperBound="-1" eType="#//JavaUserDefinedType" containment="true"/>
+  </eClassifiers>
+
+  <eClassifiers xsi:type="ecore:EClass" name="PythonElement" eSuperTypes="#//ArtifactElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ElementIdentifier" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ElementProfile" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="annotations" upperBound="-1"
+        eType="#//JavaAnnotation" containment="true"/>
+  </eClassifiers>
+
+  <eClassifiers xsi:type="ecore:EClass" name="PythonUserDefinedType" eSuperTypes="#//PythonDataType">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="methods" lowerBound="1"
+        upperBound="-1" eType="#//JavaMethod" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="extends" upperBound="-1"
+        eType="#//JavaUserDefinedType" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="imports" upperBound="-1"
+        eType="#//JavaUserDefinedType" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="defines" upperBound="-1"
+        eType="#//JavaUserDefinedType" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="fields" upperBound="-1"
+        eType="#//JavaDataField" containment="true"/>
+  </eClassifiers>
+
+  <eClassifiers xsi:type="ecore:EClass" name="PythonClassType" eSuperTypes="#//PythonUserDefinedType">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="implements" upperBound="-1"
+        eType="#//PythonInterfaceType" containment="true"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="PythonInterfaceType" eSuperTypes="#//PythonUserDefinedType"/>
+
+  <eClassifiers xsi:type="ecore:EClass" name="PythonFunction" eSuperTypes="#//PythonElement">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="args" upperBound="-1" eType="#//PythonFunctionArguments" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="body" upperBound="-1" eType="#//PythonNodeList" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="returns" upperBound="-1" eType="#//PythonDataType" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="name" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+  </eClassifiers>
+
+  <eClassifiers xsi:type="ecore:EClass" name="PythonFunctionArguments" eSuperTypes="#//PythonDataField">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="ArgumentsOrder" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EInt"
+        defaultValueLiteral="1"/>
+  </eClassifiers>
+
+  <eClassifiers xsi:type="ecore:EClass" name="PythonDataField" eSuperTypes="#//PythonElement">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="FieldValue" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"
+        defaultValueLiteral="NOT_APPLICABLE"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="type" lowerBound="1" eType="#//JavaDataType"
+        containment="true"/>
+  </eClassifiers>
+
+  <eClassifiers xsi:type="ecore:EClass" name="PythonNodeList" eSuperTypes="#//PythonDataField">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="assign" eType="#//PythonAssign"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="return" eType="#//PythonReturn"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="if" eType="#//PythonIf"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="expr" eType="#//PythonExpr"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="call" eType="#//PythonCall"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="while" eType="#//PythonWhile"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="for" eType="#//PythonFor"/>
+  </eClassifiers>
+
+</ecore:EPackage>
