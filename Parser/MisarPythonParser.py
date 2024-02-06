@@ -514,8 +514,7 @@ def create_psm_instance():
     elif not lst_docker_compose.size():
         messagebox.showerror('Missing Values', 'please provide one or more value for \'Docker Compose Files\' !')
     elif not lst_module_build_dir.size():
-        messagebox.showerror('Missing Values',
-                             'please provide one or more value for \'Microservice Projects Build Directories\' !')
+        messagebox.showerror('Missing Values', 'please provide one or more value for \'Microservice Projects Build Directories\' !')
     else:
         start_time = datetime.now().strftime("%H:%M:%S")
         multi_module_project_name = ''
@@ -547,7 +546,7 @@ def create_psm_instance():
             if app_config_dir.strip():
                 app_config_dirs.append(app_config_dir)
 
-        psm_instance_file_name = 'artifacts.xmi'
+        psm_instance_file_name = 'python_artifacts.xmi'
         psm_instance_file = psm_ecore_file.replace(os.path.basename(psm_ecore_file), psm_instance_file_name)
 
         # load metamodel from XMI file
