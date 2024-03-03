@@ -12,6 +12,7 @@ def fetch_artifacts(filename_part, filepath_part, app_root_dir):
                 artifact_filename = root + '/' + file
                 if filepath_part in root:
                     artifact_list.append(artifact_filename)
+                    #print(files)
     return artifact_list
 
 def xml_to_dict(filename):
@@ -399,275 +400,276 @@ def java_user_defined_type_generator(java_user_defined_type, module_name, java_f
     return java_user_defined_type
 
 
-def java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir):
+def java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir, spring_boot_app):
     # parse java files
-    java_layer = metamodel.SpringWebApplicationLayer()
-    java_layer.ParentProjectName = module_name
-    java_layer.LayerName = 'SpringWebApplicationLayer'
-    module_project.layers.append(java_layer)
+    if spring_boot_app:
+        java_layer = metamodel.SpringWebApplicationLayer()
+        java_layer.ParentProjectName = module_name
+        java_layer.LayerName = 'SpringWebApplicationLayer'
+        module_project.layers.append(java_layer)
 
     for java_file in fetch_artifacts('.java', module_name, app_root_dir):
-        if '/src/test/' not in java_file:
-            print('java_file = {}'.format(os.path.basename(java_file)))
-            try:
-                with open(java_file, encoding='utf8') as file:
-                    tree = javalang.parse.parse(file.read())
-                    # if 'RabbitConfiguration' in java_file:
-                    ## print(tree)
-                    java_element = metamodel.JavaUserDefinedType()
-                    imports = []
-                    if tree.imports:
-                        for _import in tree.imports:
-                            imports.append(_import.path)
-                    package_name = ''
-                    if tree.package:
-                        package_name = tree.package.name
-                    for _type in tree.types:
-                        if isinstance(_type, javalang.tree.ClassDeclaration) or isinstance(_type, javalang.tree.InterfaceDeclaration):
-                            if isinstance(_type, javalang.tree.ClassDeclaration):
-                                java_element = metamodel.JavaClassType()
-                                if _type.implements:
-                                    if isinstance(_type.implements, javalang.tree.ReferenceType):
-                                        element_identifier = get_reference_type(_type.implements)
-                                        java_interface = metamodel.JavaInterfaceType()
-                                        java_element.implements.append(java_interface_generator(java_interface, module_name, java_file, element_identifier, imports))
-                                    elif isinstance(_type.implements, list):
-                                        for _interface in _type.implements:
-                                            if isinstance(_interface, javalang.tree.ReferenceType):
-                                                element_identifier = get_reference_type(_interface)
-                                                java_interface = metamodel.JavaInterfaceType()
-                                                java_element.implements.append(java_interface_generator(java_interface, module_name, java_file, element_identifier, imports))
-                            elif isinstance(_type, javalang.tree.InterfaceDeclaration):
-                                java_element = metamodel.JavaInterfaceType()
+        print('java_file = {}'.format(os.path.basename(java_file)))
+        try:
+            with open(java_file, encoding='utf8') as file:
+                tree = javalang.parse.parse(file.read())
+                # if 'RabbitConfiguration' in java_file:
+                ## print(tree)
+                java_element = metamodel.JavaUserDefinedType()
+                imports = []
+                if tree.imports:
+                    for _import in tree.imports:
+                        imports.append(_import.path)
+                package_name = ''
+                if tree.package:
+                    package_name = tree.package.name
+                for _type in tree.types:
+                    if isinstance(_type, javalang.tree.ClassDeclaration) or isinstance(_type, javalang.tree.InterfaceDeclaration):
+                        if isinstance(_type, javalang.tree.ClassDeclaration):
+                            java_element = metamodel.JavaClassType()
+                            if _type.implements:
+                                if isinstance(_type.implements, javalang.tree.ReferenceType):
+                                    element_identifier = get_reference_type(_type.implements)
+                                    java_interface = metamodel.JavaInterfaceType()
+                                    java_element.implements.append(java_interface_generator(java_interface, module_name, java_file, element_identifier, imports))
+                                elif isinstance(_type.implements, list):
+                                    for _interface in _type.implements:
+                                        if isinstance(_interface, javalang.tree.ReferenceType):
+                                            element_identifier = get_reference_type(_interface)
+                                            java_interface = metamodel.JavaInterfaceType()
+                                            java_element.implements.append(java_interface_generator(java_interface, module_name, java_file, element_identifier, imports))
+                        elif isinstance(_type, javalang.tree.InterfaceDeclaration):
+                            java_element = metamodel.JavaInterfaceType()
 
-                            java_element.ParentProjectName = module_name
-                            java_element.ArtifactFileName = java_file
-                            java_element.ElementIdentifier = _type.name
-                            java_element.ElementProfile = 'COMPILE'
-                            java_element.JsonSchema = ''
-                            java_element.PackageName = package_name
+                        java_element.ParentProjectName = module_name
+                        java_element.ArtifactFileName = java_file
+                        java_element.ElementIdentifier = _type.name
+                        java_element.ElementProfile = 'COMPILE'
+                        java_element.JsonSchema = ''
+                        java_element.PackageName = package_name
 
-                            # add import list
-                            for _import in imports:
-                                parts = _import.split('.')
-                                java_imported_user_defined_type = metamodel.JavaUserDefinedType()
-                                java_imported_user_defined_type.ParentProjectName = module_name
-                                java_imported_user_defined_type.ArtifactFileName = java_file
-                                java_imported_user_defined_type.ElementIdentifier = parts[-1]
-                                java_imported_user_defined_type.ElementProfile = 'COMPILE'
-                                java_imported_user_defined_type.IsPrimitive = False
-                                java_imported_user_defined_type.JsonSchema = ''
-                                java_imported_user_defined_type.PackageName = '.'.join(parts[:-1])
-                                java_element.imports.append(java_imported_user_defined_type)
+                        # add import list
+                        for _import in imports:
+                            parts = _import.split('.')
+                            java_imported_user_defined_type = metamodel.JavaUserDefinedType()
+                            java_imported_user_defined_type.ParentProjectName = module_name
+                            java_imported_user_defined_type.ArtifactFileName = java_file
+                            java_imported_user_defined_type.ElementIdentifier = parts[-1]
+                            java_imported_user_defined_type.ElementProfile = 'COMPILE'
+                            java_imported_user_defined_type.IsPrimitive = False
+                            java_imported_user_defined_type.JsonSchema = ''
+                            java_imported_user_defined_type.PackageName = '.'.join(parts[:-1])
+                            java_element.imports.append(java_imported_user_defined_type)
 
-                            if _type.extends:
-                                if isinstance(_type.extends, javalang.tree.ReferenceType):
-                                    element_identifier = get_reference_type(_type.extends)
-                                    java_user_defined_type = metamodel.JavaUserDefinedType()
-                                    java_element.extends.append(java_user_defined_type_generator(java_user_defined_type, module_name, java_file, element_identifier, imports))
-                                elif isinstance(_type.extends, list):
-                                    for _super in _type.extends:
-                                        if isinstance(_super, javalang.tree.ReferenceType):
-                                            element_identifier = get_reference_type(_super)
-                                            java_user_defined_type = metamodel.JavaUserDefinedType()
-                                            java_element.extends.append(java_user_defined_type_generator(java_user_defined_type, module_name, java_file, element_identifier, imports))
+                        if _type.extends:
+                            if isinstance(_type.extends, javalang.tree.ReferenceType):
+                                element_identifier = get_reference_type(_type.extends)
+                                java_user_defined_type = metamodel.JavaUserDefinedType()
+                                java_element.extends.append(java_user_defined_type_generator(java_user_defined_type, module_name, java_file, element_identifier, imports))
+                            elif isinstance(_type.extends, list):
+                                for _super in _type.extends:
+                                    if isinstance(_super, javalang.tree.ReferenceType):
+                                        element_identifier = get_reference_type(_super)
+                                        java_user_defined_type = metamodel.JavaUserDefinedType()
+                                        java_element.extends.append(java_user_defined_type_generator(java_user_defined_type, module_name, java_file, element_identifier, imports))
 
-                            if _type.annotations:
-                                for annotation in get_annotations(_type,
-                                                                  multi_module_project['modules'][module_name][
-                                                                      'properties']):
-                                    java_annotation = metamodel.JavaAnnotation()
-                                    java_element.annotations.append(java_annotation_generator(java_annotation, module_name, java_file, annotation, metamodel))
-                            # parse type body
-                            if _type.body:
-                                for _declaration in _type.body:
-                                    # parse type fields
-                                    for path, _field_declaration in _declaration.filter(
-                                            javalang.tree.FieldDeclaration):
-                                        # if 'AdminBasicInfoServiceImpl' in java_file:
-                                        # print('_field_declaration ->',_field_declaration)
-                                        java_field = metamodel.JavaDataField()
+                        if _type.annotations:
+                            for annotation in get_annotations(_type,
+                                                              multi_module_project['modules'][module_name][
+                                                                  'properties']):
+                                java_annotation = metamodel.JavaAnnotation()
+                                java_element.annotations.append(java_annotation_generator(java_annotation, module_name, java_file, annotation, metamodel))
+                        # parse type body
+                        if _type.body:
+                            for _declaration in _type.body:
+                                # parse type fields
+                                for path, _field_declaration in _declaration.filter(
+                                        javalang.tree.FieldDeclaration):
+                                    # if 'AdminBasicInfoServiceImpl' in java_file:
+                                    # print('_field_declaration ->',_field_declaration)
+                                    java_field = metamodel.JavaDataField()
 
-                                        java_field.ParentProjectName = module_name
-                                        java_field.ArtifactFileName = java_file
-                                        java_field.ElementIdentifier = ''
-                                        java_field.ElementProfile = 'COMPILE'
-                                        java_field.FieldValue = 'NOT_AVAILABLE'
-                                        if _field_declaration.declarators:
-                                            for _declarator in _field_declaration.declarators:
-                                                if isinstance(_declarator, javalang.tree.VariableDeclarator):
-                                                    java_field.ElementIdentifier = _declarator.name
-                                                    break
+                                    java_field.ParentProjectName = module_name
+                                    java_field.ArtifactFileName = java_file
+                                    java_field.ElementIdentifier = ''
+                                    java_field.ElementProfile = 'COMPILE'
+                                    java_field.FieldValue = 'NOT_AVAILABLE'
+                                    if _field_declaration.declarators:
+                                        for _declarator in _field_declaration.declarators:
+                                            if isinstance(_declarator, javalang.tree.VariableDeclarator):
+                                                java_field.ElementIdentifier = _declarator.name
+                                                break
 
-                                        # parse field annotations
-                                        if _field_declaration.annotations:
-                                            for annotation in get_annotations(_field_declaration,
-                                                                              multi_module_project['modules'][
-                                                                                  module_name]['properties']):
-                                                java_annotation = metamodel.JavaAnnotation()
-                                                java_field.annotations.append(java_annotation_generator(java_annotation, module_name, java_file, annotation, metamodel))
+                                    # parse field annotations
+                                    if _field_declaration.annotations:
+                                        for annotation in get_annotations(_field_declaration,
+                                                                          multi_module_project['modules'][
+                                                                              module_name]['properties']):
+                                            java_annotation = metamodel.JavaAnnotation()
+                                            java_field.annotations.append(java_annotation_generator(java_annotation, module_name, java_file, annotation, metamodel))
+                                            # parse field value
+                                    java_field.FieldValue = evaluate_field(_field_declaration, _type.name,
+                                                                           multi_module_project['modules'][
+                                                                               module_name]['properties'],
+                                                                           module_name, app_root_dir)
+                                    # print('field value ->', java_field.FieldValue)
+                                    # parse field type
+                                    if _field_declaration.type:
+                                        element_identifier = get_reference_type(_field_declaration.type)
+                                        java_data_type = metamodel.JavaDataType()
+                                        java_field.type = java_data_type_generator(java_data_type, module_name, java_file, element_identifier, _field_declaration.type, imports)
+
+                                    java_element.fields.append(java_field)
+                                # parse type methods
+                                for path, _method_declaration in _declaration.filter(
+                                        javalang.tree.MethodDeclaration):
+                                    # if 'AdminBasicInfoServiceImpl' in java_file:
+                                    # print('_method_declaration ->',_method_declaration)
+                                    java_method = metamodel.JavaMethod()
+                                    java_method.ParentProjectName = module_name
+                                    java_method.ArtifactFileName = java_file
+                                    java_method.ElementIdentifier = _method_declaration.name
+                                    java_method.ElementProfile = 'COMPILE'
+                                    java_method.RootCallingMethod = ''
+                                    # parse method parent
+                                    java_user_defined_data_type = metamodel.JavaUserDefinedType()
+                                    java_user_defined_data_type.ParentProjectName = java_element.ParentProjectName
+                                    java_user_defined_data_type.ArtifactFileName = java_element.ArtifactFileName
+                                    java_user_defined_data_type.ElementIdentifier = java_element.ElementIdentifier
+                                    java_user_defined_data_type.ElementProfile = java_element.ElementProfile
+                                    java_user_defined_data_type.JsonSchema = java_element.JsonSchema
+                                    java_user_defined_data_type.PackageName = java_element.PackageName
+                                    java_method.parent = java_user_defined_data_type
+                                    # parse method annotations
+                                    if _method_declaration.annotations:
+                                        for annotation in get_annotations(_method_declaration,
+                                                                          multi_module_project['modules'][
+                                                                              module_name]['properties']):
+                                            java_annotation = metamodel.JavaAnnotation()
+                                            java_method.annotations.append(java_annotation_generator(java_annotation, module_name, java_file, annotation, metamodel))
+                                    # parse method returns
+                                    if _method_declaration.return_type:
+                                        element_identifier = get_reference_type(
+                                            _method_declaration.return_type)
+                                        java_data_type = metamodel.JavaDataType()
+                                        java_method.returns = java_data_type_generator(java_data_type, module_name, java_file, element_identifier, _method_declaration.return_type, imports)
+                                        # parse method parameters
+                                    if _method_declaration.parameters:
+                                        parameter_order = 0
+                                        for _parameter in _method_declaration.parameters:
+                                            if isinstance(_parameter, javalang.tree.FormalParameter):
+                                                parameter_order += 1
+                                                java_method_parameter = metamodel.JavaMethodParameter()
+                                                java_method_parameter.ParentProjectName = module_name
+                                                java_method_parameter.ArtifactFileName = java_file
+                                                java_method_parameter.ElementIdentifier = _parameter.name
+                                                java_method_parameter.ElementProfile = 'COMPILE'
+                                                java_method_parameter.FieldValue = 'NOT_AVAILABLE'
+                                                java_method_parameter.ParameterOrder = parameter_order
+                                                # parse method parameter annotations
+                                                if _parameter.annotations:
+                                                    for annotation in get_annotations(_parameter,
+                                                                                      multi_module_project[
+                                                                                          'modules'][
+                                                                                          module_name][
+                                                                                          'properties']):
+                                                        java_annotation = metamodel.JavaAnnotation()
+                                                        java_method_parameter.annotations.append(java_annotation_generator(java_annotation, module_name, java_file, annotation, metamodel))
+                                                # parse method parameter type
+                                                if _parameter.type:
+                                                    element_identifier = get_reference_type(_parameter.type)
+                                                    java_data_type = metamodel.JavaDataType()
+                                                    java_method_parameter.type = java_data_type_generator(java_data_type, module_name, java_file, element_identifier, _parameter.type, imports)
+                                                java_method.parameters.append(java_method_parameter)
+
+                                    if _method_declaration.body:
+                                        for _element in _method_declaration.body:
+                                            # parse method fields
+                                            for path, _local_variable in _element.filter(
+                                                    javalang.tree.LocalVariableDeclaration):
+                                                # if 'AdminBasicInfoServiceImpl' in java_file:
+                                                # print('_local_variable ->',_local_variable)
+
+                                                java_field = metamodel.JavaDataField()
+
+                                                java_field.ParentProjectName = module_name
+                                                java_field.ArtifactFileName = java_file
+                                                java_field.ElementIdentifier = 'NOT_AVAILABLE'
+                                                java_field.ElementProfile = 'COMPILE'
+                                                java_field.FieldValue = 'NOT_AVAILABLE'
+                                                if _local_variable.declarators:
+                                                    for _declarator in _local_variable.declarators:
+                                                        if isinstance(_declarator,
+                                                                      javalang.tree.VariableDeclarator):
+                                                            java_field.ElementIdentifier = _declarator.name
+                                                            break
+
                                                 # parse field value
-                                        java_field.FieldValue = evaluate_field(_field_declaration, _type.name,
-                                                                               multi_module_project['modules'][
-                                                                                   module_name]['properties'],
-                                                                               module_name, app_root_dir)
-                                        # print('field value ->', java_field.FieldValue)
-                                        # parse field type
-                                        if _field_declaration.type:
-                                            element_identifier = get_reference_type(_field_declaration.type)
-                                            java_data_type = metamodel.JavaDataType()
-                                            java_field.type = java_data_type_generator(java_data_type, module_name, java_file, element_identifier, _field_declaration.type, imports)
+                                                java_field.FieldValue = evaluate_method_field(
+                                                    _local_variable, _method_declaration, _type.name,
+                                                    multi_module_project['modules'][module_name][
+                                                        'properties'], module_name, app_root_dir)
+                                                # print('method field value ->', java_field.FieldValue)
 
-                                        java_element.fields.append(java_field)
-                                    # parse type methods
-                                    for path, _method_declaration in _declaration.filter(
-                                            javalang.tree.MethodDeclaration):
-                                        # if 'AdminBasicInfoServiceImpl' in java_file:
-                                        # print('_method_declaration ->',_method_declaration)
-                                        java_method = metamodel.JavaMethod()
-                                        java_method.ParentProjectName = module_name
-                                        java_method.ArtifactFileName = java_file
-                                        java_method.ElementIdentifier = _method_declaration.name
-                                        java_method.ElementProfile = 'COMPILE'
-                                        java_method.RootCallingMethod = ''
-                                        # parse method parent
-                                        java_user_defined_data_type = metamodel.JavaUserDefinedType()
-                                        java_user_defined_data_type.ParentProjectName = java_element.ParentProjectName
-                                        java_user_defined_data_type.ArtifactFileName = java_element.ArtifactFileName
-                                        java_user_defined_data_type.ElementIdentifier = java_element.ElementIdentifier
-                                        java_user_defined_data_type.ElementProfile = java_element.ElementProfile
-                                        java_user_defined_data_type.JsonSchema = java_element.JsonSchema
-                                        java_user_defined_data_type.PackageName = java_element.PackageName
-                                        java_method.parent = java_user_defined_data_type
-                                        # parse method annotations
-                                        if _method_declaration.annotations:
-                                            for annotation in get_annotations(_method_declaration,
-                                                                              multi_module_project['modules'][
-                                                                                  module_name]['properties']):
-                                                java_annotation = metamodel.JavaAnnotation()
-                                                java_method.annotations.append(java_annotation_generator(java_annotation, module_name, java_file, annotation, metamodel))
-                                        # parse method returns
-                                        if _method_declaration.return_type:
-                                            element_identifier = get_reference_type(
-                                                _method_declaration.return_type)
-                                            java_data_type = metamodel.JavaDataType()
-                                            java_method.returns = java_data_type_generator(java_data_type, module_name, java_file, element_identifier, _method_declaration.return_type, imports)
-                                            # parse method parameters
-                                        if _method_declaration.parameters:
-                                            parameter_order = 0
-                                            for _parameter in _method_declaration.parameters:
-                                                if isinstance(_parameter, javalang.tree.FormalParameter):
-                                                    parameter_order += 1
-                                                    java_method_parameter = metamodel.JavaMethodParameter()
-                                                    java_method_parameter.ParentProjectName = module_name
-                                                    java_method_parameter.ArtifactFileName = java_file
-                                                    java_method_parameter.ElementIdentifier = _parameter.name
-                                                    java_method_parameter.ElementProfile = 'COMPILE'
-                                                    java_method_parameter.FieldValue = 'NOT_AVAILABLE'
-                                                    java_method_parameter.ParameterOrder = parameter_order
-                                                    # parse method parameter annotations
-                                                    if _parameter.annotations:
-                                                        for annotation in get_annotations(_parameter,
-                                                                                          multi_module_project[
-                                                                                              'modules'][
-                                                                                              module_name][
-                                                                                              'properties']):
-                                                            java_annotation = metamodel.JavaAnnotation()
-                                                            java_method_parameter.annotations.append(java_annotation_generator(java_annotation, module_name, java_file, annotation, metamodel))
-                                                    # parse method parameter type
-                                                    if _parameter.type:
-                                                        element_identifier = get_reference_type(_parameter.type)
-                                                        java_data_type = metamodel.JavaDataType()
-                                                        java_method_parameter.type = java_data_type_generator(java_data_type, module_name, java_file, element_identifier, _parameter.type, imports)
-                                                    java_method.parameters.append(java_method_parameter)
+                                                # parse field type
+                                                if _local_variable.type:
+                                                    element_identifier = get_reference_type(
+                                                        _local_variable.type)
+                                                    java_data_type = metamodel.JavaDataType()
+                                                    java_field.type = java_data_type_generator(java_data_type, module_name, java_file, element_identifier, _local_variable.type, imports)
 
-                                        if _method_declaration.body:
-                                            for _element in _method_declaration.body:
-                                                # parse method fields
-                                                for path, _local_variable in _element.filter(
-                                                        javalang.tree.LocalVariableDeclaration):
-                                                    # if 'AdminBasicInfoServiceImpl' in java_file:
-                                                    # print('_local_variable ->',_local_variable)
+                                                java_method.fields.append(java_field)
 
-                                                    java_field = metamodel.JavaDataField()
+                                            # parse method invokes
+                                            for path, _invocation in _element.filter(
+                                                    javalang.tree.MethodInvocation):
+                                                # if 'AdminBasicInfoServiceImpl' in java_file:
+                                                # print('_invocation ->',_invocation)
+                                                element_identifier = _invocation.member
+                                                java_invoked_method = metamodel.JavaMethod()
+                                                java_invoked_method.ParentProjectName = module_name
+                                                java_invoked_method.ArtifactFileName = java_file
+                                                java_invoked_method.ElementIdentifier = element_identifier
+                                                java_invoked_method.ElementProfile = 'COMPILE'
+                                                java_invoked_method.RootCallingMethod = _method_declaration.name
 
-                                                    java_field.ParentProjectName = module_name
-                                                    java_field.ArtifactFileName = java_file
-                                                    java_field.ElementIdentifier = 'NOT_AVAILABLE'
-                                                    java_field.ElementProfile = 'COMPILE'
-                                                    java_field.FieldValue = 'NOT_AVAILABLE'
-                                                    if _local_variable.declarators:
-                                                        for _declarator in _local_variable.declarators:
-                                                            if isinstance(_declarator,
-                                                                          javalang.tree.VariableDeclarator):
-                                                                java_field.ElementIdentifier = _declarator.name
-                                                                break
+                                                # parse invoked method parameters
+                                                if _invocation.arguments:
+                                                    argument_order = 0
+                                                    for _argument in _invocation.arguments:
+                                                        argument_order += 1
+                                                        argument_value = 'NOT_AVAILABLE'
+                                                        argument_name = 'NOT_AVAILABLE'
+                                                        if isinstance(_argument,
+                                                                      javalang.tree.MemberReference):
+                                                            argument_name = _argument.member
 
-                                                    # parse field value
-                                                    java_field.FieldValue = evaluate_method_field(
-                                                        _local_variable, _method_declaration, _type.name,
-                                                        multi_module_project['modules'][module_name][
-                                                            'properties'], module_name, app_root_dir)
-                                                    # print('method field value ->', java_field.FieldValue)
+                                                        # argument_value = evaluate_method_field(_argument)
 
-                                                    # parse field type
-                                                    if _local_variable.type:
-                                                        element_identifier = get_reference_type(
-                                                            _local_variable.type)
-                                                        java_data_type = metamodel.JavaDataType()
-                                                        java_field.type = java_data_type_generator(java_data_type, module_name, java_file, element_identifier, _local_variable.type, imports)
+                                                        java_method_argument = metamodel.JavaMethodParameter()
+                                                        java_method_argument.ParentProjectName = module_name
+                                                        java_method_argument.ArtifactFileName = java_file
+                                                        java_method_argument.ElementIdentifier = argument_name
+                                                        java_method_argument.ElementProfile = 'COMPILE'
+                                                        java_method_argument.FieldValue = argument_value
+                                                        java_method_argument.ParameterOrder = argument_order
 
-                                                    java_method.fields.append(java_field)
+                                                        # parse type of invoked method parameter
 
-                                                # parse method invokes
-                                                for path, _invocation in _element.filter(
-                                                        javalang.tree.MethodInvocation):
-                                                    # if 'AdminBasicInfoServiceImpl' in java_file:
-                                                    # print('_invocation ->',_invocation)
-                                                    element_identifier = _invocation.member
-                                                    java_invoked_method = metamodel.JavaMethod()
-                                                    java_invoked_method.ParentProjectName = module_name
-                                                    java_invoked_method.ArtifactFileName = java_file
-                                                    java_invoked_method.ElementIdentifier = element_identifier
-                                                    java_invoked_method.ElementProfile = 'COMPILE'
-                                                    java_invoked_method.RootCallingMethod = _method_declaration.name
+                                                        java_invoked_method.parameters.append(
+                                                            java_method_argument)
 
-                                                    # parse invoked method parameters
-                                                    if _invocation.arguments:
-                                                        argument_order = 0
-                                                        for _argument in _invocation.arguments:
-                                                            argument_order += 1
-                                                            argument_value = 'NOT_AVAILABLE'
-                                                            argument_name = 'NOT_AVAILABLE'
-                                                            if isinstance(_argument,
-                                                                          javalang.tree.MemberReference):
-                                                                argument_name = _argument.member
+                                                    # endfor _argument in _invocation.arguments:
+                                                # endif _invocation.arguments:
 
-                                                            # argument_value = evaluate_method_field(_argument)
+                                                java_method.invokes.append(java_invoked_method)
 
-                                                            java_method_argument = metamodel.JavaMethodParameter()
-                                                            java_method_argument.ParentProjectName = module_name
-                                                            java_method_argument.ArtifactFileName = java_file
-                                                            java_method_argument.ElementIdentifier = argument_name
-                                                            java_method_argument.ElementProfile = 'COMPILE'
-                                                            java_method_argument.FieldValue = argument_value
-                                                            java_method_argument.ParameterOrder = argument_order
+                                    java_element.methods.append(java_method)
 
-                                                            # parse type of invoked method parameter
-
-                                                            java_invoked_method.parameters.append(
-                                                                java_method_argument)
-
-                                                        # endfor _argument in _invocation.arguments:
-                                                    # endif _invocation.arguments:
-
-                                                    java_method.invokes.append(java_invoked_method)
-
-                                        java_element.methods.append(java_method)
-
+                        if spring_boot_app:
                             module_project.layers[-1].elements.append(java_element)
 
-            except Exception as e:
-                print('---ERROR---')
-                print(str(e))
-                continue
+        except Exception as e:
+            print('---ERROR---')
+            print(str(e))
+            continue

@@ -16,6 +16,17 @@ import re
 from datetime import datetime
 import javalang
 
+def fetch_artifacts(filename_part, filepath_part, app_root_dir):
+    artifact_list = []
+    for (root,dirs,files) in os.walk(app_root_dir, topdown=True):
+        for file in files:
+            if filename_part in file:
+                root = re.sub(r'\\', '/', root)
+                artifact_filename = root + '/' + file
+                if filepath_part in root:
+                    artifact_list.append(artifact_filename)
+    return artifact_list
+
 def multi_module_part1(multi_module_project_name, app_build_files):
     multi_module_project = {}
     multi_module_project['parent'] = multi_module_project_name
@@ -261,9 +272,8 @@ def parser(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_a
             configuration_property.ConfigurationProfile = module_property['profile']
             module_project.properties.append(configuration_property)
 
-        if project_initialiser[1]: #if the project is a spring boot app
-            #parse java files
-            java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir)
+        #parse java files
+        java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir, project_initialiser[1])
 
         # append module to application project
         application_project.modules.append(module_project)

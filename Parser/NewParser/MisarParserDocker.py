@@ -1,12 +1,26 @@
 import yaml
 import re
+import os
 
+def fetch_artifacts(filename_part, filepath_part, app_root_dir):
+    artifact_list = []
+    for (root,dirs,files) in os.walk(app_root_dir, topdown=True):
+        for file in files:
+            if filename_part in file:
+                root = re.sub(r'\\', '/', root)
+                artifact_filename = root + '/' + file
+                if filepath_part in root:
+                    artifact_list.append(artifact_filename)
+    return artifact_list
+
+#This function converts the YAML docker compose file into a dictionary file.
 def yaml_to_dict(filename):
     yaml_dict = {}
     with open(filename, encoding='utf8') as file:
         yaml_dict = yaml.load(file, Loader=yaml.FullLoader)
     return yaml_dict
 
+#This function parses the contents of the YAML docker compose file into application containers
 def docker_container_part1(docker_compose_files, multi_module_project_name):
     application_containers = {}
     for docker_compose_file in docker_compose_files:

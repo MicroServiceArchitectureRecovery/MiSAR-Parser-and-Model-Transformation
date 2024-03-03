@@ -34,6 +34,7 @@ def select(inputClass):
             for file in files: 
                 if file not in inputClass.lst.get(0, 'end'):
                     inputClass.lst.insert('end', file)
+                    inputClass.lst.configure(background='white')
                     
     elif inputClass.fileType == "directory":
         directory = filedialog.askdirectory()
@@ -49,6 +50,7 @@ def select(inputClass):
             elif inputClass.name in ["moduleBuildDir", "appConfigDir"]:
                 if directory not in inputClass.lst.get(0, 'end'):
                     inputClass.lst.insert(inputClass.lst.size(), directory)
+                    inputClass.lst.configure(background='white')
                     if inputClass.name == "moduleBuildDir":
                         pomScanner(inputClass, directory)
                     
@@ -56,8 +58,25 @@ def select(inputClass):
 def delete_item(inputClass):
     inputClass.lst.delete(tkinter.ANCHOR)
 
+def folderNameCalc(inputDirectory):
+    target = ""
+    for x in range (0, len(inputDirectory)):
+        target = target + inputDirectory[x]
+        if inputDirectory[x] == "/":
+            target = ""
+    return target
+
+
+def forbiddenFinder(projName):
+    clean = True
+    AYE4BIDU = ["<", ">", ":", '"', "/", '\\', "|", "?", "*"]
+    for x in range (0, len(projName)):
+        for y in range (0, len(AYE4BIDU)):
+            if projName[x] == AYE4BIDU[y]:
+                clean = False
+    return clean
 def autoImporter(inputDirectory):
-    automatic = messagebox.askquestion("Automatic Importer", "Would you like to try and automatically import all of the files from this micro company?", icon = "info")
+    automatic = messagebox.askquestion("Automatic Importer", "Would you like to try and automatically import all of the required files located within " + folderNameCalc(inputDirectory) + "?", icon = "info")
     if automatic == "yes":
         for file in os.listdir(inputDirectory):
             targetDirectory = inputDirectory+"/"+file
@@ -70,13 +89,14 @@ def autoImporter(inputDirectory):
                 elif os.path.isfile(targetDirectory+"/docker-compose-v3.yml"):
                     if targetDirectory+"/docker-compose-v3.yml" not in docker_compose.lst.get(0, 'end'):
                         docker_compose.lst.insert('end', targetDirectory+"/docker-compose-v3.yml")
+                        docker_compose.lst.configure(background='white')
             if os.path.isfile(inputDirectory+"/pom.xml"):
                 if inputDirectory+"/pom.xml" not in app_build.lst.get(0, 'end'):
                     app_build.lst.insert('end', inputDirectory+"/pom.xml")
 
 
 def pomScanner(inputClass, inputDirectory):
-    pomScan = messagebox.askquestion("POM Scanner", "Would you like to add any corresponding POM files that exist within this directory?", icon = "info")
+    pomScan = messagebox.askquestion("POM Scanner", "Would you like to add any corresponding POM files that exist within " + folderNameCalc(inputDirectory) + "?", icon = "info")
     if pomScan == "yes":
         inputDirectory = inputDirectory + "/pom.xml"
         print(inputDirectory)
@@ -93,22 +113,31 @@ def pomScanner(inputClass, inputDirectory):
 
 def create_psm_instance():
     missingValueGenerator = ""
+    txt_proj_name.configure(background="white")
     if not txt_proj_name.get().strip():
         missingValueGenerator = missingValueGenerator + "\nApplication Project Name missing"
+        txt_proj_name.configure(background="red")
+    if forbiddenFinder(txt_proj_name.get().strip()) == False:
+        missingValueGenerator = missingValueGenerator + '\nApplication Project Name has forbidden characters\nList of fordidden characters:\n< > : " / \ | ? * '
+        txt_proj_name.configure(background="red")
     if not proj_dir.ent.get().strip():
         missingValueGenerator = missingValueGenerator + "\nApplication Project Build Directory missing"
+        proj_dir.ent.configure(readonlybackground='red')
     if not docker_compose.lst.size():
         missingValueGenerator = missingValueGenerator + "\nDocker Compose Files missing"
+        docker_compose.lst.configure(background='red')
     if not module_build_dir.lst.size():
         missingValueGenerator = missingValueGenerator + "\nMicroservice Projects Build Directories missing"
+        module_build_dir.lst.configure(background='red')
     if not output_dir.ent.get():
         missingValueGenerator = missingValueGenerator + "\nOutput Directory missing"
+        output_dir.ent.configure(readonlybackground='red')
     if len(missingValueGenerator) <= 0:
+
         parser(txt_proj_name, proj_dir.ent, psm_ecore, docker_compose.lst, app_build.lst, module_build_dir.lst,
                module_build.lst, app_config_dir.lst, output_dir.ent)
     else:
-        messagebox.showerror('Error!', ('The following errors are present: ' + missingValueGenerator))
-
+        messagebox.showerror('Error!', ('The following errors are present:\n' + missingValueGenerator + "\n\nThese mandatory fields will be marked in red."))
 
 class smallFrame:
     def __init__(self, name, targetWindow, description, inputRow, inputColumn, fileType):
@@ -116,12 +145,12 @@ class smallFrame:
         self.targetWindow = targetWindow
         self.description = description
         self.fileType = fileType
-        self.lbl = tkinter.Label(self.targetWindow, text = self.description, font =("Arial", 12))
+        self.lbl = tkinter.Label(self.targetWindow, text = self.description)
         self.lbl.grid(row = inputRow, column = inputColumn, columnspan = 2, sticky = 'W')
-        self.ent = tkinter.Entry(targetWindow, text = '', width = 50, foreground = 'navy', font =("Arial", 12))
+        self.ent = tkinter.Entry(targetWindow, text = '', width = 50, foreground = 'navy')
         self.ent.grid(row = (inputRow+1), column = inputColumn, padx = 2, pady = 2, sticky = 'N')
         self.ent.configure(state ='readonly', readonlybackground = 'white')
-        self.addbutton = tkinter.Button(targetWindow, text = 'Browse', width = 10, font =("Arial", 18))
+        self.addbutton = tkinter.Button(targetWindow, text = 'Browse', width = 10)
         self.addbutton.configure(command = lambda button = self: select(self))
         self.addbutton.grid(row = (inputRow+1), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
         
@@ -131,22 +160,22 @@ class largeFrame:
         self.targetWindow = targetWindow
         self.description = description
         self.fileType = fileType
-        self.lbl = tkinter.Label(self.targetWindow, text = self.description, font =("Arial", 12))
+        self.lbl = tkinter.Label(self.targetWindow, text = self.description)
         self.lbl.grid(row = inputRow, column = inputColumn, columnspan = 2, sticky = 'W')
         self.frame = tkinter.Frame(targetWindow)
         self.frame.grid(row = (inputRow+1), rowspan = 2, column = inputColumn, padx = 2, pady = 2)
         self.xscroll = tkinter.Scrollbar(self.frame, orient='horizontal')
         self.yscroll = tkinter.Scrollbar(self.frame, orient='vertical')
-        self.lst = tkinter.Listbox(self.frame, width = 50, height = 10, xscrollcommand = self.xscroll.set, yscrollcommand = self.yscroll.set, foreground = 'navy', font =("Arial", 12))
+        self.lst = tkinter.Listbox(self.frame, width = 50, height = 10, xscrollcommand = self.xscroll.set, yscrollcommand = self.yscroll.set, foreground = 'navy')
         self.xscroll.config(command = self.lst.xview)
         self.xscroll.pack(side = 'bottom', fill = 'x')
         self.yscroll.config(command = self.lst.yview)
         self.yscroll.pack(side = 'right', fill = 'y')
         self.lst.pack(side = 'left', fill = 'both', expand = 1)
-        self.addbutton = tkinter.Button(targetWindow, text = 'Add Item', width = 10, font =("Arial", 18))
+        self.addbutton = tkinter.Button(targetWindow, text = 'Add Item', width = 10)
         self.addbutton.configure(command = lambda button = self: select(button))
         self.addbutton.grid(row = (inputRow+1), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
-        self.delbutton = tkinter.Button(targetWindow, text = 'Delete', width = 10, font =("Arial", 18))
+        self.delbutton = tkinter.Button(targetWindow, text = 'Delete', width = 10)
         self.delbutton.configure(command = lambda button = self: delete_item(button))
         self.delbutton.grid(row = (inputRow+2), column = (inputColumn+1), padx = 2, pady = 2, sticky = 'N')
 
@@ -156,9 +185,9 @@ window.title('A Python application to parse YAML, XML and JAVA artifacts of a mi
 window.protocol("WM_DELETE_WINDOW", window_quit)
 
 #Generates the project name input
-lbl_proj_name = tkinter.Label(window, text = 'Type Multi-Module Project Name (mandatory):', font =("Arial", 12))
+lbl_proj_name = tkinter.Label(window, text = 'Type Multi-Module Project Name (mandatory):')
 lbl_proj_name.grid(row = 1, column = 0, columnspan = 2, sticky = 'W' + 'S')
-txt_proj_name = tkinter.Entry(window, text = '', width = 50, foreground = 'navy', font =("Arial", 12))
+txt_proj_name = tkinter.Entry(window, text = '', width = 50, foreground = 'navy')
 txt_proj_name.grid(row = 2, column = 0, padx = 2, pady = 2, sticky = 'N')
 
 #Generates the windows
@@ -175,10 +204,10 @@ module_build = largeFrame("moduleBuild", window,"Select Module Projects POM Buil
 app_config_dir = largeFrame("appConfigDir", window,"Select Centralized Configuration Directories (optional):", 7, 4, "directory")
 
 #Generates the output section
-output_dir = smallFrame("outputDir", window, "Select output directory (mandatory)", 10, 0, "directory")
+output_dir = smallFrame("outputDir", window, "Select output file directory (mandatory)", 2, 0, "directory")
 
 #Generates the create PSM button
-btn_psm_instance = tkinter.Button(window, text = 'Create PSM Model', width = 30, font =("Arial", 18))
+btn_psm_instance = tkinter.Button(window, text = 'Create PSM Model', width = 22, font =("Arial", 18))
 btn_psm_instance.configure(command = lambda button = btn_psm_instance: create_psm_instance())
 btn_psm_instance.grid(row = 11, column = 0, columnspan = 6, padx = 2, pady = 10)
 

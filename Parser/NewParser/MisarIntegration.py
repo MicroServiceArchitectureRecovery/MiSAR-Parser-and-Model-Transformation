@@ -21,7 +21,7 @@ def checkIfGitIsInstalled(inputClass):
             from git import Repo
             return True
         except ModuleNotFoundError:
-            installGit = messagebox.askquestion("Git not installed!", "GitPython and pyGit are mandatory modules which aren't installed. Install them now?")
+            installGit = messagebox.askquestion("Git not installed!", "GitPython and pyGit are mandatory modules which aren't installed.\nThey are required to automatically update the MiSAR interface and install the main components of MiSAR. Install them now?")
             if installGit == "yes":
                 try:
                     os.system('pip3 install pyGit')
@@ -80,7 +80,7 @@ def checkImports(inputClass):
         if len(errors) == 1:
             strAdd = "The following import is currently not installed:\n\n"+errStr+"\nThis import is mandatory for the function of the Parser.\nWould you like to install it now?"
         else:
-            strAdd = "The following imports are currently not installed:\n\n"+errStr+"\nThese imports are mandatory for the function of the Parser.\nWould you like to install it now?"
+            strAdd = "The following imports are currently not installed:\n\n"+errStr+"\nThese imports are mandatory for the function of the Parser.\nWould you like to install them now?"
         installImports = messagebox.askquestion("Missing Imports", (strAdd))
         if installImports == "yes" and checkInternet():
             try:
@@ -116,7 +116,7 @@ def checkImportsTransform(inputClass):
         if len(errors) == 1:
             strAdd = "The following import is currently not installed:\n\n"+errStr+"\nThis import is mandatory for the function of the Transformation Engine.\nWould you like to install it now?"
         else:
-            strAdd = "The following imports are currently not installed:\n\n"+errStr+"\nThese imports are mandatory for the function of the Transformation Engine.\nWould you like to install it now?"
+            strAdd = "The following imports are currently not installed:\n\n"+errStr+"\nThese imports are mandatory for the function of the Transformation Engine.\nWould you like to install them now?"
         installImports = messagebox.askquestion("Missing Imports", (strAdd))
         if installImports == "yes" and checkInternet():
             try:
@@ -243,10 +243,12 @@ def buttonStuff(inputClass):
                     return False
         else:
             if checkImports(inputClass):
+                mainWindow.destroy()
                 import MisarParserGUI
 
     elif inputClass.name == "MiSAR Transformation Engine":
         if checkImportsTransform(inputClass):
+            mainWindow.destroy()
             import MisarTransformationEngine
 
     elif inputClass.name == "MiSAR Graphical Model Generator":
@@ -272,6 +274,7 @@ def buttonStuff(inputClass):
                                          "An internet connection is required to install the "+inputClass.name+".")
                     return False
         else:
+            mainWindow.destroy()
             subprocess.call(['java', '-jar', (os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")])
 
 
@@ -308,46 +311,49 @@ def misar_updater():
         if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == True:
             if os.path.isfile((os.path.expanduser('~') + "\\MiSARTemp\\MisarQVTv3\\source\\PSM.ecore")) == True:
                 parserUninstaller("MiSARTemp")
-            if checkIfGitIsInstalled(None):
-                if parserInstaller("MiSARTemp") == True:
-                    previousDirectory = os.getcwd()
-                    os.chdir((os.path.expanduser('~') + "\\MisARTemp"))
-                    newestVersion = os.popen("git log -1").read()
-                    updatedDate = ""
-                    colonCount = 0
-                    targetCutOff = 999999
-                    for x in range(0, len(newestVersion)):
-                        if targetCutOff > x:
-                            updatedDate = updatedDate + newestVersion[x]
-                            # print(updatedDate)
-                            if newestVersion[x] == ":" and colonCount < 2:
-                                updatedDate = ""
-                                colonCount = colonCount + 1
-                            if colonCount >= 2 and newestVersion[x + 1] == "+" or newestVersion[x + 1] == "-":
-                                break
-                    updatedDate = updatedDate.strip()
-                    #updatedDate = "Fri Oct 31 16:45:46 2023"
-                    #print(updatedDate)
-                    onlineVersion = datetime.strptime(updatedDate, '%a %b %d %H:%M:%S %Y')
-                    currentVersion = datetime.fromtimestamp(
-                        (os.path.getctime((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore"))))
-                    os.chdir(previousDirectory)
-                    if onlineVersion > currentVersion:
-                        #print(onlineVersion)
-                        #print(currentVersion)
-                        updateAvailable = messagebox.askquestion("Update Available!",
-                                                                 "An update is available! Would you like to install it now?")
-                        if updateAvailable == "yes":
+            try:
+                if checkIfGitIsInstalled(None):
+                    if parserInstaller("MiSARTemp") == True:
+                        previousDirectory = os.getcwd()
+                        os.chdir((os.path.expanduser('~') + "\\MisARTemp"))
+                        newestVersion = os.popen("git log -1").read()
+                        updatedDate = ""
+                        colonCount = 0
+                        targetCutOff = 999999
+                        for x in range(0, len(newestVersion)):
+                            if targetCutOff > x:
+                                updatedDate = updatedDate + newestVersion[x]
+                                # print(updatedDate)
+                                if newestVersion[x] == ":" and colonCount < 2:
+                                    updatedDate = ""
+                                    colonCount = colonCount + 1
+                                if colonCount >= 2 and newestVersion[x + 1] == "+" or newestVersion[x + 1] == "-":
+                                    break
+                        updatedDate = updatedDate.strip()
+                        #updatedDate = "Fri Oct 31 16:45:46 2023"
+                        #print(updatedDate)
+                        onlineVersion = datetime.strptime(updatedDate, '%a %b %d %H:%M:%S %Y')
+                        currentVersion = datetime.fromtimestamp(
+                            (os.path.getctime((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore"))))
+                        os.chdir(previousDirectory)
+                        if onlineVersion > currentVersion:
+                            #print(onlineVersion)
+                            #print(currentVersion)
+                            updateAvailable = messagebox.askquestion("Update Available!",
+                                                                     "An update is available! Would you like to install it now?")
+                            if updateAvailable == "yes":
+                                parserUninstaller("MiSARTemp")
+                                parserUninstaller("MiSAR")
+                                if parserInstaller("MiSAR") == True:
+                                    messagebox.showinfo("Success!",
+                                                        "The update completed successfully!")
+                                else:
+                                    messagebox.showerror("Failure!",
+                                                         "The update has failed.")
+                        else:
                             parserUninstaller("MiSARTemp")
-                            parserUninstaller("MiSAR")
-                            if parserInstaller("MiSAR") == True:
-                                messagebox.showinfo("Success!",
-                                                    "The update completed successfully!")
-                            else:
-                                messagebox.showerror("Failure!",
-                                                     "The update has failed.")
-                    else:
-                        parserUninstaller("MiSARTemp")
+            except ImportError:
+                messagebox.showerror("No Github", "Cannot check for updates due to the Github modules not being present.")
     else:
         messagebox.showerror("No Internet", "Cannot check for updates due to a lack of internet.")
 
@@ -386,7 +392,7 @@ if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.e
 if os.path.isfile((os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")) == True:
     theGraphicalModelGenerator.launchButton.configure(text = "Launch")
 
-theTransformationEngine.launchButton.configure(text = "Launch")
+#theTransformationEngine.launchButton.configure(text = "Launch")
 
 mainWindow.protocol("WM_DELETE_WINDOW", window_quit)
 
