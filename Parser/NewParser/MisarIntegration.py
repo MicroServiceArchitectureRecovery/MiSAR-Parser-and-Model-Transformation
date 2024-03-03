@@ -142,7 +142,9 @@ def parserInstaller(parserLocation):
             (os.path.expanduser('~') + "/" + parserLocation), branch="2123833-(Kevin's-branch)")
         if os.path.isfile(
                 (os.path.expanduser('~') + "\\" + parserLocation + "\\MisarQVTv3\\source\\PSM.ecore")) == True:
-            return True
+            if os.path.isfile(
+                    (os.path.expanduser('~') + "\\" + parserLocation + "\\Parser\\NewParser\\MisarParserGUI.py")) == True:
+                return True
     except Exception as fail:
         return False
 
@@ -244,7 +246,8 @@ def buttonStuff(inputClass):
         else:
             if checkImports(inputClass):
                 mainWindow.destroy()
-                import MisarParserGUI
+                #import MisarParserGUI
+                subprocess.call(['python', (os.path.expanduser('~') + "\\MiSAR\\Parser\\NewParser\\MisarParserGUI.py")])
 
     elif inputClass.name == "MiSAR Transformation Engine":
         if checkImportsTransform(inputClass):
