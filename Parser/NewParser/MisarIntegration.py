@@ -15,48 +15,18 @@ def checkInternet():
     except Exception as e:
         return False
 
-def checkIfGitIsInstalled(inputClass):
-    if checkInternet():
-        try:
-            from git import Repo
-            return True
-        except ModuleNotFoundError:
-            installGit = messagebox.askquestion("Git not installed!", "GitPython and pyGit are mandatory modules which aren't installed.\nThey are required to automatically update the MiSAR interface and install the main components of MiSAR. Install them now?")
-            if installGit == "yes":
-                try:
-                    os.system('pip3 install pyGit')
-                    os.system('pip3 install gitPython')
-                    from git import Repo
-                    messagebox.showinfo("Success!", "The operation completed successfully.")
-                    if inputClass != None:
-                        installContinue = messagebox.askquestion("Continue?",
-                                                                 ("Would you like to continue with the installation of the "+ inputClass.name+"?"))
-                    else:
-                        installContinue = messagebox.askquestion("Continue?",
-                                                                 ("Would you like to check for updates?"))
-                    if installContinue == "yes":
-                        return True
-                    else:
-                        return False
-                except Exception as e:
-                    messagebox.showerror("Error!",
-                                         ("The installation of the GitHub modules have failed.\nError code:\n"+str(e)))
-                    return False
-            else:
-                if inputClass != None:
-                    messagebox.showerror("You said no...","MiSAR cannot install the "+ inputClass.name + " without pyGit and GitPython.")
-                    return False
-                else:
-                    messagebox.showerror("You said no...",
-                                         "MiSAR cannot check for updates without pyGit and GitPython.")
-                    return False
+def pluralCheck(errors):
+    if len(errors) == 1:
+        return ("this required module.")
     else:
-        messagebox.showerror("No Internet Connection!",
-                             "An internet connection is required to install pyGit and gitPython.")
-        return False
+        return ("these required modules.")
 
-def checkImports(inputClass):
+def checkIfModulesAreInstalled(inputClass):
     errors = []
+    try:
+        from git import Repo
+    except ModuleNotFoundError:
+        errors.append("git")
     try:
         import pyecore
     except ModuleNotFoundError:
@@ -75,64 +45,45 @@ def checkImports(inputClass):
         errors.append("javalang")
     if len(errors) > 0:
         errStr = ""
-        for z in range (0, len(errors)):
-            errStr = errStr + errors[z]+"\n"
+        for z in range(0, len(errors)):
+            errStr = errStr + errors[z] + "\n"
         if len(errors) == 1:
-            strAdd = "The following import is currently not installed:\n\n"+errStr+"\nThis import is mandatory for the function of the Parser.\nWould you like to install it now?"
+            strAdd = "The following import is currently not installed:\n\n" + errStr + "\nThis import is mandatory for the function of MiSAR.\nWould you like to install it now?"
         else:
-            strAdd = "The following imports are currently not installed:\n\n"+errStr+"\nThese imports are mandatory for the function of the Parser.\nWould you like to install them now?"
-        installImports = messagebox.askquestion("Missing Imports", (strAdd))
-        if installImports == "yes" and checkInternet():
-            try:
-                os.system('pip3 install pyecore')
-                os.system('pip3 install pyYaml')
-                os.system('pip3 install xmltodict')
-                os.system('pip3 install javalang')
-                import pyecore
-                import yaml
-                import xmltodict
-                import javalang
-                messagebox.showinfo("Success!", "The operation completed successfully.")
-                return True
-            except ModuleNotFoundError:
-                messagebox.showerror("Error",
-                                     "An unknown error occurred.")
-            return False
+            strAdd = "The following imports are currently not installed:\n\n" + errStr + "\nThese imports are mandatory for the function of MiSAR.\nWould you like to install them now?"
+        installModules = messagebox.askquestion("Missing Imports", (strAdd))
+        if installModules == "yes":
+            if checkInternet():
+                try:
+                    os.system('pip3 install pyGit')
+                    os.system('pip3 install gitPython')
+                    os.system('pip3 install pyecore')
+                    os.system('pip3 install pyYaml')
+                    os.system('pip3 install xmltodict')
+                    os.system('pip3 install javalang')
+                    from git import Repo
+                    import pyecore
+                    import yaml
+                    import xmltodict
+                    import javalang
+                    messagebox.showinfo("Success!", "The operation completed successfully!")
+                    return True
+                except Exception as e:
+                    messagebox.showerror("Error!",
+                                         ("The installation of the required modules have failed.\nError code:\n" + str(e)))
+                    return False
+            else:
+                messagebox.showerror("Error!",
+                                     ("An internet connection is required to install " + pluralCheck(
+                                         errors) + " Please connect to the internet and try again."))
+                return False
         else:
+            messagebox.showerror("Error!",
+                                 ("MiSAR cannot operate correctly without " + pluralCheck(
+                                     errors) + " Please select yes and try again."))
             return False
     else:
         return True
-
-def checkImportsTransform(inputClass):
-    errors = []
-    try:
-        import motra
-    except ModuleNotFoundError:
-        errors.append("motra")
-    if len(errors) > 0:
-        errStr = ""
-        for z in range (0, len(errors)):
-            errStr = errStr + errors[z]+"\n"
-        if len(errors) == 1:
-            strAdd = "The following import is currently not installed:\n\n"+errStr+"\nThis import is mandatory for the function of the Transformation Engine.\nWould you like to install it now?"
-        else:
-            strAdd = "The following imports are currently not installed:\n\n"+errStr+"\nThese imports are mandatory for the function of the Transformation Engine.\nWould you like to install them now?"
-        installImports = messagebox.askquestion("Missing Imports", (strAdd))
-        if installImports == "yes" and checkInternet():
-            try:
-                os.system('pip3 install motra')
-                import motra
-                messagebox.showinfo("Success!", "The operation completed successfully.")
-                return True
-            except ModuleNotFoundError:
-                messagebox.showerror("Error",
-                                     "An unknown error occurred.")
-            return False
-        else:
-            return False
-    else:
-        return True
-
 
 def parserInstaller(parserLocation):
     from git import Repo
@@ -160,46 +111,16 @@ def gmgInstaller(gmgLocation):
     except Exception as fail:
         return False
 
-def parserUninstaller(parserLocation):
+def Uninstaller(Location):
     targetLink = ""
     readOnly = True
     while readOnly:
         readOnly = False
         try:
-            os.rmdir(os.path.expanduser('~') + "\\" + parserLocation)
+            os.rmdir(os.path.expanduser('~') + "\\" + Location)
         except OSError:
             try:
-                shutil.rmtree((os.path.expanduser('~') + "\\" + parserLocation))
-            except PermissionError as fail:
-                failEdit = (str(fail))
-                commaActivate = False
-                for x in range(0, len(failEdit)):
-                    if failEdit[x] == "'" and commaActivate == True:
-                        commaActivate = False
-                    if commaActivate == True:
-                        targetLink = targetLink + failEdit[x]
-                    if failEdit[x] == "'" and commaActivate == False:
-                        commaActivate = True
-                #print(targetLink)
-                os.chmod(targetLink, stat.S_IWRITE)
-                os.unlink(targetLink)
-                try:
-                    shutil.rmtree(targetLink)
-                except FileNotFoundError:
-                    pass
-                targetLink = ""
-                readOnly = True
-
-def gmgUninstaller(gmgLocation):
-    targetLink = ""
-    readOnly = True
-    while readOnly:
-        readOnly = False
-        try:
-            os.rmdir(os.path.expanduser('~') + "\\" + gmgLocation)
-        except OSError:
-            try:
-                shutil.rmtree((os.path.expanduser('~') + "\\" + gmgLocation))
+                shutil.rmtree((os.path.expanduser('~') + "\\" + Location))
             except PermissionError as fail:
                 failEdit = (str(fail))
                 commaActivate = False
@@ -226,14 +147,14 @@ def buttonStuff(inputClass):
             MisarChecker = messagebox.askquestion("Parser Installer", "To use the MiSAR Parser, you must first install it.\nWould you to like to install it now?")
             if MisarChecker == "yes":
                 if checkInternet():
-                    if checkIfGitIsInstalled(inputClass):
+                    if checkIfModulesAreInstalled(inputClass):
                         if parserInstaller("MiSAR") == True:
                             messagebox.showinfo("Success!",
                                                 "The operation completed successfully!\nThe Parser, and it's PSM.ecore has been saved at: " + os.path.expanduser(
                                                     '~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")
                             theParser.launchButton.configure(text="Launch")
                         else:
-                            parserUninstaller("MiSAR")
+                            Uninstaller("MiSAR")
                             if parserInstaller("MiSAR") == True:
                                 messagebox.showinfo("Success!",
                                                     "The operation completed successfully!\nThe Parser, and it's PSM.ecore has been saved at: " + os.path.expanduser(
@@ -242,31 +163,31 @@ def buttonStuff(inputClass):
                 else:
                     messagebox.showerror("No Internet Connection!",
                                          "An internet connection is required to install the "+inputClass.name+".")
-                    return False
-        else:
-            if checkImports(inputClass):
+        elif checkIfModulesAreInstalled(inputClass):
                 mainWindow.destroy()
-                #import MisarParserGUI
                 subprocess.call(['python', (os.path.expanduser('~') + "\\MiSAR\\Parser\\NewParser\\MisarParserGUI.py")])
 
     elif inputClass.name == "MiSAR Transformation Engine":
-        if checkImportsTransform(inputClass):
+        if checkIfModulesAreInstalled(inputClass):
             mainWindow.destroy()
-            import MisarTransformationEngine
+            #import MisarTransformationEngine
+        else:
+            messagebox.showerror("Error!",
+                                 "The installation has failed!\nIf 'No' was selected, please select yes and try again.\n Otherwise, check your internet connection.")
 
     elif inputClass.name == "MiSAR Graphical Model Generator":
         if os.path.isfile((os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")) == False:
             MisarChecker = messagebox.askquestion("Graphical Model Generator Installer", "To use the "+ inputClass.name + ", you must first install it.\nWould you to like to install it now?")
             if MisarChecker == "yes":
                 if checkInternet():
-                    if checkIfGitIsInstalled(inputClass):
+                    if checkIfModulesAreInstalled(inputClass):
                         if gmgInstaller("GMG") == True:
                             messagebox.showinfo("Success!",
                                                 "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + os.path.expanduser(
                                                     '~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")
                             theGraphicalModelGenerator.launchButton.configure(text="Launch")
                         else:
-                            gmgUninstaller("GMG")
+                            Uninstaller("GMG")
                             if gmgInstaller("GMG") == True:
                                 messagebox.showinfo("Success!",
                                                     "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + os.path.expanduser(
@@ -275,7 +196,6 @@ def buttonStuff(inputClass):
                 else:
                     messagebox.showerror("No Internet Connection!",
                                          "An internet connection is required to install the "+inputClass.name+".")
-                    return False
         else:
             mainWindow.destroy()
             subprocess.call(['java', '-jar', (os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")])
@@ -311,52 +231,45 @@ def buttonStuff(inputClass):
 
 def misar_updater():
     if checkInternet():
-        if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == True:
-            if os.path.isfile((os.path.expanduser('~') + "\\MiSARTemp\\MisarQVTv3\\source\\PSM.ecore")) == True:
-                parserUninstaller("MiSARTemp")
-            try:
-                if checkIfGitIsInstalled(None):
-                    if parserInstaller("MiSARTemp") == True:
-                        previousDirectory = os.getcwd()
-                        os.chdir((os.path.expanduser('~') + "\\MisARTemp"))
-                        newestVersion = os.popen("git log -1").read()
-                        updatedDate = ""
-                        colonCount = 0
-                        targetCutOff = 999999
-                        for x in range(0, len(newestVersion)):
-                            if targetCutOff > x:
-                                updatedDate = updatedDate + newestVersion[x]
-                                # print(updatedDate)
-                                if newestVersion[x] == ":" and colonCount < 2:
-                                    updatedDate = ""
-                                    colonCount = colonCount + 1
-                                if colonCount >= 2 and newestVersion[x + 1] == "+" or newestVersion[x + 1] == "-":
-                                    break
-                        updatedDate = updatedDate.strip()
-                        #updatedDate = "Fri Oct 31 16:45:46 2023"
-                        #print(updatedDate)
-                        onlineVersion = datetime.strptime(updatedDate, '%a %b %d %H:%M:%S %Y')
-                        currentVersion = datetime.fromtimestamp(
-                            (os.path.getctime((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore"))))
-                        os.chdir(previousDirectory)
-                        if onlineVersion > currentVersion:
-                            #print(onlineVersion)
-                            #print(currentVersion)
-                            updateAvailable = messagebox.askquestion("Update Available!",
-                                                                     "An update is available! Would you like to install it now?")
-                            if updateAvailable == "yes":
-                                parserUninstaller("MiSARTemp")
-                                parserUninstaller("MiSAR")
-                                if parserInstaller("MiSAR") == True:
-                                    messagebox.showinfo("Success!",
-                                                        "The update completed successfully!")
-                                else:
-                                    messagebox.showerror("Failure!",
-                                                         "The update has failed.")
-                        else:
-                            parserUninstaller("MiSARTemp")
-            except ImportError:
-                messagebox.showerror("No Github", "Cannot check for updates due to the Github modules not being present.")
+        if checkIfModulesAreInstalled(None):
+            if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore")) == True:
+                if os.path.isfile((os.path.expanduser('~') + "\\MiSARTemp\\MisarQVTv3\\source\\PSM.ecore")) == True:
+                    Uninstaller("MiSARTemp")
+                if parserInstaller("MiSARTemp") == True:
+                    previousDirectory = os.getcwd()
+                    os.chdir((os.path.expanduser('~') + "\\MisARTemp"))
+                    newestVersion = os.popen("git log -1").read()
+                    updatedDate = ""
+                    colonCount = 0
+                    targetCutOff = 999999
+                    for x in range(0, len(newestVersion)):
+                        if targetCutOff > x:
+                            updatedDate = updatedDate + newestVersion[x]
+                            # print(updatedDate)
+                            if newestVersion[x] == ":" and colonCount < 2:
+                                updatedDate = ""
+                                colonCount = colonCount + 1
+                            if colonCount >= 2 and newestVersion[x + 1] == "+" or newestVersion[x + 1] == "-":
+                                break
+                    updatedDate = updatedDate.strip()
+                    onlineVersion = datetime.strptime(updatedDate, '%a %b %d %H:%M:%S %Y')
+                    currentVersion = datetime.fromtimestamp(
+                        (os.path.getctime((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.ecore"))))
+                    os.chdir(previousDirectory)
+                    if onlineVersion > currentVersion:
+                        updateAvailable = messagebox.askquestion("Update Available!",
+                                                                 "An update is available! Would you like to install it now?")
+                        if updateAvailable == "yes":
+                            Uninstaller("MiSARTemp")
+                            Uninstaller("MiSAR")
+                            if parserInstaller("MiSAR") == True:
+                                messagebox.showinfo("Success!",
+                                                    "The update completed successfully!")
+                            else:
+                                messagebox.showerror("Failure!",
+                                                     "The update has failed.")
+                    else:
+                        Uninstaller("MiSARTemp")
     else:
         messagebox.showerror("No Internet", "Cannot check for updates due to a lack of internet.")
 
@@ -384,7 +297,7 @@ welcome = tkinter.Label(mainWindow, text = "Hello and welcome to the MiSAR AIO!\
 welcome.grid(row = 0, column = 0)
 
 theParser = programOfChoice("MiSAR Parser", "V1.0", 1, 0, mainWindow)
-theTransformationEngine = programOfChoice("MiSAR Transformation Engine", "V1.0", 3, 0, mainWindow)
+#theTransformationEngine = programOfChoice("MiSAR Transformation Engine", "V1.0", 3, 0, mainWindow)
 theGraphicalModelGenerator = programOfChoice("MiSAR Graphical Model Generator", "V1.0", 5, 0, mainWindow)
 theHelpButton = programOfChoice("Need help or more information about this program?", "V1.0", 7, 0, mainWindow)
 theHelpButton.launchButton.configure(text = "Help", font =("Arial", 20))
@@ -394,8 +307,6 @@ if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\MisarQVTv3\\source\\PSM.e
 
 if os.path.isfile((os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")) == True:
     theGraphicalModelGenerator.launchButton.configure(text = "Launch")
-
-#theTransformationEngine.launchButton.configure(text = "Launch")
 
 mainWindow.protocol("WM_DELETE_WINDOW", window_quit)
 
