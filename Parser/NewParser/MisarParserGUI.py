@@ -191,7 +191,7 @@ txt_proj_name = tkinter.Entry(window, text = '', width = 50, foreground = 'navy'
 txt_proj_name.grid(row = 2, column = 0, padx = 2, pady = 2, sticky = 'N')
 
 #Generates the windows
-proj_dir = smallFrame("projectDir", window,"Select Multi-Module Project Build Directory (mandatory):", 3, 0, "directory")
+proj_dir = smallFrame("projectDir", window,"Select Multi-Module Project Build Directory (mandatory):", 2, 0, "directory")
 psm_ecore = tkinter.Entry(window,  text = '', width = 50, foreground = 'navy')
 psm_ecore.configure(state='normal')
 psm_ecore.delete(0, 'end')
@@ -204,7 +204,7 @@ module_build = largeFrame("moduleBuild", window,"Select Module Projects POM Buil
 app_config_dir = largeFrame("appConfigDir", window,"Select Centralized Configuration Directories (optional):", 7, 4, "directory")
 
 #Generates the output section
-output_dir = smallFrame("outputDir", window, "Select output file directory (mandatory)", 2, 0, "directory")
+output_dir = smallFrame("outputDir", window, "Select Directory where the PSM will be saved (mandatory)", 3, 0, "directory")
 
 #Generates the create PSM button
 btn_psm_instance = tkinter.Button(window, text = 'Create PSM Model', width = 22, font =("Arial", 18))
