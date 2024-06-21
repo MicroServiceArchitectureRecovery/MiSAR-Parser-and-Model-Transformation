@@ -312,7 +312,7 @@ proj_dir = smallFrame("projectDir", window, "Select Multi-Module Project Build D
 psm_ecore = tkinter.Entry(window, text='', width=50, foreground='navy')
 psm_ecore.configure(state='normal')
 psm_ecore.delete(0, 'end')
-psm_ecore.insert(0, str(os.path.expanduser('~') + "\MisAR\MisarQVTv3\source\PSM.ecore"))
+psm_ecore.insert(0, str(os.path.expanduser('~') + "\MiSAR\TransformationEngineNecessities\source\PSM.ecore"))
 psm_ecore.configure(state='readonly', readonlybackground='white')
 docker_compose = largeFrame("dockerCompose", window, "Select Docker Compose Files (mandatory):", 1, 2, "file")
 app_build = largeFrame("appBuild", window, "Select Multi-Module Project POM Build Files (optional):", 1, 4, "file")
