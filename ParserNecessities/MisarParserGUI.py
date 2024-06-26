@@ -135,7 +135,7 @@ def select(inputClass):
                         messagebox.showinfo("Automatic Importer",
                                             "Would you like to save time by automatically importing the required files? Simply import the docker compose file within the master folder's directory! The area to import it to will be marked in green.")
                         docker_compose.lst.configure(background='lime')
-                    pomScanner(inputClass, directory)
+                    #pomScanner(inputClass, directory)
             elif inputClass.name in ["moduleBuildDir", "appConfigDir"]:
                 if directory not in inputClass.lst.get(0, 'end'):
                     inputClass.lst.insert(inputClass.lst.size(), directory)
