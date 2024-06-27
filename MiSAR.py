@@ -188,14 +188,14 @@ def buttonStuff(inputClass):
                         if gmgInstaller("MiSAR\\GMG") == True:
                             messagebox.showinfo("Success!",
                                                 "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + os.path.expanduser(
-                                                    '~') + "\\MiSAR\\GMG\\Runnable Jar File\\MiSAR.jar")
+                                                    '~') + "\\MiSAR\\GMG")
                             theGraphicalModelGenerator.launchButton.configure(text="Launch")
                         else:
                             Uninstaller("GMG")
                             if gmgInstaller("GMG") == True:
                                 messagebox.showinfo("Success!",
                                                     "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + os.path.expanduser(
-                                                        '~') + "\\MiSAR\\GMG\\Runnable Jar File\\MiSAR.jar")
+                                                        '~') + "\\MiSAR\\GMG")
                                 theGraphicalModelGenerator.launchButton.configure(text="Launch")
                 else:
                     messagebox.showerror("No Internet Connection!",
