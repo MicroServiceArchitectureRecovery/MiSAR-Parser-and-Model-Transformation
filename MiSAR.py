@@ -91,7 +91,7 @@ def parserInstaller(parserLocation):
     try:
         Repo.clone_from(
             "https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation.git",
-            (os.path.expanduser('~') + "/" + parserLocation), branch="2123833-(Kevin's-branch)")
+            (os.path.expanduser('~') + "/" + parserLocation), branch="main")
         if os.path.isfile(
                 (os.path.expanduser('~') + "\\" + parserLocation + "\\TransformationEngineNecessities\\source\\PSM.ecore")) == True:
             if os.path.isfile(
