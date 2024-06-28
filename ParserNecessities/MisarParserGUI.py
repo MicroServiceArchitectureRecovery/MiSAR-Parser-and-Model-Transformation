@@ -117,9 +117,6 @@ def select(inputClass):
                     if inputClass.name == "dockerCompose":
                         if proj_dir.ent.get().strip():
                             autoImporter(proj_dir.ent.get().strip())
-                        else:
-                            messagebox.showinfo("Automatic Importer", "Would you like to save time by automatically importing the required files? Simply import the master folder's directory! The area to import it to will be marked in green.")
-                            proj_dir.ent.configure(readonlybackground='lime')
     elif inputClass.fileType == "directory":
         directory = filedialog.askdirectory()
         if directory:
@@ -131,10 +128,6 @@ def select(inputClass):
                 if inputClass.name == "projectDir":
                     if docker_compose.lst.size() > 0:
                         autoImporter(directory)
-                    else:
-                        messagebox.showinfo("Automatic Importer",
-                                            "Would you like to save time by automatically importing the required files? Simply import the docker compose file within the master folder's directory! The area to import it to will be marked in green.")
-                        docker_compose.lst.configure(background='lime')
                     #pomScanner(inputClass, directory)
             elif inputClass.name in ["moduleBuildDir", "appConfigDir"]:
                 if directory not in inputClass.lst.get(0, 'end'):
@@ -169,8 +162,8 @@ def forbiddenFinder(projName):
 
 def autoImporter(inputDirectory):
     automatic = messagebox.askquestion("Automatic Importer",
-                                       "Would you like to try and automatically import all of the required files located within " + folderNameCalc(
-                                           inputDirectory) + "?", icon="info")
+                                       "Would you like to use the automatic importer to try and automatically import all of the required files located within " + folderNameCalc(
+                                           inputDirectory) + "? If you use the automatic importer, it will save you a lot of time uploading files manually.", icon="info")
     if automatic == "yes":
         docker_compose_files = []
         for docker_compose_file in docker_compose.lst.get(0, 'end'):
