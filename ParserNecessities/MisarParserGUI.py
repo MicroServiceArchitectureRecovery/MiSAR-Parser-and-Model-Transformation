@@ -1,6 +1,7 @@
 ############################
 # Developed by RanaFakeeh-87
 # 01/20/2020
+# LAST UPDATE: 02/04/2026
 ############################
 
 import tkinter
@@ -31,6 +32,13 @@ from urllib.request import urlopen as url
 from datetime import *
 import webbrowser
 import subprocess
+from pathlib import Path
+
+USER_HOME_DIR = Path.home()
+MISAR_DIR = USER_HOME_DIR / "MiSAR"
+PARSER_DIR = MISAR_DIR / "Parser"
+PSM_ECORE_PATH = PARSER_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore"
+
 
 def yaml_to_dict(filename):
     yaml_dict = {}
@@ -38,11 +46,13 @@ def yaml_to_dict(filename):
         yaml_dict = yaml.load(file, Loader=yaml.FullLoader)
     return yaml_dict
 
+
 def Installer(Location, targetLink):
     from git import Repo
+    install_path = USER_HOME_DIR / Path(Location)
     Repo.clone_from(
         "https://github.com/MicroServiceArchitectureRecovery/misar-plantUML.git",
-        (os.path.expanduser('~') + "/" + Location))
+        install_path)
     repo = Repo("https://github.com/MicroServiceArchitectureRecovery/misar-plantUML.git")
     branch_list = [r.remote_head for r in repo.remote().refs]
     print(branch_list)
@@ -53,9 +63,8 @@ def Installer(Location, targetLink):
     try:
         Repo.clone_from(
             "https://github.com/MicroServiceArchitectureRecovery/misar-plantUML.git",
-            (os.path.expanduser('~') + "/" + Location), branch="main")
-        if os.path.isfile(
-                (os.path.expanduser('~') + "\\" + Location + "\\Runnable Jar File\\MiSAR.jar")):
+            install_path, branch="main")
+        if os.path.isfile(install_path / "Runnable Jar File" / "MiSAR.jar"):
             return True
     except Exception as fail:
         return False
@@ -64,13 +73,14 @@ def Installer(Location, targetLink):
 def Uninstaller(Location):
     targetLink = ""
     readOnly = True
+    location_path = USER_HOME_DIR / Path(Location)
     while readOnly:
         readOnly = False
         try:
-            os.rmdir(os.path.expanduser('~') + "\\" + Location)
+            os.rmdir(location_path)
         except OSError:
             try:
-                shutil.rmtree((os.path.expanduser('~') + "\\" + Location))
+                shutil.rmtree(location_path)
             except PermissionError as fail:
                 failEdit = (str(fail))
                 commaActivate = False
@@ -81,7 +91,7 @@ def Uninstaller(Location):
                         targetLink = targetLink + failEdit[x]
                     if failEdit[x] == "'" and commaActivate == False:
                         commaActivate = True
-                # print(targetLink)
+                targetLink = Path(targetLink)
                 os.chmod(targetLink, stat.S_IWRITE)
                 os.unlink(targetLink)
                 try:
@@ -142,12 +152,7 @@ def delete_item(inputClass):
 
 
 def folderNameCalc(inputDirectory):
-    target = ""
-    for x in range(0, len(inputDirectory)):
-        target = target + inputDirectory[x]
-        if inputDirectory[x] == "/":
-            target = ""
-    return target
+    return Path(inputDirectory).name
 
 
 def forbiddenFinder(projName):
@@ -183,18 +188,21 @@ def autoImporter(inputDirectory):
         dockerList = list(application_containers.keys())
         print(dockerList)
 
-        for file in os.listdir(inputDirectory):
-            targetDirectory = inputDirectory + "/" + file
+        input_dir_path = Path(inputDirectory)
+        for file in os.listdir(input_dir_path):
+            targetDirectory = input_dir_path / file
             if file in dockerList:
                 if os.path.isdir(targetDirectory):
-                    if targetDirectory not in module_build_dir.lst.get(0, 'end'):
-                        module_build_dir.lst.insert('end', targetDirectory)
-                    if os.path.isfile(targetDirectory + "/pom.xml"):
-                        if targetDirectory + "/pom.xml" not in module_build.lst.get(0, 'end'):
-                            module_build.lst.insert('end', targetDirectory + "/pom.xml")
-            if os.path.isfile(inputDirectory + "/pom.xml"):
-                if inputDirectory + "/pom.xml" not in app_build.lst.get(0, 'end'):
-                    app_build.lst.insert('end', inputDirectory + "/pom.xml")
+                    if str(targetDirectory) not in module_build_dir.lst.get(0, 'end'):
+                        module_build_dir.lst.insert('end', str(targetDirectory))
+                    pom_file = targetDirectory / "pom.xml"
+                    if os.path.isfile(pom_file):
+                        if str(pom_file) not in module_build.lst.get(0, 'end'):
+                            module_build.lst.insert('end', str(pom_file))
+            app_pom = input_dir_path / "pom.xml"
+            if os.path.isfile(app_pom):
+                if str(app_pom) not in app_build.lst.get(0, 'end'):
+                    app_build.lst.insert('end', str(app_pom))
 
 
 def pomScanner(inputClass, inputDirectory):
@@ -202,18 +210,19 @@ def pomScanner(inputClass, inputDirectory):
                                      "Would you like to add any corresponding POM files that exist within " + folderNameCalc(
                                          inputDirectory) + "?", icon="info")
     if pomScan == "yes":
-        inputDirectory = inputDirectory + "/pom.xml"
+        inputDirectory = Path(inputDirectory) / "pom.xml"
         print(inputDirectory)
         print(os.path.isfile(inputDirectory))
         if os.path.isfile(inputDirectory):
             if inputClass.name == "projectDir":
-                if inputDirectory not in app_build.lst.get(0, 'end'):
-                    app_build.lst.insert('end', inputDirectory)
+                if str(inputDirectory) not in app_build.lst.get(0, 'end'):
+                    app_build.lst.insert('end', str(inputDirectory))
             if inputClass.name == "moduleBuildDir":
-                if inputDirectory not in module_build.lst.get(0, 'end'):
-                    module_build.lst.insert('end', inputDirectory)
+                if str(inputDirectory) not in module_build.lst.get(0, 'end'):
+                    module_build.lst.insert('end', str(inputDirectory))
         else:
             messagebox.showerror('POM Scanner', 'This folder does not have a corresponding POM file.')
+
 
 def create_psm_instance_final_checks():
     missingValueGenerator = ""
@@ -305,7 +314,7 @@ proj_dir = smallFrame("projectDir", window, "Select Multi-Module Project Build D
 psm_ecore = tkinter.Entry(window, text='', width=50, foreground='navy')
 psm_ecore.configure(state='normal')
 psm_ecore.delete(0, 'end')
-psm_ecore.insert(0, str(os.path.expanduser('~') + "\MiSAR\Parser\TransformationEngineNecessities\source\PSM.ecore"))
+psm_ecore.insert(0, str(PSM_ECORE_PATH))
 psm_ecore.configure(state='readonly', readonlybackground='white')
 docker_compose = largeFrame("dockerCompose", window, "Select Docker Compose Files (mandatory):", 1, 2, "file")
 app_build = largeFrame("appBuild", window, "Select Multi-Module Project POM Build Files (optional):", 1, 4, "file")
@@ -327,6 +336,3 @@ btn_psm_instance.grid(row=11, column=0, columnspan=6, padx=2, pady=10)
 # Installer("lol", "https://github.com/MicroServiceArchitectureRecovery/misar-plantUML.git")
 
 window.mainloop()
-
-
-
