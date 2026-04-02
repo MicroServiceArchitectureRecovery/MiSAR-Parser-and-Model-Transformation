@@ -1,6 +1,7 @@
 ############################
 # Developed by RanaFakeeh-87
 # 01/20/2020
+# LAST UPDATE: 02/04/2026 (@aljvdi)
 ############################
 
 import tkinter
@@ -32,6 +33,8 @@ import webbrowser
 import subprocess
 from MisarParserJava import *
 from MisarParserDocker import *
+import sys
+from pathlib import Path
             
 def fetch_artifacts(filename_part, filepath_part, app_root_dir):   
     artifact_list = []      
@@ -1009,9 +1012,13 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             with open(psm_instance_file, 'w') as file:
                 file.writelines("%s\n" % line for line in file_lines)
 
+            # success message
+            messagebox.showinfo(
+                "Success",
+                "PSM model generated successfully!\n\nSaved at:\n" + str(psm_instance_file)
+            )
+
         end_time = datetime.now().strftime("%H:%M:%S")
         print(start_time)
         print(end_time)
-
-
 
