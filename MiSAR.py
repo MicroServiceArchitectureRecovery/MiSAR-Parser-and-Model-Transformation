@@ -7,6 +7,25 @@ from urllib.request import urlopen as url
 from datetime import *
 import webbrowser
 import subprocess
+from pathlib import Path
+
+# ===============================
+# ENVIRONMENTS FOR THE MiSAR AIO
+# ===============================
+
+USER_HOME_DIR = Path.home()
+MISAR_DIR = USER_HOME_DIR / "MiSAR"
+PARSER_DIR = MISAR_DIR / "Parser"
+GMG_DIR = MISAR_DIR / "GMG"
+MISAR_TEMP_DIR = USER_HOME_DIR / "MiSARTemp"
+
+PARSER_PSM_ECORE = PARSER_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore"
+PARSER_GUI_PATH = PARSER_DIR / "ParserNecessities" / "MisarParserGUI.py"
+GMG_JAR_PATH = GMG_DIR / "Runnable Jar File" / "MiSAR.jar"
+
+PARSER_MANUAL_PATH = MISAR_DIR / "MiSAR Parser - manualfinal.pdf"
+MISAR_MANUAL_PATH = MISAR_DIR / "MiSAR Manual v1.pdf"
+
 
 def checkInternet():
     try:
@@ -15,11 +34,13 @@ def checkInternet():
     except Exception as e:
         return False
 
+
 def pluralCheck(errors):
     if len(errors) == 1:
         return ("this required module.")
     else:
         return ("these required modules.")
+
 
 def checkIfModulesAreInstalled(inputClass):
     errors = []
@@ -85,44 +106,47 @@ def checkIfModulesAreInstalled(inputClass):
     else:
         return True
 
+
 def parserInstaller(parserLocation):
     from git import Repo
-    print(os.path.expanduser('~') + "\\" + parserLocation)
+    parser_path = USER_HOME_DIR / Path(parserLocation)
+    print(parser_path)
     try:
         Repo.clone_from(
             "https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation.git",
-            (os.path.expanduser('~') + "/" + parserLocation), branch="main")
-        if os.path.isfile(
-                (os.path.expanduser('~') + "\\" + parserLocation + "\\TransformationEngineNecessities\\source\\PSM.ecore")) == True:
-            if os.path.isfile(
-                    (os.path.expanduser('~') + "\\" + parserLocation + "\\ParserNecessities\\MisarParserGUI.py")) == True:
+            parser_path, branch="main")
+        if os.path.isfile(parser_path / "TransformationEngineNecessities" / "source" / "PSM.ecore") == True:
+            if os.path.isfile(parser_path / "ParserNecessities" / "MisarParserGUI.py") == True:
                 return True
     except Exception as fail:
         return False
 
+
 def gmgInstaller(gmgLocation):
     from git import Repo
-    print(os.path.expanduser('~') + "\\" + gmgLocation)
+    gmg_path = USER_HOME_DIR / Path(gmgLocation)
+    print(gmg_path)
     try:
         Repo.clone_from(
             "https://github.com/MicroServiceArchitectureRecovery/misar-plantUML.git",
-            (os.path.expanduser('~') + "/" + gmgLocation), branch="main")
-        if os.path.isfile(
-                (os.path.expanduser('~') + "\\" + gmgLocation + "\\Runnable Jar File\\MiSAR.jar")) == True:
+            gmg_path, branch="main")
+        if os.path.isfile(gmg_path / "Runnable Jar File" / "MiSAR.jar") == True:
             return True
     except Exception as fail:
         return False
 
+
 def Uninstaller(Location):
     targetLink = ""
     readOnly = True
+    location_path = USER_HOME_DIR / Path(Location)
     while readOnly:
         readOnly = False
         try:
-            os.rmdir(os.path.expanduser('~') + "\\" + Location)
+            os.rmdir(location_path)
         except OSError:
             try:
-                shutil.rmtree((os.path.expanduser('~') + "\\" + Location))
+                shutil.rmtree(location_path)
             except PermissionError as fail:
                 failEdit = (str(fail))
                 commaActivate = False
@@ -133,7 +157,7 @@ def Uninstaller(Location):
                         targetLink = targetLink + failEdit[x]
                     if failEdit[x] == "'" and commaActivate == False:
                         commaActivate = True
-                #print(targetLink)
+                targetLink = Path(targetLink)
                 os.chmod(targetLink, stat.S_IWRITE)
                 os.unlink(targetLink)
                 try:
@@ -143,33 +167,34 @@ def Uninstaller(Location):
                 targetLink = ""
                 readOnly = True
 
+
 def buttonStuff(inputClass):
     if inputClass.name == "MiSAR Parser":
-        if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\Parser\\TransformationEngineNecessities\\source\\PSM.ecore")) == False:
+        if os.path.isfile(PARSER_PSM_ECORE) == False:
             MisarChecker = messagebox.askquestion("Parser Installer", "To use the MiSAR Parser, you must first install it.\nWould you to like to install it now?")
             if MisarChecker == "yes":
                 if checkInternet():
                     if checkIfModulesAreInstalled(inputClass):
                         messagebox.showinfo("Installation commencing!",
                                             "The Parser will now be installed.")
-                        if parserInstaller("MiSAR\\Parser") == True:
+                        if parserInstaller(Path("MiSAR") / "Parser") == True:
                             messagebox.showinfo("Success!",
-                                                "The operation completed successfully!\nThe Parser has been installed! It has been saved at: " + os.path.expanduser(
-                                                    '~') + "\\MiSAR")
+                                                "The operation completed successfully!\nThe Parser has been installed! It has been saved at: " + str(
+                                                    MISAR_DIR))
                             theParser.launchButton.configure(text="Launch")
                         else:
-                            Uninstaller("MiSAR\\Parser")
-                            if parserInstaller("MiSAR\\Parser") == True:
+                            Uninstaller(Path("MiSAR") / "Parser")
+                            if parserInstaller(Path("MiSAR") / "Parser") == True:
                                 messagebox.showinfo("Success!",
-                                                    "The operation completed successfully!\nThe Parser has been installed! It has been saved at: " + os.path.expanduser(
-                                                        '~') + "\\MiSAR\\Parser")
+                                                    "The operation completed successfully!\nThe Parser has been installed! It has been saved at: " + str(
+                                                        PARSER_DIR))
                                 theParser.launchButton.configure(text="Launch")
                 else:
                     messagebox.showerror("No Internet Connection!",
-                                         "An internet connection is required to install the "+inputClass.name+".")
+                                         "An internet connection is required to install the " + inputClass.name + ".")
         elif checkIfModulesAreInstalled(inputClass):
                 mainWindow.destroy()
-                subprocess.call(['python', (os.path.expanduser('~') + "\\MisAR\\Parser\\ParserNecessities\\MisarParserGUI.py")])
+                subprocess.call(['python', str(PARSER_GUI_PATH)])
 
     elif inputClass.name == "MiSAR Transformation Engine":
         if checkIfModulesAreInstalled(inputClass):
@@ -180,30 +205,29 @@ def buttonStuff(inputClass):
                                  "The installation has failed!\nIf 'No' was selected, please select yes and try again.\n Otherwise, check your internet connection.")
 
     elif inputClass.name == "MiSAR Graphical Model Generator":
-        if os.path.isfile((os.path.expanduser('~') + "\\MiSAR\\GMG\\Runnable Jar File\\MiSAR.jar")) == False:
-            MisarChecker = messagebox.askquestion("Graphical Model Generator Installer", "To use the "+ inputClass.name + ", you must first install it.\nWould you to like to install it now?")
+        if os.path.isfile(GMG_JAR_PATH) == False:
+            MisarChecker = messagebox.askquestion("Graphical Model Generator Installer", "To use the " + inputClass.name + ", you must first install it.\nWould you to like to install it now?")
             if MisarChecker == "yes":
                 if checkInternet():
                     if checkIfModulesAreInstalled(inputClass):
-                        if gmgInstaller("MiSAR\\GMG") == True:
+                        if gmgInstaller(Path("MiSAR") / "GMG") == True:
                             messagebox.showinfo("Success!",
-                                                "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + os.path.expanduser(
-                                                    '~') + "\\MiSAR\\GMG")
+                                                "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + str(
+                                                    GMG_DIR))
                             theGraphicalModelGenerator.launchButton.configure(text="Launch")
                         else:
                             Uninstaller("GMG")
                             if gmgInstaller("GMG") == True:
                                 messagebox.showinfo("Success!",
-                                                    "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + os.path.expanduser(
-                                                        '~') + "\\MiSAR\\GMG")
+                                                    "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + str(
+                                                        GMG_DIR))
                                 theGraphicalModelGenerator.launchButton.configure(text="Launch")
                 else:
                     messagebox.showerror("No Internet Connection!",
-                                         "An internet connection is required to install the "+inputClass.name+".")
+                                         "An internet connection is required to install the " + inputClass.name + ".")
         else:
             mainWindow.destroy()
-            subprocess.call(['java', '-jar', (os.path.expanduser('~') + "\\GMG\\Runnable Jar File\\MiSAR.jar")])
-
+            subprocess.call(['java', '-jar', str(GMG_JAR_PATH)])
 
     elif inputClass.name == "Need help or more information about this program?":
         messagebox.showinfo("MiSAR Help!", "Hello! And welcome to MiSAR!\n"
@@ -217,7 +241,7 @@ def buttonStuff(inputClass):
                                                     "This requires an internet connection.")
         if demo == "yes":
             if checkInternet():
-                webbrowser.open("https://www.youtube.com/watch?v=sdRDkLesyS0&ab_channel=NourAli", new = 2)
+                webbrowser.open("https://www.youtube.com/watch?v=sdRDkLesyS0&ab_channel=NourAli", new=2)
             else:
                 messagebox.showerror("No Internet Connection!",
                                      "An internet connection is required to view the MiSAR Demonstration Video.")
@@ -225,23 +249,24 @@ def buttonStuff(inputClass):
                                               "Would you instead like to view the manual for MiSAR?\n"
                                               "This does NOT requires an internet connection.")
                 if demo == "yes":
-                    subprocess.Popen((os.path.expanduser('~') + "\\MisAR\\MiSAR Parser - manualfinal.pdf"), shell=True)
+                    subprocess.Popen(str(PARSER_MANUAL_PATH), shell=True)
         else:
             demo = messagebox.askquestion("Need more?",
                                           "Would you instead like to view the manual for MiSAR?\n"
                                           "This does NOT requires an internet connection.")
             if demo == "yes":
-                subprocess.Popen((os.path.expanduser('~') + "\\MisAR\\MiSAR Manual v1.pdf"), shell=True)
+                subprocess.Popen(str(MISAR_MANUAL_PATH), shell=True)
+
 
 def misar_updater():
     if checkInternet():
         if checkIfModulesAreInstalled(None):
-            if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\Parser\\TransformationEngineNecessities\\source\\PSM.ecore")) == True:
-                if os.path.isfile((os.path.expanduser('~') + "\\MisARTemp\\TransformationEngineNecessities\\source\\PSM.ecore")) == True:
+            if os.path.isfile(PARSER_PSM_ECORE) == True:
+                if os.path.isfile(MISAR_TEMP_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore") == True:
                     Uninstaller("MiSARTemp")
                 if parserInstaller("MiSARTemp") == True:
                     previousDirectory = os.getcwd()
-                    os.chdir((os.path.expanduser('~') + "\\MisARTemp"))
+                    os.chdir(MISAR_TEMP_DIR)
                     newestVersion = os.popen("git log -1").read()
                     updatedDate = ""
                     colonCount = 0
@@ -249,7 +274,6 @@ def misar_updater():
                     for x in range(0, len(newestVersion)):
                         if targetCutOff > x:
                             updatedDate = updatedDate + newestVersion[x]
-                            # print(updatedDate)
                             if newestVersion[x] == ":" and colonCount < 2:
                                 updatedDate = ""
                                 colonCount = colonCount + 1
@@ -258,15 +282,15 @@ def misar_updater():
                     updatedDate = updatedDate.strip()
                     onlineVersion = datetime.strptime(updatedDate, '%a %b %d %H:%M:%S %Y')
                     currentVersion = datetime.fromtimestamp(
-                        (os.path.getctime((os.path.expanduser('~') + "\\MisAR\\Parser\\TransformationEngineNecessities\\source\\PSM.ecore"))))
+                        os.path.getctime(PARSER_PSM_ECORE))
                     os.chdir(previousDirectory)
                     if onlineVersion > currentVersion:
                         updateAvailable = messagebox.askquestion("Update Available!",
                                                                  "An update is available! Would you like to install it now?")
                         if updateAvailable == "yes":
                             Uninstaller("MiSARTemp")
-                            Uninstaller("MiSAR\\Parser")
-                            if parserInstaller("MiSAR\\Parser") == True:
+                            Uninstaller(Path("MiSAR") / "Parser")
+                            if parserInstaller(Path("MiSAR") / "Parser") == True:
                                 messagebox.showinfo("Success!",
                                                     "The update completed successfully!")
                             else:
@@ -277,42 +301,45 @@ def misar_updater():
     else:
         messagebox.showerror("No Internet", "Cannot check for updates due to a lack of internet.")
 
+
 class programOfChoice:
     def __init__(self, name, version, inputRow, inputColumn, targetWindow):
         self.name = name
         self.version = version
         self.inputRow = inputRow
         self.inputColumn = inputColumn
-        self.moduleName = tkinter.Label(targetWindow, text = name, font =("Arial", 20))
-        self.moduleName.grid(row = inputRow, column = inputColumn)
-        self.launchButton = tkinter.Button(targetWindow, text = "Install", font =("Arial", 20), width = 10)
-        self.launchButton.configure(command = lambda button = self: buttonStuff(button))
-        self.launchButton.grid(row = inputRow+1, column = inputColumn)
+        self.moduleName = tkinter.Label(targetWindow, text=name, font=("Arial", 20))
+        self.moduleName.grid(row=inputRow, column=inputColumn)
+        self.launchButton = tkinter.Button(targetWindow, text="Install", font=("Arial", 20), width=10)
+        self.launchButton.configure(command=lambda button=self: buttonStuff(button))
+        self.launchButton.grid(row=inputRow + 1, column=inputColumn)
+
+
 def window_quit():
     mainWindow.quit()
     mainWindow.destroy()
+
 
 misar_updater()
 
 mainWindow = tkinter.Tk()
 
 mainWindow.title("MicroService Architecture Recovery")
-welcome = tkinter.Label(mainWindow, text = "Hello and welcome to the MiSAR AIO!\n Please select a program you would like to use from the list below:", font =("Arial", 20))
-welcome.grid(row = 0, column = 0)
+welcome = tkinter.Label(mainWindow, text="Hello and welcome to the MiSAR AIO!\n Please select a program you would like to use from the list below:", font=("Arial", 20))
+welcome.grid(row=0, column=0)
 
 theParser = programOfChoice("MiSAR Parser", "V1.0", 1, 0, mainWindow)
 #theTransformationEngine = programOfChoice("MiSAR Transformation Engine", "V1.0", 3, 0, mainWindow)
 theGraphicalModelGenerator = programOfChoice("MiSAR Graphical Model Generator", "V1.0", 5, 0, mainWindow)
 theHelpButton = programOfChoice("Need help or more information about this program?", "V1.0", 7, 0, mainWindow)
-theHelpButton.launchButton.configure(text = "Help", font =("Arial", 20))
+theHelpButton.launchButton.configure(text="Help", font=("Arial", 20))
 
-if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\Parser\\TransformationEngineNecessities\\source\\PSM.ecore")) == True:
-    theParser.launchButton.configure(text = "Launch")
+if os.path.isfile(PARSER_PSM_ECORE) == True:
+    theParser.launchButton.configure(text="Launch")
 
-if os.path.isfile((os.path.expanduser('~') + "\\MisAR\\GMG\\Runnable Jar File\\MiSAR.jar")) == True:
-    theGraphicalModelGenerator.launchButton.configure(text = "Launch")
+if os.path.isfile(GMG_JAR_PATH) == True:
+    theGraphicalModelGenerator.launchButton.configure(text="Launch")
 
 mainWindow.protocol("WM_DELETE_WINDOW", window_quit)
-
 
 mainWindow.mainloop()
