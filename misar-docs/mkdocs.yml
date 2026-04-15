@@ -23,6 +23,7 @@
     - Change Log: changelog.md
     - Installation: installation.md
     - Eclipse IDE - QVT Configuration: qvt-setup.md
+    - Eclipse IDE - QVT Manual installation: qvt-manual-installation.md
     - Create a PSM Instance: create-psm.md
     - Create a PIM Instance: create-pim.md
     - Use MiSAR Graphical Model Generator: graphical-generator.md

@@ -19,6 +19,8 @@ TransformationEngineNecessities folder
 <center><img src="/assets/images/qvt/qvt-pick.png" alt="Missing dependencies"/></center>
 
 ## Configure Metamodels
+> In case you cannot find the QVT Settings in the project properties, make sure you have installed the QVT Operational component as described in the [manual installation guide](qvt-manual-installation.md).
+
 Go to:
 Project → Properties → QVT Settings → Metamodel Mappings
 
