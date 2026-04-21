@@ -1,6 +1,16 @@
 # Installation
 
-## First Launch
+## Running MiSAR (First Launch)
+To launch the MiSAR All-In-One (AIO) tool:
+
+1. Open a terminal
+2. Navigate to the MiSAR project directory
+3. Run:
+
+```bash
+python3 MiSAR.py
+```
+
 When running MiSAR for the first time, it will detect missing dependencies:
 <center><img src="/assets/images/aio/missing.png" alt="Missing dependencies" width="200"/></center>
 

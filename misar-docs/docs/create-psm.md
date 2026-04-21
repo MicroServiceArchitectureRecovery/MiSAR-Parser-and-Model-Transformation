@@ -3,7 +3,7 @@
 In this part, you will learn how to use the MiSAR Parser to generate a Platform Specific Model (PSM) from an existing microservice codebase.
 
 ## Launch Parser
-Open MiSAR AIO and click **Launch** under MiSAR Parser.
+Run `python3 MiSAR.py` to open the MiSAR AIO interface, then click **Launch** under MiSAR Parser.
 
 <center><img src="/assets/images/aio/misar-aio.png" alt="Missing dependencies" width="500"/></center>
 <br><br>
@@ -34,7 +34,8 @@ The UI will populate:
 You can manually edit/remove entries.
 
 ## Validation
-If required fields are missing, errors will appear.
+If required fields are missing, an error message will appear after clicking **Create PSM Model**.  
+The missing fields will also be highlighted.
 
 <center><img src="/assets/images/parser/parser-example-error.png" alt="Missing dependencies" width="200"/></center>
 
@@ -43,8 +44,9 @@ If required fields are missing, errors will appear.
 Click **Create PSM Model**
 
 ## Output
-A success message will show:
-- File location
-- Output filename (.xmi)
+If the process completes successfully, the PSM file will be generated in the selected output directory.
+
+> Note:  
+> Depending on the version, a success message may also be displayed showing the file location.
 
 <center><img src="/assets/images/parser/parser-psm-success.png" alt="Missing dependencies" width="200"/></center>

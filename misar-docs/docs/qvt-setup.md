@@ -13,8 +13,9 @@ File → Open Projects from File System
 
 <center><img src="/assets/images/qvt/qvt-select.png" alt="Missing dependencies" width="200"/></center>
 
-Select:
-TransformationEngineNecessities folder
+Select the `TransformationEngineNecessities` folder located in the MiSAR project directory:
+MiSAR-Parser-and-Model-Transformation/TransformationEngineNecessities/
+
 
 <center><img src="/assets/images/qvt/qvt-pick.png" alt="Missing dependencies"/></center>
 
@@ -45,5 +46,7 @@ Add:
 
 
 ## Notes
-- QVT is already included in Eclipse Modelling Tools (2024-06+ until 2025-09)
-- No marketplace installation required
+
+In some Eclipse installations, QVTo may already be included.
+
+If QVT Operational is not available in your Eclipse environment, please follow the manual installation steps described in this guide.

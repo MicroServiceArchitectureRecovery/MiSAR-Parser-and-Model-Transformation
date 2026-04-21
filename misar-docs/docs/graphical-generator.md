@@ -6,7 +6,7 @@ This is the final step in the MiSAR process, where the recovered PIM is transfor
 This step is optional and generates UML diagrams.
 
 ## Launch  Graphical Model Generator
-Open MiSAR AIO and click **Launch** under Graphical Model Generator.
+Run `python3 MiSAR.py` to open MiSAR AIO, then click **Launch**
 
 <center><img src="/assets/images/aio/misar-aio.png" alt="Missing dependencies" width="500"/></center>
 <br><br>
