@@ -1,0 +1,39 @@
+  site_name: MiSAR Documentation
+  site_description: Documentation for the MiSAR parser, QVTo setup, and recovery workflow
+
+  theme:
+    name: material
+    features:
+      - navigation.instant
+      - navigation.sections
+      - navigation.top
+      - search.highlight
+      - search.suggest
+      - content.code.copy
+    palette:
+      - scheme: default
+        primary: indigo
+        accent: indigo
+
+  repo_url: https://github.com/MicroServiceArchitectureRecovery/misar
+  repo_name: MiSAR GitHub
+
+  nav:
+    - Welcome: index.md
+    - Change Log: changelog.md
+    - Installation: installation.md
+    - Eclipse IDE - QVT Configuration: qvt-setup.md
+    - Eclipse IDE - QVT Manual installation: qvt-manual-installation.md
+    - Create a PSM Instance: create-psm.md
+    - Create a PIM Instance: create-pim.md
+    - Use MiSAR Graphical Model Generator: graphical-generator.md
+
+  markdown_extensions:
+    - admonition
+    - toc:
+        permalink: true
+    - pymdownx.highlight
+    - pymdownx.superfences
+
+  plugins:
+    - search
