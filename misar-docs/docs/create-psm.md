@@ -5,9 +5,9 @@ In this part, you will learn how to use the MiSAR Parser to generate a Platform 
 ## Launch Parser
 Run `python3 MiSAR.py` to open the MiSAR AIO interface, then click **Launch** under MiSAR Parser.
 
-<center><img src="/assets/images/aio/misar-aio.png" alt="Missing dependencies" width="500"/></center>
-<br><br>
-<center><img src="/assets/images/parser/parser-gui.png" alt="Missing dependencies"/></center>
+![MiSAR AIO](assets/images/aio/misar-aio.png){ width="500" }
+
+![Parser GUI](assets/images/parser/parser-gui.png)
 
 ## Fill Required Fields
 - Project Name
@@ -19,7 +19,7 @@ Run `python3 MiSAR.py` to open the MiSAR AIO interface, then click **Launch** un
 ## Automatic Importer (For Docker Compose)
 When you add a Docker Compose file, the parser can attempt to auto-populate the remaining required fields.
 
-<center><img src="/assets/images/parser/parser-docker-auto-importer.png" alt="Missing dependencies" width="200"/></center>
+![Docker auto importer](assets/images/parser/parser-docker-auto-importer.png){ width="200" }
 
 When prompted, click **Yes** to auto-detect project files.
 
@@ -29,7 +29,7 @@ The UI will populate:
 - Module paths
 - POM files
 
-<center><img src="/assets/images/parser/parser-auto-importer-success.png" alt="Missing dependencies"/></center>
+![Auto importer success](assets/images/parser/parser-auto-importer-success.png)
 
 You can manually edit/remove entries.
 
@@ -37,8 +37,7 @@ You can manually edit/remove entries.
 If required fields are missing, an error message will appear after clicking **Create PSM Model**.  
 The missing fields will also be highlighted.
 
-<center><img src="/assets/images/parser/parser-example-error.png" alt="Missing dependencies" width="200"/></center>
-
+![Parser error example](assets/images/parser/parser-example-error.png){ width="200" }
 
 ## Generate PSM
 Click **Create PSM Model**
@@ -49,4 +48,4 @@ If the process completes successfully, the PSM file will be generated in the sel
 > Note:  
 > Depending on the version, a success message may also be displayed showing the file location.
 
-<center><img src="/assets/images/parser/parser-psm-success.png" alt="Missing dependencies" width="200"/></center>
+![PSM success](assets/images/parser/parser-psm-success.png){ width="200" }

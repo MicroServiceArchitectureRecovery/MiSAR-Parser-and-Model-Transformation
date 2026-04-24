@@ -12,14 +12,15 @@ python3 MiSAR.py
 ```
 
 When running MiSAR for the first time, it will detect missing dependencies:
-<center><img src="/assets/images/aio/missing.png" alt="Missing dependencies" width="200"/></center>
+
+![Missing dependencies](assets/images/aio/missing.png){ width="200" }
 
 Click **Yes** to install them automatically.
 
 ## After Installation
 A success message will confirm everything is installed correctly.
 
-<center><img src="/assets/images/aio/install-success.png" alt="Missing dependencies" width="200"/></center>
+![Installation success](assets/images/aio/install-success.png){ width="200" }
 
 ## Notes
 - Ensure Python 3.11+ is installed

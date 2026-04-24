@@ -4,7 +4,7 @@
 > 
 > In some Eclipse installations, **QVT Operational (QVTo)** may not be available by default.
 > 
-> If you do not see:
+> If you do not see:  
 > **Run As → QVT Operational Transformation** or QVT-related options in Eclipse you will need to install QVTo manually.
 
 ---
@@ -19,7 +19,7 @@ Go to:
 Help → Eclipse Marketplace
 ```
 
-<center><img src="/assets/images/qvt/qvt-install-search.png" alt="Missing dependencies" width="300"/></center>
+![Marketplace search](assets/images/qvt/qvt-install-search.png){ width="300" }
 
 Search for:
 
@@ -30,7 +30,6 @@ QVT Operational
 ```
 
 Click **Install** and follow the steps
-
 
 > In newer Eclipse versions, **QVTo may not appear in Marketplace** 
 > If it does not show, use the manual installation method below
@@ -47,7 +46,7 @@ Go to the official release page:
 
 You will see a page like this:
 
-<center><img src="/assets/images/qvt/qvt-release-page.png" alt="Missing dependencies"/></center>
+![QVTo release page](assets/images/qvt/qvt-release-page.png)
 
 ### Action:
 - Click the **Download** button (right side)
@@ -66,13 +65,14 @@ Go to:
 Help → Install New Software...
 
 ```
-<center><img src="/assets/images/qvt/qvt-install-help.png" alt="Missing dependencies" width="400"/></center>
+
+![Install help](assets/images/qvt/qvt-install-help.png){ width="400" }
 
 Click **Add...**
 
 Click **Archive...** and select the downloaded `.zip` file
 
-<center><img src="/assets/images/qvt/qvt-install-choose-archive.png" alt="Missing dependencies" width="500"/></center>
+![Choose archive](assets/images/qvt/qvt-install-choose-archive.png){ width="500" }
 
 ---
 
@@ -81,7 +81,7 @@ Click **Archive...** and select the downloaded `.zip` file
 - Select **QVT Operational**
 - Select **QVT Operational (tests)** (optional but safe)
 
-<center><img src="/assets/images/qvt/qvt-install-selected.png" alt="Missing dependencies"/></center>
+![Select components](assets/images/qvt/qvt-install-selected.png)
 
 Click:
 
@@ -95,7 +95,7 @@ Next → Next → Accept License → Finish
 
 ## Step 4 – Restart Eclipse
 
-After installation: 
+After installation:  
 Click **Restart Now**
 
 ---
@@ -121,5 +121,3 @@ Run As → QVT Operational Transformation
 - QVTo is still actively maintained (newer versions may exist)
 - Some Eclipse distributions already include QVTo (no installation required)
 - If installation fails via Marketplace, always use the **manual archive method**
-
----

@@ -11,13 +11,13 @@ Download Eclipse Modeling Tools package. Latest version can be found at: [https:
 ## Import Project
 File → Open Projects from File System
 
-<center><img src="/assets/images/qvt/qvt-select.png" alt="Missing dependencies" width="200"/></center>
+![QVT select](assets/images/qvt/qvt-select.png){ width="200" }
 
 Select the `TransformationEngineNecessities` folder located in the MiSAR project directory:
 MiSAR-Parser-and-Model-Transformation/TransformationEngineNecessities/
 
 
-<center><img src="/assets/images/qvt/qvt-pick.png" alt="Missing dependencies"/></center>
+![QVT pick](assets/images/qvt/qvt-pick.png)
 
 ## Configure Metamodels
 > In case you cannot find the QVT Settings in the project properties, make sure you have installed the QVT Operational component as described in the [manual installation guide](qvt-manual-installation.md).
@@ -25,8 +25,8 @@ MiSAR-Parser-and-Model-Transformation/TransformationEngineNecessities/
 Go to:
 Project → Properties → QVT Settings → Metamodel Mappings
 
-<center><img src="/assets/images/qvt/qvt-mapping.png" alt="Missing dependencies" width="200"/></center>
-<center><img src="/assets/images/qvt/qvt-mapping-setup.png" alt="Missing dependencies"/></center>
+![QVT mapping](assets/images/qvt/qvt-mapping.png){ width="200" }
+![QVT mapping setup](assets/images/qvt/qvt-mapping-setup.png)
 
 Add:
 
@@ -35,14 +35,14 @@ Add:
 |--------------------------------|----------------------------------|
 | http://localhost/mdd/PIM.ecore | platform:/resource/.../PIM.ecore |
 
-<center><img src="/assets/images/qvt/qvt-mapping-pim.png" alt="Missing dependencies" width="600"/></center>
+![QVT mapping PIM](assets/images/qvt/qvt-mapping-pim.png){ width="600" }
 
 ### PSM
 | Source                         | Target                           |
 |--------------------------------|----------------------------------|
 | http://localhost/mdd/PSM.ecore | platform:/resource/.../PSM.ecore |
 
-<center><img src="/assets/images/qvt/qvt-mapping-psm.png" alt="Missing dependencies" width="600"/></center>
+![QVT mapping PSM](assets/images/qvt/qvt-mapping-psm.png){ width="600" }
 
 
 ## Notes

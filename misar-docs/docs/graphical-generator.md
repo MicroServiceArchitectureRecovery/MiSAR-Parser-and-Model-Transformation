@@ -5,12 +5,12 @@ This is the final step in the MiSAR process, where the recovered PIM is transfor
 ## Overview
 This step is optional and generates UML diagrams.
 
-## Launch  Graphical Model Generator
+## Launch Graphical Model Generator
 Run `python3 MiSAR.py` to open MiSAR AIO, then click **Launch**
 
-<center><img src="/assets/images/aio/misar-aio.png" alt="Missing dependencies" width="500"/></center>
-<br><br>
-<center><img src="/assets/images/misar-jar/misar-jar.png" alt="Missing dependencies"/></center>
+![MiSAR AIO](assets/images/aio/misar-aio.png){ width="500" }
+
+![Graphical generator](assets/images/misar-jar/misar-jar.png)
 
 ## Input
 Provide the PIM file generated from the transformation step.
@@ -20,11 +20,11 @@ Provide the PIM file generated from the transformation step.
 ## Outputs
 - UML diagrams
 
-<center><img src="/assets/images/misar-jar/micro-company-dependency-view.png" alt="Missing dependencies"/></center>
+![Dependency view](assets/images/misar-jar/micro-company-dependency-view.png)
 
 - Excel summaries
 
-<center><img src="/assets/images/misar-jar/micro-company-xls-example.png" alt="Missing dependencies"/></center>
+![Excel example](assets/images/misar-jar/micro-company-xls-example.png)
 
 - Architecture overview
 

@@ -11,17 +11,16 @@ You can simply copy the generated PSM file into the Eclipse project directory.
 This PSM file must be selected as the **source model** during transformation.
 
 ## Open Transformation
-Right click:
+Right click:  
 MisarTransformation3.qvto → Run As → Run Configurations
 
-<center><img src="/assets/images/pim/pim-run.png" alt="Missing dependencies" width="600"/></center>
-
+![Run transformation](assets/images/pim/pim-run.png){ width="600" }
 
 ## Select Transformation
-Choose:
+Choose:  
 QVT Operational Transformation
 
-<center><img src="/assets/images/pim/pim-transform.png" alt="Missing dependencies" width="600"/></center>
+![Select transformation](assets/images/pim/pim-transform.png){ width="600" }
 
 ## Configure Input/Output
 
@@ -33,7 +32,7 @@ Select generated PSM file (.xmi)
 ### Output (PIM)
 Choose output location and filename
 
-<center><img src="/assets/images/pim/pim-select-psm-and-pim.png" alt="Missing dependencies" width="600"/></center>
+![Select PSM and PIM](assets/images/pim/pim-select-psm-and-pim.png){ width="600" }
 
 ## Run Transformation
 Click Run
@@ -41,7 +40,7 @@ Click Run
 ## View Output
 Right click generated file → Open With → Sample Reflective Ecore Model Editor
 
-<center><img src="/assets/images/pim/pim-show-as.png" alt="Missing dependencies" width="600"/></center>
+![Show as model](assets/images/pim/pim-show-as.png){ width="600" }
 
 ## Result
 You will see:
@@ -49,4 +48,4 @@ You will see:
 - Functional vs Infrastructure services
 - Dependencies
 
-<center><img src="/assets/images/pim/pim-success-example.png" alt="Missing dependencies" width="600"/></center>
+![PIM result example](assets/images/pim/pim-success-example.png){ width="600" }
