@@ -1,2 +1,5 @@
 .venv/
 .idea/
+
+# Don't deploy the site directory (built by MkDocs) to GitHub, as it is generated and can be large. Instead, we will deploy it to GitHub Pages using the gh-pages branch.
+misar-docs/site
