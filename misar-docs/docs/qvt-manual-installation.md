@@ -1,13 +1,15 @@
 # QVT Operational – Manual Installation
 
-> You can safely skip this guide if last step (QVT Configuration) worked without errors, and you can run transformations.
-> 
+> You can safely skip this guide if the last step, QVT Configuration, worked without errors, and you can run transformations.
+>
 > In some Eclipse installations, **QVT Operational (QVTo)** may not be available by default.
-> 
-> If you do not see:  
-> **Run As → QVT Operational Transformation** or QVT-related options in Eclipse you will need to install QVTo manually.
+>
+> If you do not see:
+>
+> **Run As → QVT Operational Transformation**
+>
+> or QVT-related options in Eclipse, you will need to install QVTo manually.
 
----
 
 ## Option 1 – Eclipse Marketplace
 
@@ -15,7 +17,7 @@ You can try installing QVTo via the Eclipse Marketplace:
 
 Go to:
 
-```
+```text
 Help → Eclipse Marketplace
 ```
 
@@ -23,101 +25,167 @@ Help → Eclipse Marketplace
 
 Search for:
 
-```
-
+```text
 QVT Operational
-
 ```
 
-Click **Install** and follow the steps
+Click **Install** and follow the steps.
 
-> In newer Eclipse versions, **QVTo may not appear in Marketplace** 
-> If it does not show, use the manual installation method below
+> In newer Eclipse versions, **QVTo may not appear in Marketplace**.  
+> If it does not show, use the manual installation method below.
 
----
+----------
 
-## Option 2 – Manual Installation (Recommended)
+## Option 2 – Install from Eclipse Update Site (Recommended)
 
-### Step 1 – Download QVTo
+This method installs QVTo directly from the Eclipse update site.  
+You do **not** need to download the `.zip` file manually.
 
-Go to the official release page:
+### Step 1 – Open Install New Software
 
-👉 [https://download.eclipse.org/mmt/qvto/builds/release/latest/index.html](https://download.eclipse.org/mmt/qvto/builds/release/latest/index.html)
-
-You will see a page like this:
-
-![QVTo release page](assets/images/qvt/qvt-release-page.png)
-
-### Action:
-- Click the **Download** button (right side)
-- Download the `.zip` file (e.g. `QVTo-Updates-3.11.2.zip`)
-
----
-
-## Step 2 – Install from Archive
-
-Open Eclipse
+Open Eclipse.
 
 Go to:
 
-```
-
+```text
 Help → Install New Software...
 
 ```
 
 ![Install help](assets/images/qvt/qvt-install-help.png){ width="400" }
 
+### Step 2 – Add the QVTo Update Site
+
 Click **Add...**
 
-Click **Archive...** and select the downloaded `.zip` file
+In the **Add Repository** window, enter:
 
-![Choose archive](assets/images/qvt/qvt-install-choose-archive.png){ width="500" }
+```text
+Name: QVTo 3.11.2 Release Latest
+Location: https://download.eclipse.org/mmt/qvto/builds/release/latest/
 
----
+```
 
-## Step 3 – Select Components
+![Add repository](assets/images/qvt/qvt-install-add-repository.png){ width="500" }
 
-- Select **QVT Operational**
-- Select **QVT Operational (tests)** (optional but safe)
+Click **Add**.
+
+### Step 3 – Select Components
+
+After Eclipse loads the available software, select:
+
+-   **QVT Operational**
+-   **QVT Operational (tests)**
+    
 
 ![Select components](assets/images/qvt/qvt-install-selected.png)
 
 Click:
 
+```text
+Next
 ```
 
-Next → Next → Accept License → Finish
+### Step 4 – Review Install Details
+
+Review the items to be installed.
+
+You should see QVT Operational components such as:
+
+-   QVT Operational Development Tools
+    
+-   QVT Operational SDK
+    
+-   QVT Operational Tests
+    
+
+![Install details](assets/images/qvt/qvt-install-details.png)
+
+Click:
+
+```text
+Next
 
 ```
 
----
+### Step 5 – Accept the Licence
 
-## Step 4 – Restart Eclipse
+Select:
 
-After installation:  
-Click **Restart Now**
+```text
+I accept the terms of the license agreement
 
----
+```
+
+![Accept licence](assets/images/qvt/qvt-install-licence.png)
+
+Click:
+
+```text
+Finish
+
+```
+
+### Step 6 – Restart Eclipse
+
+After installation, Eclipse will ask you to restart.
+
+Click:
+
+```text
+Restart Now
+```
 
 ## Verification
 
-After restarting, verify installation:
+After restarting Eclipse, verify that QVTo was installed correctly:
 
-- Right click `.qvto` file  
-- Select:
+-   Right-click a `.qvto` file
+-   Select:
+    
 
-```
-
+```text
 Run As → QVT Operational Transformation
+```
+
+If this option appears, QVTo is installed successfully.
+
+## Alternative – Install from Downloaded Archive
+
+If the direct update-site method does not work, you can still install QVTo from the archive manually.
+
+Go to the official release page:
+
+[https://download.eclipse.org/mmt/qvto/builds/release/latest/index.html](https://download.eclipse.org/mmt/qvto/builds/release/latest/index.html)
+
+Download the `.zip` file, for example:
+
+```text
+QVTo-Updates-3.11.2.zip
 
 ```
 
----
+Then in Eclipse:
+
+```text
+Help → Install New Software... → Add... → Archive...
+
+```
+
+Select the downloaded `.zip` file and continue with the same steps:
+
+```text
+Next → Next → Accept License → Finish
+```
 
 ## Notes
 
-- Final tested version: **QVTo 3.11.2**
-- QVTo is still actively maintained (newer versions may exist)
-- Some Eclipse distributions already include QVTo (no installation required)
-- If installation fails via Marketplace, always use the **manual archive method**
+-   Final tested version: **QVTo 3.11.2**
+    
+-   QVTo is still actively maintained, so newer versions may exist
+    
+-   Some Eclipse distributions already include QVTo
+    
+-   Use the direct update-site method first
+    
+-   Use the archive method only if the update-site method fails
