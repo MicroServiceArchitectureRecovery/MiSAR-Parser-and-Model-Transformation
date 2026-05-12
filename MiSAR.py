@@ -3,7 +3,9 @@ from tkinter import messagebox
 import os
 import shutil
 import stat
-from urllib.request import urlopen as url
+import hashlib
+import json
+from urllib.request import Request, urlopen
 from datetime import *
 import webbrowser
 import subprocess
@@ -14,26 +16,31 @@ from pathlib import Path
 # ===============================
 
 USER_HOME_DIR = Path.home()
+AIO_DIR = Path(__file__).resolve().parent
+
 MISAR_DIR = USER_HOME_DIR / "MiSAR"
 PARSER_DIR = MISAR_DIR / "Parser"
-GMG_DIR = MISAR_DIR / "GMG"
 MISAR_TEMP_DIR = USER_HOME_DIR / "MiSARTemp"
+
+GMG_RELEASE_API_URL = "https://api.github.com/repos/MicroServiceArchitectureRecovery/misar-plantUML/releases/latest"
+GMG_ASSET_NAME = "MiSAR.jar"
+GMG_DIR = AIO_DIR
+GMG_JAR_DIR = AIO_DIR
+GMG_JAR_PATH = GMG_JAR_DIR / GMG_ASSET_NAME
+GMG_METADATA_PATH = GMG_JAR_DIR / "MiSAR.release.json"
 
 PARSER_PSM_ECORE = PARSER_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore"
 PARSER_GUI_PATH = PARSER_DIR / "ParserNecessities" / "MisarParserGUI.py"
-GMG_JAR_PATH = GMG_DIR / "Runnable Jar File" / "MiSAR.jar"
 
-PARSER_MANUAL_PATH = MISAR_DIR / "MiSAR Parser - manualfinal.pdf"
-MISAR_MANUAL_PATH = MISAR_DIR / "MiSAR Manual v1.pdf"
-
+MISAR_DOCUMENTATION_URL = "https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/create-psm/"
 
 def checkInternet():
     try:
-        url('https://google.com/', timeout=3)
+        request = Request("https://google.com/", headers={"User-Agent": "MiSAR-AIO"})
+        urlopen(request, timeout=3)
         return True
-    except Exception as e:
+    except Exception:
         return False
-
 
 def pluralCheck(errors):
     if len(errors) == 1:
@@ -122,19 +129,145 @@ def parserInstaller(parserLocation):
         return False
 
 
-def gmgInstaller(gmgLocation):
-    from git import Repo
-    gmg_path = USER_HOME_DIR / Path(gmgLocation)
-    print(gmg_path)
+def gmgInstaller(gmgLocation=None):
     try:
-        Repo.clone_from(
-            "https://github.com/MicroServiceArchitectureRecovery/misar-plantUML.git",
-            gmg_path, branch="main")
-        if os.path.isfile(gmg_path / "Runnable Jar File" / "MiSAR.jar") == True:
+        asset = get_latest_gmg_jar_asset()
+
+        if not should_download_gmg_jar(asset):
             return True
+
+        download_gmg_jar(asset)
+        write_gmg_metadata(asset)
+
+        return GMG_JAR_PATH.is_file()
     except Exception as fail:
+        print("GMG installation failed:", fail)
         return False
 
+
+def get_latest_gmg_jar_asset():
+    release_data = get_json_from_url(GMG_RELEASE_API_URL)
+    assets_url = release_data.get("assets_url")
+
+    if not assets_url:
+        raise RuntimeError("The latest GMG release does not include an assets URL.")
+
+    assets = get_json_from_url(assets_url)
+
+    for asset in assets:
+        asset_name = asset.get("name", "")
+        content_type = asset.get("content_type", "")
+
+        is_expected_name = asset_name == GMG_ASSET_NAME
+        is_java_archive = content_type == "application/java-archive"
+        is_jar_file = asset_name.lower().endswith(".jar")
+
+        if is_expected_name and is_jar_file and is_java_archive:
+            download_url = asset.get("browser_download_url")
+
+            if not download_url:
+                raise RuntimeError("The GMG JAR asset does not include a download URL.")
+
+            return {
+                "name": asset_name,
+                "download_url": download_url,
+                "digest": asset.get("digest"),
+                "updated_at": asset.get("updated_at"),
+                "size": asset.get("size"),
+            }
+
+    raise RuntimeError("Could not find a valid MiSAR.jar release asset.")
+
+
+def get_json_from_url(url):
+    request = Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "MiSAR-AIO",
+        },
+    )
+
+    with urlopen(request, timeout=20) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def should_download_gmg_jar(asset):
+    if not GMG_JAR_PATH.is_file():
+        return True
+
+    expected_digest = asset.get("digest")
+
+    if expected_digest:
+        return calculate_sha256_digest(GMG_JAR_PATH) != expected_digest
+
+    metadata = read_gmg_metadata()
+    return metadata.get("updated_at") != asset.get("updated_at")
+
+
+def download_gmg_jar(asset):
+    GMG_JAR_DIR.mkdir(parents=True, exist_ok=True)
+
+    temp_path = GMG_JAR_PATH.with_suffix(".jar.tmp")
+    request = Request(asset["download_url"], headers={"User-Agent": "MiSAR-AIO"})
+
+    with urlopen(request, timeout=120) as response:
+        with open(temp_path, "wb") as output_file:
+            shutil.copyfileobj(response, output_file)
+
+    expected_digest = asset.get("digest")
+
+    if expected_digest:
+        downloaded_digest = calculate_sha256_digest(temp_path)
+
+        if downloaded_digest != expected_digest:
+            temp_path.unlink(missing_ok=True)
+            raise RuntimeError("Downloaded MiSAR.jar failed SHA-256 verification.")
+
+    temp_path.replace(GMG_JAR_PATH)
+
+
+def calculate_sha256_digest(file_path):
+    """
+    Calculate the SHA256 digest of a file and return it in the format "sha256:<digest>".
+    (To compare with the digest provided by GitHub API, which is in the format "sha256:<digest>")
+    :param file_path:
+    :return:
+    """
+    sha256_hash = hashlib.sha256()
+
+    with open(file_path, "rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            sha256_hash.update(chunk)
+
+    return "sha256:" + sha256_hash.hexdigest()
+
+
+def read_gmg_metadata():
+    if not GMG_METADATA_PATH.is_file():
+        return {}
+    try:
+        with open(GMG_METADATA_PATH, "r", encoding="utf-8") as metadata_file:
+            return json.load(metadata_file)
+    except Exception:
+        return {}
+
+
+def write_gmg_metadata(asset):
+    GMG_JAR_DIR.mkdir(parents=True, exist_ok=True)
+    with open(GMG_METADATA_PATH, "w", encoding="utf-8") as metadata_file:
+        json.dump(asset, metadata_file, indent=2)
+
+def openDocumentation():
+    if checkInternet():
+        webbrowser.open(MISAR_DOCUMENTATION_URL, new=2)
+        return True
+
+    messagebox.showerror(
+        "No Internet Connection",
+        "An internet connection is required to open the MiSAR documentation website."
+    )
+    return False
 
 def Uninstaller(Location):
     targetLink = ""
@@ -205,57 +338,52 @@ def buttonStuff(inputClass):
                                  "The installation has failed!\nIf 'No' was selected, please select yes and try again.\n Otherwise, check your internet connection.")
 
     elif inputClass.name == "MiSAR Graphical Model Generator":
-        if os.path.isfile(GMG_JAR_PATH) == False:
-            MisarChecker = messagebox.askquestion("Graphical Model Generator Installer", "To use the " + inputClass.name + ", you must first install it.\nWould you to like to install it now?")
+        if not GMG_JAR_PATH.is_file():
+            MisarChecker = messagebox.askquestion(
+                "Graphical Model Generator Installer",
+                "To use the " + inputClass.name + ", you must first install it.\nWould you like to install it now?"
+            )
+
             if MisarChecker == "yes":
                 if checkInternet():
-                    if checkIfModulesAreInstalled(inputClass):
-                        if gmgInstaller(Path("MiSAR") / "GMG") == True:
-                            messagebox.showinfo("Success!",
-                                                "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + str(
-                                                    GMG_DIR))
-                            theGraphicalModelGenerator.launchButton.configure(text="Launch")
-                        else:
-                            Uninstaller("GMG")
-                            if gmgInstaller("GMG") == True:
-                                messagebox.showinfo("Success!",
-                                                    "The operation completed successfully!\nThe Graphical Model Generator, and it's JAR executable has been saved at: " + str(
-                                                        GMG_DIR))
-                                theGraphicalModelGenerator.launchButton.configure(text="Launch")
+                    if gmgInstaller() == True:
+                        messagebox.showinfo(
+                            "Success!",
+                            "The operation completed successfully!\nThe Graphical Model Generator JAR has been saved at: "
+                            + str(GMG_JAR_PATH)
+                        )
+                        theGraphicalModelGenerator.launchButton.configure(text="Launch")
+                    else:
+                        messagebox.showerror("Failure!", "The Graphical Model Generator installation has failed.")
+
                 else:
-                    messagebox.showerror("No Internet Connection!",
-                                         "An internet connection is required to install the " + inputClass.name + ".")
+                    messagebox.showerror(
+                        "No Internet Connection!",
+                        "An internet connection is required to install the " + inputClass.name + "."
+                    )
         else:
+            if checkInternet():
+                gmgInstaller()
             mainWindow.destroy()
             subprocess.call(['java', '-jar', str(GMG_JAR_PATH)])
 
     elif inputClass.name == "Need help or more information about this program?":
-        messagebox.showinfo("MiSAR Help!", "Hello! And welcome to MiSAR!\n"
-                                           "\nMiSAR is an approach that follows the Model Driven Architecture to semi-automatically generate architectural models of implemented microservice systems.")
-        messagebox.showinfo("MiSAR Help!", "MiSAR consists of the following components:\n"
-                                           "\nA Parser, that creates a Platform Specific Model from existing systems.\n"
-                                           "\nA Model Tranformation engine, that transforms platform Specifc Models into Platform Independent Model instances.\n"
-                                           "An instance of a MiSAR Platform Independent Model is the recovered architectural model of the implemented microservice system.\n"
-                                           "\nA Graphical Model generator, which converts the architectural model exported from the Transformation engine into a UML based format.")
-        demo = messagebox.askquestion("Need more?", "Would you like to view a short demonstration for the MiSAR toolset?\n"
-                                                    "This requires an internet connection.")
-        if demo == "yes":
-            if checkInternet():
-                webbrowser.open("https://www.youtube.com/watch?v=sdRDkLesyS0&ab_channel=NourAli", new=2)
-            else:
-                messagebox.showerror("No Internet Connection!",
-                                     "An internet connection is required to view the MiSAR Demonstration Video.")
-                demo = messagebox.askquestion("Need more?",
-                                              "Would you instead like to view the manual for MiSAR?\n"
-                                              "This does NOT requires an internet connection.")
-                if demo == "yes":
-                    subprocess.Popen(str(PARSER_MANUAL_PATH), shell=True)
-        else:
-            demo = messagebox.askquestion("Need more?",
-                                          "Would you instead like to view the manual for MiSAR?\n"
-                                          "This does NOT requires an internet connection.")
-            if demo == "yes":
-                subprocess.Popen(str(MISAR_MANUAL_PATH), shell=True)
+        messagebox.showinfo(
+            "MiSAR Help",
+            "Hello and welcome to MiSAR.\n\n"
+            "MiSAR is an approach that follows Model Driven Architecture to semi-automatically "
+            "generate architectural models of implemented microservice systems.\n\n"
+            "The documentation includes guidance for the Parser, Transformation Engine, "
+            "Graphical Model Generator, setup instructions, and usage examples."
+        )
+
+        open_documentation = messagebox.askquestion(
+            "MiSAR Documentation",
+            "Would you like to open the MiSAR documentation website?"
+        )
+
+        if open_documentation == "yes":
+            openDocumentation()
 
 
 def misar_updater():
