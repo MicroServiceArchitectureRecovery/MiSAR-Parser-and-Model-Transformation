@@ -10,6 +10,7 @@ from datetime import *
 import webbrowser
 import subprocess
 from pathlib import Path
+import sys
 
 # ===============================
 # ENVIRONMENTS FOR THE MiSAR AIO
@@ -161,13 +162,24 @@ def write_parser_metadata(metadata):
         json.dump(metadata, metadata_file, indent=2)
 
 
+def is_parser_installed():
+    return PARSER_PSM_ECORE.is_file() and PARSER_GUI_PATH.is_file()
+
+
 def is_parser_update_available(repository_metadata):
     local_metadata = read_parser_metadata()
-
-    if not PARSER_PSM_ECORE.is_file() or not PARSER_GUI_PATH.is_file():
-        return True
-
     return local_metadata.get("pushed_at") != repository_metadata.get("pushed_at")
+
+def _installParser():
+    repository_metadata = None
+
+    try:
+        if checkInternet():
+            repository_metadata = get_parser_repository_metadata()
+    except Exception:
+        repository_metadata = None
+
+    return parserInstaller(Path("MiSAR") / "Parser", repository_metadata)
 
 def parserInstaller(parserLocation, repository_metadata=None):
     from git import Repo
@@ -374,14 +386,14 @@ def buttonStuff(inputClass):
                     if checkIfModulesAreInstalled(inputClass):
                         messagebox.showinfo("Installation commencing!",
                                             "The Parser will now be installed.")
-                        if parserInstaller(Path("MiSAR") / "Parser") == True:
+                        if _installParser() == True:
                             messagebox.showinfo("Success!",
                                                 "The operation completed successfully!\nThe Parser has been installed! It has been saved at: " + str(
                                                     MISAR_DIR))
                             theParser.launchButton.configure(text="Launch")
                         else:
                             Uninstaller(Path("MiSAR") / "Parser")
-                            if parserInstaller(Path("MiSAR") / "Parser") == True:
+                            if _installParser() == True:
                                 messagebox.showinfo("Success!",
                                                     "The operation completed successfully!\nThe Parser has been installed! It has been saved at: " + str(
                                                         PARSER_DIR))
@@ -391,7 +403,7 @@ def buttonStuff(inputClass):
                                          "An internet connection is required to install the " + inputClass.name + ".")
         elif checkIfModulesAreInstalled(inputClass):
                 mainWindow.destroy()
-                subprocess.call(['python', str(PARSER_GUI_PATH)])
+                subprocess.call([sys.executable, str(PARSER_GUI_PATH)])
 
     elif inputClass.name == "MiSAR Transformation Engine":
         if checkIfModulesAreInstalled(inputClass):
@@ -453,6 +465,9 @@ def buttonStuff(inputClass):
 def misar_updater():
     if not checkInternet():
         messagebox.showerror("No Internet", "Cannot check for updates due to a lack of internet.")
+        return
+
+    if not is_parser_installed():
         return
 
     try:
