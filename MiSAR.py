@@ -22,6 +22,9 @@ MISAR_DIR = USER_HOME_DIR / "MiSAR"
 PARSER_DIR = MISAR_DIR / "Parser"
 MISAR_TEMP_DIR = USER_HOME_DIR / "MiSARTemp"
 
+PARSER_REPOSITORY_API_URL = "https://api.github.com/repos/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation"
+PARSER_METADATA_PATH = PARSER_DIR / "MiSAR.parser.release.json"
+
 GMG_RELEASE_API_URL = "https://api.github.com/repos/MicroServiceArchitectureRecovery/misar-plantUML/releases/latest"
 GMG_ASSET_NAME = "MiSAR.jar"
 GMG_DIR = AIO_DIR
@@ -113,21 +116,82 @@ def checkIfModulesAreInstalled(inputClass):
     else:
         return True
 
+def get_parser_repository_metadata():
+    request = Request(
+        PARSER_REPOSITORY_API_URL,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "MiSAR-AIO",
+        },
+    )
 
-def parserInstaller(parserLocation):
+    with urlopen(request, timeout=20) as response:
+        repository_data = json.loads(response.read().decode("utf-8"))
+
+    pushed_at = repository_data.get("pushed_at")
+
+    if pushed_at is None:
+        raise RuntimeError("Could not read parser repository update time from GitHub.")
+
+    return {
+        "pushed_at": pushed_at,
+        "default_branch": repository_data.get("default_branch", "main"),
+        "clone_url": repository_data.get(
+            "clone_url",
+            "https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation.git",
+        ),
+    }
+
+
+def read_parser_metadata():
+    if not PARSER_METADATA_PATH.is_file():
+        return {}
+
+    try:
+        with open(PARSER_METADATA_PATH, "r", encoding="utf-8") as metadata_file:
+            return json.load(metadata_file)
+    except Exception:
+        return {}
+
+
+def write_parser_metadata(metadata):
+    PARSER_DIR.mkdir(parents=True, exist_ok=True)
+
+    with open(PARSER_METADATA_PATH, "w", encoding="utf-8") as metadata_file:
+        json.dump(metadata, metadata_file, indent=2)
+
+
+def is_parser_update_available(repository_metadata):
+    local_metadata = read_parser_metadata()
+
+    if not PARSER_PSM_ECORE.is_file() or not PARSER_GUI_PATH.is_file():
+        return True
+
+    return local_metadata.get("pushed_at") != repository_metadata.get("pushed_at")
+
+def parserInstaller(parserLocation, repository_metadata=None):
     from git import Repo
+
     parser_path = USER_HOME_DIR / Path(parserLocation)
     print(parser_path)
+
     try:
         Repo.clone_from(
             "https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation.git",
-            parser_path, branch="main")
-        if os.path.isfile(parser_path / "TransformationEngineNecessities" / "source" / "PSM.ecore") == True:
-            if os.path.isfile(parser_path / "ParserNecessities" / "MisarParserGUI.py") == True:
+            parser_path,
+            branch="main",
+        )
+
+        if (parser_path / "TransformationEngineNecessities" / "source" / "PSM.ecore").is_file():
+            if (parser_path / "ParserNecessities" / "MisarParserGUI.py").is_file():
+                if repository_metadata is not None and parser_path == PARSER_DIR:
+                    write_parser_metadata(repository_metadata)
+
                 return True
     except Exception as fail:
-        return False
+        print("Parser installation failed:", fail)
 
+    return False
 
 def gmgInstaller(gmgLocation=None):
     try:
@@ -387,48 +451,42 @@ def buttonStuff(inputClass):
 
 
 def misar_updater():
-    if checkInternet():
-        if checkIfModulesAreInstalled(None):
-            if os.path.isfile(PARSER_PSM_ECORE) == True:
-                if os.path.isfile(MISAR_TEMP_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore") == True:
-                    Uninstaller("MiSARTemp")
-                if parserInstaller("MiSARTemp") == True:
-                    previousDirectory = os.getcwd()
-                    os.chdir(MISAR_TEMP_DIR)
-                    newestVersion = os.popen("git log -1").read()
-                    updatedDate = ""
-                    colonCount = 0
-                    targetCutOff = 999999
-                    for x in range(0, len(newestVersion)):
-                        if targetCutOff > x:
-                            updatedDate = updatedDate + newestVersion[x]
-                            if newestVersion[x] == ":" and colonCount < 2:
-                                updatedDate = ""
-                                colonCount = colonCount + 1
-                            if colonCount >= 2 and newestVersion[x + 1] == "+" or newestVersion[x + 1] == "-":
-                                break
-                    updatedDate = updatedDate.strip()
-                    onlineVersion = datetime.strptime(updatedDate, '%a %b %d %H:%M:%S %Y')
-                    currentVersion = datetime.fromtimestamp(
-                        os.path.getctime(PARSER_PSM_ECORE))
-                    os.chdir(previousDirectory)
-                    if onlineVersion > currentVersion:
-                        updateAvailable = messagebox.askquestion("Update Available!",
-                                                                 "An update is available! Would you like to install it now?")
-                        if updateAvailable == "yes":
-                            Uninstaller("MiSARTemp")
-                            Uninstaller(Path("MiSAR") / "Parser")
-                            if parserInstaller(Path("MiSAR") / "Parser") == True:
-                                messagebox.showinfo("Success!",
-                                                    "The update completed successfully!")
-                            else:
-                                messagebox.showerror("Failure!",
-                                                     "The update has failed.")
-                    else:
-                        Uninstaller("MiSARTemp")
-    else:
+    if not checkInternet():
         messagebox.showerror("No Internet", "Cannot check for updates due to a lack of internet.")
+        return
 
+    try:
+        repository_metadata = get_parser_repository_metadata()
+
+        if not is_parser_update_available(repository_metadata):
+            return
+
+        update_available = messagebox.askquestion(
+            "Parser Update Available",
+            "An update is available for the MiSAR Parser and Transformation Engine.\n"
+            "Would you like to install it now?"
+        )
+
+        if update_available != "yes":
+            return
+
+        if not checkIfModulesAreInstalled(None):
+            return
+
+        if PARSER_DIR.exists():
+            Uninstaller(Path("MiSAR") / "Parser")
+
+        if parserInstaller(Path("MiSAR") / "Parser", repository_metadata) == True:
+            messagebox.showinfo("Success!", "The parser update completed successfully.")
+            refreshLaunchButtons()
+        else:
+            messagebox.showerror("Failure!", "The parser update has failed.")
+
+    except Exception as error:
+        messagebox.showerror(
+            "Update Check Failed",
+            "MiSAR could not check for parser updates.\n\nError code:\n" + str(error)
+        )
 
 class programOfChoice:
     def __init__(self, name, version, inputRow, inputColumn, targetWindow):
@@ -447,26 +505,31 @@ def window_quit():
     mainWindow.quit()
     mainWindow.destroy()
 
+def refreshLaunchButtons():
+    if PARSER_PSM_ECORE.is_file() and PARSER_GUI_PATH.is_file():
+        theParser.launchButton.configure(text="Launch")
 
-misar_updater()
+    if GMG_JAR_PATH.is_file():
+        theGraphicalModelGenerator.launchButton.configure(text="Launch")
 
 mainWindow = tkinter.Tk()
 
 mainWindow.title("MicroService Architecture Recovery")
-welcome = tkinter.Label(mainWindow, text="Hello and welcome to the MiSAR AIO!\n Please select a program you would like to use from the list below:", font=("Arial", 20))
+welcome = tkinter.Label(
+    mainWindow,
+    text="Hello and welcome to the MiSAR AIO!\n Please select a program you would like to use from the list below:",
+    font=("Arial", 20)
+)
 welcome.grid(row=0, column=0)
 
 theParser = programOfChoice("MiSAR Parser", "V1.0", 1, 0, mainWindow)
-#theTransformationEngine = programOfChoice("MiSAR Transformation Engine", "V1.0", 3, 0, mainWindow)
 theGraphicalModelGenerator = programOfChoice("MiSAR Graphical Model Generator", "V1.0", 5, 0, mainWindow)
 theHelpButton = programOfChoice("Need help or more information about this program?", "V1.0", 7, 0, mainWindow)
 theHelpButton.launchButton.configure(text="Help", font=("Arial", 20))
 
-if os.path.isfile(PARSER_PSM_ECORE) == True:
-    theParser.launchButton.configure(text="Launch")
+refreshLaunchButtons()
 
-if os.path.isfile(GMG_JAR_PATH) == True:
-    theGraphicalModelGenerator.launchButton.configure(text="Launch")
+mainWindow.after(500, misar_updater)
 
 mainWindow.protocol("WM_DELETE_WINDOW", window_quit)
 
