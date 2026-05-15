@@ -14,6 +14,7 @@ from tkinter import messagebox
 from urllib.request import Request, urlopen
 import os
 from datetime import datetime
+import threading
 
 # ===============================
 # ENVIRONMENT VARIABLES
@@ -364,6 +365,55 @@ def uninstall_path(location):
 
                 target_link = ""
                 read_only = True
+
+def stream_process_output(process, process_name):
+    """Stream a child process stdout/stderr into the debug logger without blocking Tkinter."""
+    if process.stdout is None:
+        return
+
+    try:
+        for line in process.stdout:
+            line = line.rstrip()
+
+            if line:
+                LOGGER.debug("%s output | %s", process_name, line)
+
+        return_code = process.wait()
+        log_event("subprocess_completed", process_name=process_name, return_code=return_code)
+    except Exception as error:
+        log_exception("subprocess_output_stream_failed", error, process_name=process_name)
+
+
+def launch_logged_subprocess(command, process_name, cwd=None):
+    """Launch a child process without closing or blocking the MiSAR AIO window."""
+    log_event("subprocess_launch_started", process_name=process_name, command=command, cwd=cwd)
+
+    if not DEBUG_MODE:
+        subprocess.Popen(command, cwd=cwd)
+        log_event("subprocess_launch_completed", process_name=process_name)
+        return
+
+    environment = os.environ.copy()
+    environment["PYTHONUNBUFFERED"] = "1"
+
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    output_thread = threading.Thread(
+        target=stream_process_output,
+        args=(process, process_name),
+        daemon=True,
+    )
+    output_thread.start()
+
+    log_event("subprocess_launch_completed", process_name=process_name, pid=process.pid)
 
 # ===============================
 # INSTALLERS
@@ -879,7 +929,6 @@ def handle_parser_button():
 
     if check_required_modules():
         log_event("parser_launch_started", path=PARSER_GUI_PATH)
-        main_window.destroy()
         run_logged_subprocess([sys.executable, "-u", str(PARSER_GUI_PATH)],"MiSAR Parser GUI",cwd=PARSER_GUI_PATH.parent)
         log_event("parser_launch_completed", path=PARSER_GUI_PATH)
 
@@ -888,7 +937,6 @@ def handle_transformation_engine_button():
     """Handle the placeholder Transformation Engine selection."""
     if check_required_modules():
         log_event("transformation_engine_selected")
-        main_window.destroy()
     else:
         messagebox.showerror(
             "Error!",
@@ -931,7 +979,6 @@ def handle_gmg_button():
         install_or_update_gmg()
 
     log_event("gmg_launch_started", jar_path=GMG_JAR_PATH)
-    main_window.destroy()
     run_logged_subprocess(["java", "-jar", str(GMG_JAR_PATH)],"MiSAR Graphical Model Generator",cwd=GMG_JAR_PATH.parent)
     log_event("gmg_launch_completed", jar_path=GMG_JAR_PATH)
 
