@@ -12,6 +12,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from tkinter import messagebox
 from urllib.request import Request, urlopen
+import os
+from datetime import datetime
 
 # ===============================
 # ENVIRONMENT VARIABLES
@@ -36,7 +38,7 @@ GMG_METADATA_PATH = GMG_JAR_DIR / "MiSAR.release.json"
 
 MISAR_DOCUMENTATION_URL = "https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/"
 LOG_DIR = AIO_DIR / "logs"
-LOG_FILE_PATH = LOG_DIR / "MiSAR-AIO.log"
+LOG_FILE_PATH = LOG_DIR / f"MiSAR-LOGGER-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
 
 REQUIRED_MODULES = [
     ("git", "GitPython"),
@@ -646,6 +648,43 @@ def automatic_update_check():
             "MiSAR could not check for parser updates.\n\nError code:\n" + str(error),
         )
 
+def run_logged_subprocess(command, process_name, cwd=None):
+    """Run a child process and stream its stdout/stderr into the AIO debug logger."""
+    log_event("subprocess_started", process_name=process_name, command=command, cwd=cwd)
+
+    if not DEBUG_MODE:
+        return subprocess.call(command, cwd=cwd)
+
+    environment = os.environ.copy()
+    environment["PYTHONUNBUFFERED"] = "1"
+
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    try:
+        if process.stdout is not None:
+            for line in process.stdout:
+                LOGGER.debug(
+                    "%s stdout | %s",
+                    process_name,
+                    line.rstrip(),
+                )
+
+        return_code = process.wait()
+        log_event("subprocess_completed", process_name=process_name, return_code=return_code)
+        return return_code
+    except Exception as error:
+        process.kill()
+        log_exception("subprocess_failed", error, process_name=process_name)
+        raise
+
 # ===============================
 # UNINSTALLER
 # ===============================
@@ -841,7 +880,7 @@ def handle_parser_button():
     if check_required_modules():
         log_event("parser_launch_started", path=PARSER_GUI_PATH)
         main_window.destroy()
-        subprocess.call([sys.executable, str(PARSER_GUI_PATH)])
+        run_logged_subprocess([sys.executable, "-u", str(PARSER_GUI_PATH)],"MiSAR Parser GUI",cwd=PARSER_GUI_PATH.parent)
         log_event("parser_launch_completed", path=PARSER_GUI_PATH)
 
 
@@ -893,7 +932,7 @@ def handle_gmg_button():
 
     log_event("gmg_launch_started", jar_path=GMG_JAR_PATH)
     main_window.destroy()
-    subprocess.call(["java", "-jar", str(GMG_JAR_PATH)])
+    run_logged_subprocess(["java", "-jar", str(GMG_JAR_PATH)],"MiSAR Graphical Model Generator",cwd=GMG_JAR_PATH.parent)
     log_event("gmg_launch_completed", jar_path=GMG_JAR_PATH)
 
 
