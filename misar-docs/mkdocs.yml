@@ -22,6 +22,7 @@
     - Welcome: index.md
     - Change Log: changelog.md
     - Installation: installation.md
+    - Uninstallation: uninstallation.md
     - Eclipse IDE - QVT Configuration: qvt-setup.md
     - Eclipse IDE - QVT Manual installation: qvt-manual-installation.md
     - Create a PSM Instance: create-psm.md
