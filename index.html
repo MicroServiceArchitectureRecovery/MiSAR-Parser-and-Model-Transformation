@@ -328,6 +328,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sections" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -360,7 +371,7 @@
   <span class="md-ellipsis">
     
   
-    Change Log
+    Changelog
   
 
     
@@ -387,61 +398,7 @@
   <span class="md-ellipsis">
     
   
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="qvt-setup/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Eclipse IDE - QVT Configuration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="qvt-manual-installation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Eclipse IDE - QVT Manual installation
+    MISAR Installation
   
 
     
@@ -468,7 +425,61 @@
   <span class="md-ellipsis">
     
   
-    Create a PSM Instance
+    Create PSM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="qvt-manual-installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QVT Plugin Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="qvt-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QVT Setup
   
 
     
@@ -495,7 +506,7 @@
   <span class="md-ellipsis">
     
   
-    Create a PIM Instance
+    Create PIM
   
 
     
@@ -522,7 +533,34 @@
   <span class="md-ellipsis">
     
   
-    Use MiSAR Graphical Model Generator
+    Graphical Model Generator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="uninstallation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Uninstallation
   
 
     
@@ -584,6 +622,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sections" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -626,13 +675,54 @@
 <li>Transform PSM → PIM (Platform Independent Model)</li>
 <li>Generate UML diagrams (optional)</li>
 </ol>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Before using MiSAR, ensure the following tools and runtimes are installed or available on your system.</p>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Tested Version</th>
+<th>Required For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python</td>
+<td>Python 3.11+</td>
+<td>Running <code>MiSAR.py</code> and the core PSM generation process</td>
+</tr>
+<tr>
+<td>Java</td>
+<td>OpenJDK 21 LTS</td>
+<td>Running <code>misar.jar</code> and supporting Eclipse-based tooling</td>
+</tr>
+<tr>
+<td>Eclipse</td>
+<td>Eclipse 2024</td>
+<td>Running the QVT transformation workflow from PSM to PIM</td>
+</tr>
+<tr>
+<td>QVTo</td>
+<td>QVTo 3.11.2</td>
+<td>Transforming PSM models into PIM models</td>
+</tr>
+<tr>
+<td>Python dependencies</td>
+<td>Installed automatically by MiSAR AIO</td>
+<td>Required Python modules used by the MiSAR application</td>
+</tr>
+</tbody>
+</table>
 <h2 id="sections">Sections<a class="headerlink" href="#sections" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="installation/">Installation</a></li>
-<li><a href="qvt-setup/">QVT Setup</a></li>
+<li><a href="installation/">MISAR Installation</a></li>
 <li><a href="create-psm/">Create PSM</a></li>
+<li><a href="qvt-manual-installation/">QVT Plugin Installation</a></li>
+<li><a href="qvt-setup/">QVT Setup</a></li>
 <li><a href="create-pim/">Create PIM</a></li>
 <li><a href="graphical-generator/">Graphical Model Generator</a></li>
+<li><a href="uninstallation/">Uninstallation</a></li>
+<li><a href="changelog/">Changelog</a></li>
 </ul>
 
 
