@@ -20,14 +20,14 @@
 
   nav:
     - Welcome: index.md
-    - Change Log: changelog.md
-    - Installation: installation.md
+    - Changelog: changelog.md
+    - MISAR Installation: installation.md
+    - Create PSM: create-psm.md
+    - QVT Plugin Installation: qvt-manual-installation.md
+    - QVT Setup: qvt-setup.md
+    - Create PIM: create-pim.md
+    - Graphical Model Generator: graphical-generator.md
     - Uninstallation: uninstallation.md
-    - Eclipse IDE - QVT Configuration: qvt-setup.md
-    - Eclipse IDE - QVT Manual installation: qvt-manual-installation.md
-    - Create a PSM Instance: create-psm.md
-    - Create a PIM Instance: create-pim.md
-    - Use MiSAR Graphical Model Generator: graphical-generator.md
 
   markdown_extensions:
     - admonition

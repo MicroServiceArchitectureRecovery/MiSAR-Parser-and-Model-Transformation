@@ -1,6 +1,14 @@
 # Changelog
 
-## V2026-06-15
+## V2026-05-16
+- Added documentation for downloading and installing MiSAR from GitHub, including both ZIP download and Git clone options.
+- Added a prerequisites section to the main documentation, listing required and tested versions for Python, Java, Eclipse, QVTo, and Python dependencies.
+- Added uninstallation documentation explaining how MiSAR modules can be removed using the AIO uninstall buttons.
+- Added guidance for verifying uninstallation by checking the `MiSAR` directory inside the user home directory.
+- Updated the documentation navigation order to follow the expected MiSAR user workflow
+- Updated the index page section list to match the revised navigation order.
+
+## V2026-04-15
 - Introduced MiSAR dynamic manual generation, allowing for real-time updates and improvements to the documentation.
 - Introduced a new changelog format to better track updates and changes across the MiSAR project.
 - Removed Original MiSAR manual PDF from the repository, as the dynamic manual generation provides a more up-to-date and accessible documentation format.

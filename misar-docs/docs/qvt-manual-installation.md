@@ -1,6 +1,5 @@
 # QVT Operational – Manual Installation
 
-> You can safely skip this guide if the last step, QVT Configuration, worked without errors, and you can run transformations.
 >
 > In some Eclipse installations, **QVT Operational (QVTo)** may not be available by default.
 >

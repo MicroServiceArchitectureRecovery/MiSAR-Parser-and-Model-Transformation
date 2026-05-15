@@ -28,10 +28,11 @@ Before using MiSAR, ensure the following tools and runtimes are installed or ava
 
 
 ## Sections
-- [Installation](installation.md)
-- [Uninstallation](uninstallation.md)
-- [QVT Setup](qvt-setup.md)
+- [MISAR Installation](installation.md)
 - [Create PSM](create-psm.md)
+- [QVT Plugin Installation](qvt-manual-installation.md)
+- [QVT Setup](qvt-setup.md)
 - [Create PIM](create-pim.md)
 - [Graphical Model Generator](graphical-generator.md)
+- [Uninstallation](uninstallation.md)
 - [Changelog](changelog.md)
