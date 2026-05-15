@@ -30,7 +30,7 @@ PARSER_REPOSITORY_CLONE_URL = "https://github.com/MicroServiceArchitectureRecove
 
 GMG_RELEASE_API_URL = "https://api.github.com/repos/MicroServiceArchitectureRecovery/misar-plantUML/releases/latest"
 GMG_ASSET_NAME = "MiSAR.jar"
-GMG_JAR_DIR = AIO_DIR
+GMG_JAR_DIR = USER_HOME_DIR / "MISAR" / "GMG"
 GMG_JAR_PATH = GMG_JAR_DIR / GMG_ASSET_NAME
 GMG_METADATA_PATH = GMG_JAR_DIR / "MiSAR.release.json"
 
