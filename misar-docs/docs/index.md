@@ -14,9 +14,24 @@ MiSAR consists of a parser that creates a Platform Specific Model from existing 
 2. Transform PSM → PIM (Platform Independent Model)
 3. Generate UML diagrams (optional)
 
+## Prerequisites
+
+Before using MiSAR, ensure the following tools and runtimes are installed or available on your system.
+
+| Requirement         | Tested Version                       | Required For                                             |
+|---------------------|--------------------------------------|----------------------------------------------------------|
+| Python              | Python 3.11+                         | Running `MiSAR.py` and the core PSM generation process   |
+| Java                | OpenJDK 21 LTS                       | Running `misar.jar` and supporting Eclipse-based tooling |
+| Eclipse             | Eclipse 2024                         | Running the QVT transformation workflow from PSM to PIM  |
+| QVTo                | QVTo 3.11.2                          | Transforming PSM models into PIM models                  |
+| Python dependencies | Installed automatically by MiSAR AIO | Required Python modules used by the MiSAR application    |
+
+
 ## Sections
 - [Installation](installation.md)
+- [Uninstallation](uninstallation.md)
 - [QVT Setup](qvt-setup.md)
 - [Create PSM](create-psm.md)
 - [Create PIM](create-pim.md)
 - [Graphical Model Generator](graphical-generator.md)
+- [Changelog](changelog.md)
