@@ -647,6 +647,101 @@ def automatic_update_check():
         )
 
 # ===============================
+# UNINSTALLER
+# ===============================
+
+def is_gmg_installed():
+    """Return True when the Graphical Model Generator JAR exists locally."""
+    installed = GMG_JAR_PATH.is_file()
+    log_event("gmg_installation_checked", installed=installed, jar_path=GMG_JAR_PATH)
+    return installed
+
+
+def set_module_button_state(module, installed):
+    """Update launch/install and uninstall button states for one module."""
+    module.launch_button.configure(text="Launch" if installed else "Install")
+
+    if module.uninstall_button is not None:
+        module.uninstall_button.configure(
+            state=tkinter.NORMAL if installed else tkinter.DISABLED
+        )
+
+def handle_uninstall_button(module):
+    """Route an uninstallation button click to the correct module uninstaller."""
+    log_event("uninstall_button_clicked", button_name=module.name)
+
+    if module.name == "MiSAR Parser":
+        handle_parser_uninstall()
+    elif module.name == "MiSAR Graphical Model Generator":
+        handle_gmg_uninstall()
+
+
+def handle_parser_uninstall():
+    """Uninstall the MiSAR Parser from the user MiSAR directory."""
+    if not is_parser_installed():
+        refresh_launch_buttons()
+        return
+
+    uninstall_choice = messagebox.askquestion(
+        "Uninstall MiSAR Parser",
+        "This will remove the installed MiSAR Parser from:\n\n"
+        + str(PARSER_DIR)
+        + "\n\nDo you want to continue?",
+    )
+    log_event("parser_uninstall_prompt_response", response=uninstall_choice, path=PARSER_DIR)
+
+    if uninstall_choice != "yes":
+        return
+
+    try:
+        uninstall_path(Path("MiSAR") / "Parser")
+        messagebox.showinfo("Success!", "The MiSAR Parser has been uninstalled.")
+        refresh_launch_buttons()
+    except Exception as error:
+        log_exception("parser_uninstall_failed", error, path=PARSER_DIR)
+        messagebox.showerror(
+            "Uninstall Failed",
+            "The MiSAR Parser could not be uninstalled.\n\nError code:\n" + str(error),
+        )
+
+
+def handle_gmg_uninstall():
+    """Uninstall the Graphical Model Generator JAR and local metadata."""
+    if not is_gmg_installed() and not GMG_METADATA_PATH.is_file():
+        refresh_launch_buttons()
+        return
+
+    uninstall_choice = messagebox.askquestion(
+        "Uninstall Graphical Model Generator",
+        "This will remove the installed Graphical Model Generator files from:\n\n"
+        + str(GMG_JAR_DIR)
+        + "\n\nDo you want to continue?",
+    )
+    log_event(
+        "gmg_uninstall_prompt_response",
+        response=uninstall_choice,
+        jar_path=GMG_JAR_PATH,
+        metadata_path=GMG_METADATA_PATH,
+    )
+
+    if uninstall_choice != "yes":
+        return
+
+    try:
+        GMG_JAR_PATH.unlink(missing_ok=True)
+        GMG_METADATA_PATH.unlink(missing_ok=True)
+        GMG_JAR_PATH.with_suffix(".jar.tmp").unlink(missing_ok=True)
+
+        messagebox.showinfo("Success!", "The Graphical Model Generator has been uninstalled.")
+        refresh_launch_buttons()
+    except Exception as error:
+        log_exception("gmg_uninstall_failed", error, jar_path=GMG_JAR_PATH)
+        messagebox.showerror(
+            "Uninstall Failed",
+            "The Graphical Model Generator could not be uninstalled.\n\nError code:\n" + str(error),
+        )
+
+# ===============================
 # MAIN
 # ===============================
 
@@ -654,18 +749,46 @@ def automatic_update_check():
 class ProgramOfChoice:
     """Represent one selectable MiSAR module in the launcher UI."""
 
-    def __init__(self, name, version, input_row, input_column, target_window):
-        """Create the module label and action button on the target window."""
+    def __init__(self, name, version, input_row, input_column, target_window, supports_uninstall=False):
+        """Create the module label, action button, and optional uninstall button."""
         self.name = name
         self.version = version
         self.input_row = input_row
         self.input_column = input_column
-        self.module_name = tkinter.Label(target_window, text=name, font=("Arial", 20))
-        self.module_name.grid(row=input_row, column=input_column)
-        self.launch_button = tkinter.Button(target_window, text="Install", font=("Arial", 20), width=10)
+        self.uninstall_button = None
+
+        self.container = tkinter.Frame(target_window)
+        self.container.grid(row=input_row, column=input_column, pady=8)
+
+        self.module_name = tkinter.Label(self.container, text=name, font=("Arial", 20))
+        self.module_name.pack()
+
+        self.button_frame = tkinter.Frame(self.container)
+        self.button_frame.pack(pady=6)
+
+        self.launch_button = tkinter.Button(self.button_frame, text="Install", font=("Arial", 20), width=10)
         self.launch_button.configure(command=lambda button=self: handle_module_button(button))
-        self.launch_button.grid(row=input_row + 1, column=input_column)
-        log_event("program_button_created", name=name, version=version, row=input_row, column=input_column)
+        self.launch_button.pack(side=tkinter.LEFT, padx=8)
+
+        if supports_uninstall:
+            self.uninstall_button = tkinter.Button(
+                self.button_frame,
+                text="Uninstall",
+                font=("Arial", 20),
+                width=10,
+                state=tkinter.DISABLED,
+            )
+            self.uninstall_button.configure(command=lambda button=self: handle_uninstall_button(button))
+            self.uninstall_button.pack(side=tkinter.LEFT, padx=8)
+
+        log_event(
+            "program_button_created",
+            name=name,
+            version=version,
+            row=input_row,
+            column=input_column,
+            supports_uninstall=supports_uninstall,
+        )
 
 
 def handle_parser_button():
@@ -819,17 +942,20 @@ def window_quit():
 
 
 def refresh_launch_buttons():
-    """Set launcher buttons to 'Launch' when their modules are already installed."""
+    """Set launcher buttons to match each module's installed/uninstalled state."""
     log_event("launch_button_refresh_started")
 
-    if PARSER_PSM_ECORE.is_file() and PARSER_GUI_PATH.is_file():
-        the_parser.launch_button.configure(text="Launch")
-        log_event("parser_button_set_to_launch")
+    parser_installed = is_parser_installed()
+    gmg_installed = is_gmg_installed()
 
-    if GMG_JAR_PATH.is_file():
-        the_graphical_model_generator.launch_button.configure(text="Launch")
-        log_event("gmg_button_set_to_launch")
+    set_module_button_state(the_parser, parser_installed)
+    set_module_button_state(the_graphical_model_generator, gmg_installed)
 
+    log_event(
+        "launch_button_refresh_completed",
+        parser_installed=parser_installed,
+        gmg_installed=gmg_installed,
+    )
 
 def initialise_ui():
     """Create and return the MiSAR AIO Tkinter main window."""
@@ -837,13 +963,15 @@ def initialise_ui():
 
     root = tkinter.Tk()
     root.title("MicroService Architecture Recovery")
+    root.grid_columnconfigure(0, weight=1)
 
     welcome = tkinter.Label(
         root,
         text="Hello and welcome to the MiSAR AIO!\nPlease select a program you would like to use from the list below:",
         font=("Arial", 20),
+        justify="center",
     )
-    welcome.grid(row=0, column=0)
+    welcome.grid(row=0, column=0, pady=(12, 8))
 
     log_event("ui_initialisation_completed")
     return root
@@ -864,8 +992,9 @@ def run_application():
 
     main_window = initialise_ui()
 
-    the_parser = ProgramOfChoice("MiSAR Parser", "V1.0", 1, 0, main_window)
-    the_graphical_model_generator = ProgramOfChoice("MiSAR Graphical Model Generator", "V1.0", 5, 0, main_window)
+    the_parser = ProgramOfChoice("MiSAR Parser", "V1.0", 1, 0, main_window, supports_uninstall=True)
+    the_graphical_model_generator = ProgramOfChoice(
+        "MiSAR Graphical Model Generator","V1.0",5,0, main_window, supports_uninstall=True,)
     the_help_button = ProgramOfChoice("Need help or more information about this program?", "V1.0", 7, 0, main_window)
     the_help_button.launch_button.configure(text="Help", font=("Arial", 20))
 
