@@ -7,14 +7,52 @@ Run `python3 MiSAR.py` to open the MiSAR AIO interface, then click **Launch** un
 
 ![MiSAR AIO](assets/images/aio/misar-aio.png){ width="500" }
 
+## Configure Parser Inputs
+
+The MiSAR Parser requires information about the multi-module microservice project that will be analysed.
+
+The field names below match the MiSAR Parser interface.
+
 ![Parser GUI](assets/images/parser/parser-gui.png)
 
-## Fill Required Fields
-- Project Name
-- Project Root Directory
-- Output Directory (where PSM will be saved)
-- Module Directories
-- Docker Compose file
+### Input Fields
+
+| Field in MiSAR Parser                            | Required | Description                                                                                                                                                  |
+|--------------------------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Type Multi-Module Project Name**               | ✅        | The name of the microservice system or project being analysed. This name is used when creating the PSM model.                                                |
+| **Select Multi-Module Project Build Directory**  | ✅        | The root build directory of the multi-module project. This should usually be the main project folder that contains the microservice modules and build files. |
+| **Select Directory where the PSM will be saved** | ✅        | The output directory where the generated PSM model will be saved.                                                                                            |
+| **Select Docker Compose Files**                  | ✅        | The Docker Compose file or files used by the system. These are used to identify services and project structure.                                              |
+| **Select Module Projects Build Directories**     | ✅        | The build directories of the individual microservice modules. These can be populated automatically when using the automatic importer.                        |
+| **Select Multi-Module Project POM Build Files**  | ❌        | The main Maven `pom.xml` build file or files for the multi-module project, if available.                                                                     |
+| **Select Module Projects POM Build Files**       | ❌        | The Maven `pom.xml` files for the individual module projects. These can also be populated automatically when using the automatic importer.                   |
+| **Select Centralized Configuration Directories** | ❌        | Directories that contain centralised configuration files used by the microservice system, if applicable.                                                     |
+
+## Automatic Importer
+
+If the project includes Docker Compose files, MiSAR can use them to automatically detect and populate several fields.
+
+After selecting the Docker Compose file, MiSAR may prompt you to auto-detect the project files.
+
+![Docker auto importer](assets/images/parser/parser-docker-auto-importer.png){ width="200" }
+
+When prompted, click **Yes** to allow MiSAR to auto-detect the related project files.
+
+## After Import
+
+After the automatic importer runs, the UI may populate fields such as:
+
+- **Select Module Projects Build Directories**
+- **Select Multi-Module Project POM Build Files**
+- **Select Module Projects POM Build Files**
+- Related Docker service information used by the parser
+
+![Auto importer success](assets/images/parser/parser-auto-importer-success.png)
+
+You can still manually edit, add, or remove entries if needed.
+
+> Note:  
+> If you are using the automatic importer, you do not need to manually add **Select Module Projects Build Directories** unless the detected values are missing or incorrect.
 
 ## Automatic Importer (For Docker Compose)
 When you add a Docker Compose file, the parser can attempt to auto-populate the remaining required fields.

@@ -1,5 +1,11 @@
 # Changelog
 
+## V2026-05-19
+- Updated the Create PSM documentation to improve clarity around parser input fields.
+- Added descriptions for each MiSAR Parser input field, including mandatory and optional fields.
+- Improved the Automatic Importer section to explain how Docker Compose files can be used to populate related project fields automatically.
+- Changed the Outdated MISAR-AIO picture.
+
 ## V2026-05-16
 - Added documentation for downloading and installing MiSAR from GitHub, including both ZIP download and Git clone options.
 - Added a prerequisites section to the main documentation, listing required and tested versions for Python, Java, Eclipse, QVTo, and Python dependencies.
