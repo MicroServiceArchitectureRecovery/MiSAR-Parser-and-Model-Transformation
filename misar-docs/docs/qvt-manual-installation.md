@@ -9,36 +9,9 @@
 >
 > or QVT-related options in Eclipse, you will need to install QVTo manually.
 
+## Option 1 – Install from Eclipse Update Site (Recommended)
 
-## Option 1 – Eclipse Marketplace
-
-You can try installing QVTo via the Eclipse Marketplace:
-
-Go to:
-
-```text
-Help → Eclipse Marketplace
-```
-
-![Marketplace search](assets/images/qvt/qvt-install-search.png){ width="300" }
-
-Search for:
-
-```text
-QVT Operational
-```
-
-Click **Install** and follow the steps.
-
-> In newer Eclipse versions, **QVTo may not appear in Marketplace**.  
-> If it does not show, use the manual installation method below.
-
-----------
-
-## Option 2 – Install from Eclipse Update Site (Recommended)
-
-This method installs QVTo directly from the Eclipse update site.  
-You do **not** need to download the `.zip` file manually.
+This method installs QVTo directly from the Eclipse update site.
 
 ### Step 1 – Open Install New Software
 
@@ -134,6 +107,31 @@ Click:
 ```text
 Restart Now
 ```
+
+## Option 2 – Eclipse Marketplace
+
+> This method may not work in newer Eclipse versions, as QVTo may not appear in the Marketplace.
+
+You can try installing QVTo via the Eclipse Marketplace:
+
+Go to:
+
+```text
+Help → Eclipse Marketplace
+```
+
+![Marketplace search](assets/images/qvt/qvt-install-search.png){ width="300" }
+
+Search for:
+
+```text
+QVT Operational
+```
+
+Click **Install** and follow the steps.
+
+> In newer Eclipse versions, **QVTo may not appear in Marketplace**.  
+> If it does not show, use the manual installation method below.
 
 ## Verification
 
