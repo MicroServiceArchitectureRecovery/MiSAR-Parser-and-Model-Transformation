@@ -400,10 +400,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#fill-required-fields" class="md-nav__link">
+  <a href="#configure-parser-inputs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Fill Required Fields
+        Configure Parser Inputs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure Parser Inputs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#input-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#automatic-importer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic Importer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#after-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        After Import
       
     </span>
   </a>
@@ -422,7 +461,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#after-import" class="md-nav__link">
+  <a href="#after-import_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         After Import
@@ -646,10 +685,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#fill-required-fields" class="md-nav__link">
+  <a href="#configure-parser-inputs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Fill Required Fields
+        Configure Parser Inputs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure Parser Inputs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#input-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#automatic-importer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic Importer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#after-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        After Import
       
     </span>
   </a>
@@ -668,7 +746,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#after-import" class="md-nav__link">
+  <a href="#after-import_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         After Import
@@ -736,20 +814,86 @@
 <h2 id="launch-parser">Launch Parser<a class="headerlink" href="#launch-parser" title="Permanent link">&para;</a></h2>
 <p>Run <code>python3 MiSAR.py</code> to open the MiSAR AIO interface, then click <strong>Launch</strong> under MiSAR Parser.</p>
 <p><img alt="MiSAR AIO" src="../assets/images/aio/misar-aio.png" width="500" /></p>
+<h2 id="configure-parser-inputs">Configure Parser Inputs<a class="headerlink" href="#configure-parser-inputs" title="Permanent link">&para;</a></h2>
+<p>The MiSAR Parser requires information about the multi-module microservice project that will be analysed.</p>
+<p>The field names below match the MiSAR Parser interface.</p>
 <p><img alt="Parser GUI" src="../assets/images/parser/parser-gui.png" /></p>
-<h2 id="fill-required-fields">Fill Required Fields<a class="headerlink" href="#fill-required-fields" title="Permanent link">&para;</a></h2>
+<h3 id="input-fields">Input Fields<a class="headerlink" href="#input-fields" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field in MiSAR Parser</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Type Multi-Module Project Name</strong></td>
+<td>✅</td>
+<td>The name of the microservice system or project being analysed. This name is used when creating the PSM model.</td>
+</tr>
+<tr>
+<td><strong>Select Multi-Module Project Build Directory</strong></td>
+<td>✅</td>
+<td>The root build directory of the multi-module project. This should usually be the main project folder that contains the microservice modules and build files.</td>
+</tr>
+<tr>
+<td><strong>Select Directory where the PSM will be saved</strong></td>
+<td>✅</td>
+<td>The output directory where the generated PSM model will be saved.</td>
+</tr>
+<tr>
+<td><strong>Select Docker Compose Files</strong></td>
+<td>✅</td>
+<td>The Docker Compose file or files used by the system. These are used to identify services and project structure.</td>
+</tr>
+<tr>
+<td><strong>Select Module Projects Build Directories</strong></td>
+<td>✅</td>
+<td>The build directories of the individual microservice modules. These can be populated automatically when using the automatic importer.</td>
+</tr>
+<tr>
+<td><strong>Select Multi-Module Project POM Build Files</strong></td>
+<td>❌</td>
+<td>The main Maven <code>pom.xml</code> build file or files for the multi-module project, if available.</td>
+</tr>
+<tr>
+<td><strong>Select Module Projects POM Build Files</strong></td>
+<td>❌</td>
+<td>The Maven <code>pom.xml</code> files for the individual module projects. These can also be populated automatically when using the automatic importer.</td>
+</tr>
+<tr>
+<td><strong>Select Centralized Configuration Directories</strong></td>
+<td>❌</td>
+<td>Directories that contain centralised configuration files used by the microservice system, if applicable.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="automatic-importer">Automatic Importer<a class="headerlink" href="#automatic-importer" title="Permanent link">&para;</a></h2>
+<p>If the project includes Docker Compose files, MiSAR can use them to automatically detect and populate several fields.</p>
+<p>After selecting the Docker Compose file, MiSAR may prompt you to auto-detect the project files.</p>
+<p><img alt="Docker auto importer" src="../assets/images/parser/parser-docker-auto-importer.png" width="200" /></p>
+<p>When prompted, click <strong>Yes</strong> to allow MiSAR to auto-detect the related project files.</p>
+<h2 id="after-import">After Import<a class="headerlink" href="#after-import" title="Permanent link">&para;</a></h2>
+<p>After the automatic importer runs, the UI may populate fields such as:</p>
 <ul>
-<li>Project Name</li>
-<li>Project Root Directory</li>
-<li>Output Directory (where PSM will be saved)</li>
-<li>Module Directories</li>
-<li>Docker Compose file</li>
+<li><strong>Select Module Projects Build Directories</strong></li>
+<li><strong>Select Multi-Module Project POM Build Files</strong></li>
+<li><strong>Select Module Projects POM Build Files</strong></li>
+<li>Related Docker service information used by the parser</li>
 </ul>
+<p><img alt="Auto importer success" src="../assets/images/parser/parser-auto-importer-success.png" /></p>
+<p>You can still manually edit, add, or remove entries if needed.</p>
+<blockquote>
+<p>Note:<br />
+If you are using the automatic importer, you do not need to manually add <strong>Select Module Projects Build Directories</strong> unless the detected values are missing or incorrect.</p>
+</blockquote>
 <h2 id="automatic-importer-for-docker-compose">Automatic Importer (For Docker Compose)<a class="headerlink" href="#automatic-importer-for-docker-compose" title="Permanent link">&para;</a></h2>
 <p>When you add a Docker Compose file, the parser can attempt to auto-populate the remaining required fields.</p>
 <p><img alt="Docker auto importer" src="../assets/images/parser/parser-docker-auto-importer.png" width="200" /></p>
 <p>When prompted, click <strong>Yes</strong> to auto-detect project files.</p>
-<h2 id="after-import">After Import<a class="headerlink" href="#after-import" title="Permanent link">&para;</a></h2>
+<h2 id="after-import_1">After Import<a class="headerlink" href="#after-import_1" title="Permanent link">&para;</a></h2>
 <p>The UI will populate:
 - Docker services
 - Module paths
