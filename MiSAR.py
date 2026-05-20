@@ -600,13 +600,14 @@ def write_gmg_metadata(asset):
 def get_parser_repository_metadata():
     """Return update metadata from the parser repository GitHub API."""
     repository_data = get_json_from_url(PARSER_REPOSITORY_API_URL)
-    pushed_at = repository_data.get("pushed_at")
+    updated_at = repository_data.get("updated_at")
+    # NOTE: pushed_at counts pushes in all branches, whereas updated_at only detects the main branch which we're looking to get
 
-    if pushed_at is None:
+    if updated_at is None:
         raise RuntimeError("Could not read parser repository update time from GitHub.")
 
     metadata = {
-        "pushed_at": pushed_at,
+        "updated_at": updated_at,
         "default_branch": repository_data.get("default_branch", "main"),
         "clone_url": repository_data.get("clone_url", PARSER_REPOSITORY_CLONE_URL),
     }
@@ -640,13 +641,13 @@ def is_parser_installed():
 def is_parser_update_available(repository_metadata):
     """Compare local parser metadata with GitHub repository metadata."""
     local_metadata = read_parser_metadata()
-    update_available = local_metadata.get("pushed_at") != repository_metadata.get("pushed_at")
+    update_available = local_metadata.get("updated_at") != repository_metadata.get("updated_at")
 
     log_event(
         "parser_update_comparison_completed",
         update_available=update_available,
-        local_pushed_at=local_metadata.get("pushed_at"),
-        remote_pushed_at=repository_metadata.get("pushed_at"),
+        local_updated_at=local_metadata.get("updated_at"),
+        remote_updated_at=repository_metadata.get("updated_at"),
     )
     return update_available
 
