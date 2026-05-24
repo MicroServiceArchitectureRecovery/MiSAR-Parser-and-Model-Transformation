@@ -87,3 +87,11 @@ If the process completes successfully, the PSM file will be generated in the sel
 > Depending on the version, a success message may also be displayed showing the file location.
 
 ![PSM success](assets/images/parser/parser-psm-success.png){ width="200" }
+
+## Note for non-Java projects
+
+The Docker Compose automatic importer currently works best with Java-based microservice projects.
+
+If the project is not a Java project, you may need to add the microservice build directories manually using **Select Module Projects Build Directories**.
+
+Support for improved automatic detection for non-Java projects is currently under active development.
