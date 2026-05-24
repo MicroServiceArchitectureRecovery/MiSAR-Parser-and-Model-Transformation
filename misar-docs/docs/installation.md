@@ -2,7 +2,7 @@
 
 ## Download MiSAR
 
-Before running MiSAR, you need to download the project files from the GitHub repository: https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation .
+Before running MiSAR, you need to download the project files from the GitHub repository: [https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation](https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation).
 
 There are two supported ways to do this:
 
