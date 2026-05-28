@@ -81,3 +81,6 @@ A success message will confirm everything is installed correctly.
 - Ensure you have an active internet connection for automatic module installation
 - If you downloaded the ZIP version, make sure it has been extracted before running MiSAR.py
 - If you cloned the repository using Git, run MiSAR from inside the cloned project directory
+
+## Next Steps
+Now you can start using MiSAR to create Platform Specific Models from your microservice projects! [PSM creation guide](create-psm.md)

@@ -45,11 +45,11 @@ Add:
 
 ![QVT mapping PSM](assets/images/qvt/qvt-mapping-psm.png){ width="600" }
 
-If the Setup completes successfully, you can now run the QVT transformations to create the PIM from the generated PSM. [Create PIM Guide](create-pim.md)
-
-
 ## Notes
 
-In some Eclipse installations, QVTo may already be included.
+- In some Eclipse installations, QVTo may already be included.
 
-If QVT Operational is not available in your Eclipse environment, please follow the manual installation steps described in this guide.
+- If QVT Operational is not available in your Eclipse environment, please follow the manual installation steps described in this guide.
+
+## Next Steps
+If the Setup completes successfully, you can now run the QVT transformations to create the PIM from the generated PSM. [Create PIM Guide](create-pim.md)

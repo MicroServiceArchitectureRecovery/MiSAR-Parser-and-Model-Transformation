@@ -13,6 +13,7 @@
 - Updated the QVT plugin installation and QVT setup documentation with additional instructions and clarifications.
 - Enhanced the Create PIM guide with more detailed instructions for running the PSM to PIM transformation.
 - Added guidance for using the Graphical Model Generator after generating a PIM.
+- Added Next Steps sections to all documentation pages to guide users through the expected MiSAR workflow and link to the next relevant guides.
 
 ## V2026-05-19
 - Updated the Create PSM documentation to improve clarity around parser input fields.

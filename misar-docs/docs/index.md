@@ -46,7 +46,6 @@ Before using MiSAR, ensure the following tools and runtimes are installed or ava
 | QVTo                | QVTo 3.11.2                          | Transforming PSM models into PIM models                  |
 | Python dependencies | Installed automatically by MiSAR AIO | Required Python modules used by the MiSAR application    |
 
-
 ## Sections
 - [MISAR Installation](installation.md)
 - [Create PSM](create-psm.md)
@@ -56,3 +55,7 @@ Before using MiSAR, ensure the following tools and runtimes are installed or ava
 - [Graphical Model Generator](graphical-generator.md)
 - [Uninstallation](uninstallation.md)
 - [Changelog](changelog.md)
+
+
+## Next Steps
+**Ready to get started?** Install MISAR by following the [installation guide](installation.md) and create your first Platform Specific Model!

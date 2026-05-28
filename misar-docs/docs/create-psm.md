@@ -153,8 +153,6 @@ A success message may also be displayed showing the file location.
 
 ![PSM success](assets/images/parser/parser-psm-success.png){ width="200" }
 
-If you have the final PSM file, you are ready to continue to the next step: [Create PIM](create-pim.md).
-
 ## Notes
 
 -   Use a clear project name so the generated PSM is easy to recognise later.
@@ -168,3 +166,8 @@ If you have the final PSM file, you are ready to continue to the next step: [Cre
 -   For Maven-based Java projects, allow MiSAR to read the `pom.xml` files when prompted.
     
 -   For non-Java projects, manual microservice directory selection may be required.
+
+## Next Steps
+If you have the final PSM file & you've completed the QVT Installation and Setup steps, you are ready to continue to create the PIM from the generated PSM! [Create PIM Guide](create-pim.md)
+
+Otherwise, Please follow the QVT Installation and Setup guides to prepare your environment for the next step of the MiSAR workflow. [QVT Manual installation](qvt-manual-installation.md) | [QVT Setup](qvt-setup.md)

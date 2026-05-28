@@ -188,3 +188,6 @@ Next → Next → Accept License → Finish
 -   Use the direct update-site method first
     
 -   Use the archive method only if the update-site method fails
+
+## Next Steps 
+You can now proceed to set up QVTo for MiSAR transformations. [QVT Setup Guide](qvt-setup.md)

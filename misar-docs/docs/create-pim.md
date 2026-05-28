@@ -63,7 +63,7 @@ You will see:
 
 This PIM instance can now be used for detailed analysis, design, etc. It serves as a platform-independent representation of the system, allowing you to focus on the high-level architecture and design without worrying about platform-specific details.
 
-## Graphical Model Generator (GMG)
+## Next Steps
 
 In case you want to create visualisations of the generated PIM, you can use the **Graphical Model Generator (GMG)** to inspect and understand the recovered architecture in more detail.
 
