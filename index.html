@@ -12,7 +12,7 @@
       
       
       
-        <link rel="next" href="changelog/">
+        <link rel="next" href="installation/">
       
       
         
@@ -364,33 +364,6 @@
   
   
     <li class="md-nav__item">
-      <a href="changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changelog
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="installation/" class="md-nav__link">
         
   
@@ -573,6 +546,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -675,6 +675,22 @@
 <li>Transform PSM → PIM (Platform Independent Model)</li>
 <li>Generate UML diagrams (optional)</li>
 </ol>
+<pre class="mermaid"><code>sequenceDiagram
+  participant SRC as Source Code
+  participant PARSER as Parser
+  participant PSM as Platform Specific Model
+  participant QVTO as Eclipse QVTo
+  participant PIM as Platform Independent Model
+  participant GMG as Graphical Model Generator
+  participant UML as UML Diagrams
+
+  SRC-&gt;&gt;PARSER: Analyse the project
+  PARSER--&gt;&gt;PSM: Create the PSM
+  PSM-&gt;&gt;QVTO: Transform the model
+  QVTO--&gt;&gt;PIM: Create the PIM
+  PIM-&gt;&gt;GMG: Generate outputs
+  GMG--&gt;&gt;UML: Create UML diagrams</code></pre>
+<p>This diagram shows the basic MiSAR workflow: the source code is analysed by the parser, converted into a Platform Specific Model, transformed into a Platform Independent Model, and then used to generate UML diagrams.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <p>Before using MiSAR, ensure the following tools and runtimes are installed or available on your system.</p>
 <table>
