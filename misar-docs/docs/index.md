@@ -14,6 +14,26 @@ MiSAR consists of a parser that creates a Platform Specific Model from existing 
 2. Transform PSM → PIM (Platform Independent Model)
 3. Generate UML diagrams (optional)
 
+```mermaid
+sequenceDiagram
+  participant SRC as Source Code
+  participant PARSER as Parser
+  participant PSM as Platform Specific Model
+  participant QVTO as Eclipse QVTo
+  participant PIM as Platform Independent Model
+  participant GMG as Graphical Model Generator
+  participant UML as UML Diagrams
+
+  SRC->>PARSER: Analyse the project
+  PARSER-->>PSM: Create the PSM
+  PSM->>QVTO: Transform the model
+  QVTO-->>PIM: Create the PIM
+  PIM->>GMG: Generate outputs
+  GMG-->>UML: Create UML diagrams
+```
+
+This diagram shows the basic MiSAR workflow: the source code is analysed by the parser, converted into a Platform Specific Model, transformed into a Platform Independent Model, and then used to generate UML diagrams.
+
 ## Prerequisites
 
 Before using MiSAR, ensure the following tools and runtimes are installed or available on your system.
