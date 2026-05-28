@@ -20,7 +20,6 @@
 
   nav:
     - Welcome: index.md
-    - Changelog: changelog.md
     - MISAR Installation: installation.md
     - Create PSM: create-psm.md
     - QVT Plugin Installation: qvt-manual-installation.md
@@ -28,6 +27,7 @@
     - Create PIM: create-pim.md
     - Graphical Model Generator: graphical-generator.md
     - Uninstallation: uninstallation.md
+    - Changelog: changelog.md
 
   markdown_extensions:
     - admonition
