@@ -6,6 +6,8 @@
 > If you do not see:
 >
 > **Run As → QVT Operational Transformation**
+> 
+> **Project → Properties → QVT Settings → Metamodel Mappings**
 >
 > or QVT-related options in Eclipse, you will need to install QVTo manually.
 
@@ -145,7 +147,7 @@ After restarting Eclipse, verify that QVTo was installed correctly:
 Run As → QVT Operational Transformation
 ```
 
-If this option appears, QVTo is installed successfully.
+If this option appears, QVTo is installed successfully. You can now run setup QVT transformations. [QVT Setup Guide](qvt-setup.md)
 
 ## Alternative – Install from Downloaded Archive
 
