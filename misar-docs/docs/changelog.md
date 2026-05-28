@@ -1,5 +1,19 @@
 # Changelog
 
+## V2026-05-28
+
+- Added a Mermaid sequence diagram to the welcome page to visually explain the MiSAR workflow from source code to UML output.
+- Updated the documentation navigation order so the changelog appears last and the manual follows the expected user workflow.
+- Enhanced the Create PSM guide with a clearer step-by-step walkthrough for using the MiSAR Parser.
+- Updated the Create PSM field table to match the latest MiSAR Parser GUI numbering and labels.
+- Clarified how Docker Compose files are used by the automatic importer.
+- Added guidance for manually selecting microservice build directories when automatic detection is incomplete.
+- Added notes explaining that non-Java projects may require manual microservice directory selection while improved automatic detection is under development.
+- Added guidance for the Maven `pom.xml` prompt during PSM creation.
+- Updated the QVT plugin installation and QVT setup documentation with additional instructions and clarifications.
+- Enhanced the Create PIM guide with more detailed instructions for running the PSM to PIM transformation.
+- Added guidance for using the Graphical Model Generator after generating a PIM.
+
 ## V2026-05-19
 - Updated the Create PSM documentation to improve clarity around parser input fields.
 - Added descriptions for each MiSAR Parser input field, including mandatory and optional fields.
