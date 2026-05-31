@@ -33,6 +33,8 @@ import webbrowser
 import subprocess
 from MisarParserJava import *
 from MisarParserDocker import *
+from MisarParserConfig import resolve_psm_ecore_path, describe_model_selection
+from MisarParserPython import *
 import sys
 from pathlib import Path
             
@@ -358,6 +360,62 @@ def get_reference_type(reference_type):
     
     return type_str
 
+def is_java_build_file(file_path):
+    return str(file_path).endswith('pom.xml')
+
+def find_module_build_file(module_build_dir, module_build_files):
+    for module_build_file in module_build_files:
+        if module_build_file.startswith(module_build_dir):
+            return module_build_file
+
+    pom_file = Path(module_build_dir) / 'pom.xml'
+    if pom_file.is_file():
+        return str(pom_file)
+
+    python_dependency_files = find_python_dependency_files(module_build_dir)
+    if python_dependency_files:
+        return python_dependency_files[0]
+
+    return ''
+
+def detect_misar_module_language(module_build_dir, module_build_file):
+    if is_java_build_file(module_build_file) or (Path(module_build_dir) / 'pom.xml').is_file():
+        return 'java'
+
+    python_detection = detect_python_project(module_build_dir, module_build_file)
+    if python_detection.language == 'python':
+        return 'python'
+
+    java_files = fetch_artifacts('.java', Path(module_build_dir).name, module_build_dir)
+    if java_files:
+        return 'java'
+
+    return 'unknown'
+
+def create_dependency_library_element(metamodel, module_name, library):
+    dependency_library = metamodel.DependencyLibrary()
+    dependency_library.ParentProjectName = module_name
+    dependency_library.ArtifactFileName = library['filename']
+    dependency_library.LibraryGroupName = library['groupId']
+    dependency_library.LibraryName = library['artifactId']
+    dependency_library.LibraryScope = library['scope']
+    return dependency_library
+
+def create_python_project_element(metamodel, python_framework):
+    project_type_name = {
+        'FLASK': 'PythonFlaskApplicationProject',
+        'FASTAPI': 'PythonFastAPIApplicationProject',
+        'DJANGO': 'PythonDjangoApplicationProject',
+    }.get(python_framework, 'PythonWebApplicationProject')
+
+    if not hasattr(metamodel, project_type_name):
+        raise RuntimeError('The selected PSM Ecore file does not define ' + project_type_name + '. Please select PSM-python.ecore.')
+
+    return getattr(metamodel, project_type_name)()
+
+def get_python_framework_for_module(module_build_dir, module_build_file):
+    return detect_python_framework(module_build_dir, module_build_file)
+
 def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir, txt_output_dir):
     if not txt_proj_name.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'Application Project Name\' !')
@@ -398,6 +456,16 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         for app_config_dir in lst_app_config_dir.get(0, 'end'):
             if app_config_dir.strip():
                 app_config_dirs.append(app_config_dir)
+
+        project_uses_python = any(
+            detect_misar_module_language(
+                module_build_dir,
+                find_module_build_file(module_build_dir, module_build_files),
+            ) == 'python'
+            for module_build_dir in module_build_dirs
+        )
+        psm_ecore_file = resolve_psm_ecore_path(project_uses_python, psm_ecore_file)
+        print('MiSAR model selection = {}'.format(describe_model_selection(project_uses_python, psm_ecore_file)))
 
         psm_instance_file_name = multi_module_project_name + "-PSM" + '.xmi'
         psm_instance_file = output_dir + "/" + psm_instance_file_name
@@ -520,7 +588,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             multi_module_project['build'] += app_build_file + ';'
         multi_module_project['build'] = multi_module_project['build'].rstrip(';') 
         multi_module_project_artifact_Id = multi_module_project_name
-        if len(app_build_files) == 1: 
+        if len(app_build_files) == 1 and app_build_files[0].endswith('pom.xml'):
             pom_xml = xml_to_dict(app_build_files[0])
             if 'project' in pom_xml:
                 if 'artifactId' in pom_xml['project']:
@@ -537,62 +605,77 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         # create modules for application project
         for module_build_dir in module_build_dirs:
             module_name = os.path.basename(module_build_dir)
-            build_file = ''
-            for module_build_file in module_build_files:
-                if module_build_file.startswith(module_build_dir):
-                    build_file = module_build_file
-                    pom_xml = xml_to_dict(module_build_file)
-                    if 'project' in pom_xml:
-                        if 'artifactId' in pom_xml['project']:
-                            module_name = pom_xml['project']['artifactId']
-                    break 
+            build_file = find_module_build_file(module_build_dir, module_build_files)
+            if is_java_build_file(build_file):
+                pom_xml = xml_to_dict(build_file)
+                if 'project' in pom_xml:
+                    if 'artifactId' in pom_xml['project']:
+                        module_name = pom_xml['project']['artifactId']
             multi_module_project['modules'][module_name] = {}
-            multi_module_project['modules'][module_name]['parent'] = multi_module_project_name 
-            multi_module_project['modules'][module_name]['build'] = build_file                   
-            multi_module_project['modules'][module_name]['artifactId'] = module_name 
-            multi_module_project['modules'][module_name]['libraries'] = [] 
+            multi_module_project['modules'][module_name]['parent'] = multi_module_project_name
+            multi_module_project['modules'][module_name]['build'] = build_file
+            multi_module_project['modules'][module_name]['build_dir'] = module_build_dir
+            multi_module_project['modules'][module_name]['artifactId'] = module_name
+            multi_module_project['modules'][module_name]['libraries'] = []
             multi_module_project['modules'][module_name]['properties'] = []
             multi_module_project['modules'][module_name]['java_elements'] = []
-            
+            multi_module_project['modules'][module_name]['python_elements'] = []
+            multi_module_project['modules'][module_name]['language'] = detect_misar_module_language(module_build_dir, build_file)
+            multi_module_project['modules'][module_name]['framework'] = 'UNKNOWN'
+
         # create libraries and properties instances for every module project
         for module_name in multi_module_project['modules']:
             print('\nmodule_name = {}'.format(module_name))
+            module_build_file = multi_module_project['modules'][module_name]['build']
+            module_build_dir = multi_module_project['modules'][module_name]['build_dir']
+            module_language = multi_module_project['modules'][module_name]['language']
+            module_libraries = []
             spring_boot_app = True
             spring_web_flux_app = False
-            
-            # fetch module libraries
-            module_build_file = multi_module_project['modules'][module_name]['build']
-            module_libraries = []
-            module_libraries = get_library_list(module_libraries, module_build_file, app_root_dir)
+            python_framework = 'UNKNOWN'
+
+            if module_language == 'python':
+                python_framework = get_python_framework_for_module(module_build_dir, module_build_file)
+                multi_module_project['modules'][module_name]['framework'] = python_framework
+                module_libraries = get_python_library_list(module_build_dir, module_build_file, app_root_dir)
+                if not module_libraries:
+                    module_libraries.append({'filename': module_build_dir, 'groupId': 'pypi', 'artifactId': 'NOT_AVAILABLE', 'scope': 'COMPILE'})
+            else:
+                module_libraries = get_library_list(module_libraries, module_build_file, app_root_dir)
+                for library in module_libraries:
+                    if library['groupId'] in ['org.springframework.boot', 'org.springframework.cloud']:
+                        spring_boot_app = True
+                    if 'webflux' in library['artifactId'] or 'reactive' in library['artifactId'] or 'reactor' in library['artifactId']:
+                        spring_web_flux_app = True
+
             for library in module_libraries:
-                if library['groupId'] in ['org.springframework.boot', 'org.springframework.cloud']:
-                    spring_boot_app = True
-                if 'webflux' in library['artifactId'] or 'reactive' in library['artifactId'] or 'reactor' in library['artifactId']:
-                    spring_web_flux_app = True
                 multi_module_project['modules'][module_name]['libraries'].append(library)
-            
-            # create microservice project instance
-            module_project = metamodel.MicroserviceProject()
-            if spring_boot_app:                
-                if spring_web_flux_app:
-                    module_project = metamodel.JavaSpringWebFluxApplicationProject()
+
+            try:
+                if module_language == 'python':
+                    module_project = create_python_project_element(metamodel, python_framework)
+                elif spring_boot_app:
+                    if spring_web_flux_app:
+                        module_project = metamodel.JavaSpringWebFluxApplicationProject()
+                    else:
+                        module_project = metamodel.JavaSpringMVCApplicationProject()
                 else:
-                    module_project = metamodel.JavaSpringMVCApplicationProject()
+                    module_project = metamodel.MicroserviceProject()
+            except RuntimeError as error:
+                messagebox.showerror('PSM Python Extension Missing', str(error))
+                return
+
             module_project.ParentProjectName = multi_module_project['modules'][module_name]['parent']
             module_project.ArtifactFileName = multi_module_project['modules'][module_name]['build']
             module_project.ProjectArtifactId = module_name
-    
-            # create dependency library instance and append it to module project
-            for library in module_libraries:
-                dependency_library = metamodel.DependencyLibrary()
-                dependency_library.ParentProjectName = module_name
-                dependency_library.ArtifactFileName = library['filename']
-                dependency_library.LibraryGroupName = library['groupId']
-                dependency_library.LibraryName = library['artifactId']
-                dependency_library.LibraryScope = library['scope']
-                module_project.libraries.append(dependency_library)
 
-            java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir, app_config_dirs, spring_boot_app, application_containers)
+            for library in module_libraries:
+                module_project.libraries.append(create_dependency_library_element(metamodel, module_name, library))
+
+            if module_language == 'python':
+                python_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir, app_config_dirs, application_containers, module_build_dir, module_build_file)
+            else:
+                java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir, app_config_dirs, spring_boot_app, application_containers)
             """
             # fetch module properties
             if spring_boot_app:
@@ -999,8 +1082,8 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         if 'ecore:EPackage' in psm_ecore_dict: 
             if '@xmlns:xsi' in psm_ecore_dict['ecore:EPackage']:
                 xmlns_xsi = psm_ecore_dict['ecore:EPackage']['@xmlns:xsi']
-            if '@nsURI' in psm_ecore_dict['ecore:EPackage'] and '@name' in psm_ecore_dict['ecore:EPackage']:
-                xsi_schemaLocation = psm_ecore_dict['ecore:EPackage']['@nsURI'] + ' ' + psm_ecore_dict['ecore:EPackage']['@name'] + '.ecore'
+            if '@nsURI' in psm_ecore_dict['ecore:EPackage']:
+                xsi_schemaLocation = psm_ecore_dict['ecore:EPackage']['@nsURI'] + ' ' + Path(psm_ecore_file).name
 
         if xmlns_xsi and xsi_schemaLocation:
             file_lines = [line.rstrip() for line in open(psm_instance_file, encoding='utf8')]
