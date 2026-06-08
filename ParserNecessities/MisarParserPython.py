@@ -125,6 +125,23 @@ class PythonProjectDetection:
     score: int
     evidence: list[str] = field(default_factory=list)
 
+@dataclass
+class DjangoMetadata:
+    module_prefixes: dict[str, list[str]] = field(default_factory=dict)
+    viewset_types: dict[str, str] = field(default_factory=dict)
+    view_methods: dict[str, set[str]] = field(default_factory=dict)
+    viewset_actions: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+
+
+@dataclass
+class PythonAnalysisContext:
+    module_name: str
+    module_dir: str
+    environment: dict[str, str] = field(default_factory=dict)
+    service_ports: dict[str, str] = field(default_factory=dict)
+    django: DjangoMetadata = field(default_factory=DjangoMetadata)
+
+
 
 def normalise_path(path: str | Path) -> str:
     return str(Path(path)).replace("\\", "/")
@@ -333,7 +350,183 @@ def get_dependency_names(libraries: Iterable[dict[str, str]]) -> set[str]:
     return {library.get("artifactId", "").lower().replace("_", "-") for library in libraries}
 
 
-def parse_python_file(file_path: str | Path, module_dir: str | Path, framework_hint: str = "PYTHON") -> PythonModuleData | None:
+def build_python_analysis_context(module_name: str, module_dir: str | Path, application_containers: dict[str, Any], python_files: list[str]) -> PythonAnalysisContext:
+    module_dir_str = str(module_dir)
+    context = PythonAnalysisContext(
+        module_name=module_name,
+        module_dir=module_dir_str,
+        environment=collect_docker_environment_for_module(module_name, module_dir_str, application_containers),
+        service_ports=collect_service_port_map(application_containers),
+    )
+    context.django = build_django_metadata(module_dir_str, python_files)
+    return context
+
+
+def collect_service_port_map(application_containers: dict[str, Any]) -> dict[str, str]:
+    service_ports: dict[str, str] = {}
+    for container_name, container_data in application_containers.items():
+        for port_value in container_data.get("ports", []) or []:
+            for port in re.findall(r"\d+", str(port_value)):
+                service_ports.setdefault(port, container_name)
+    return service_ports
+
+
+def collect_docker_environment_for_module(module_name: str, module_dir: str, application_containers: dict[str, Any]) -> dict[str, str]:
+    environment: dict[str, str] = {}
+    module_path = Path(module_dir).resolve()
+    for container_name, container_data in application_containers.items():
+        if not docker_container_matches_module(container_name, container_data, module_name, module_path):
+            continue
+        compose_file = container_data.get("filename", "")
+        if not compose_file:
+            continue
+        environment.update(read_compose_service_environment(compose_file, container_name))
+    return environment
+
+
+def docker_container_matches_module(container_name: str, container_data: dict[str, Any], module_name: str, module_path: Path) -> bool:
+    if container_name == module_name:
+        return True
+    build_context = str(container_data.get("build", "") or "").strip()
+    if not build_context:
+        return False
+    compose_file = str(container_data.get("filename", "") or "")
+    compose_dir = Path(compose_file).parent if compose_file else module_path.parent
+    candidate = (compose_dir / build_context).resolve()
+    return candidate == module_path or candidate.name == module_path.name
+
+
+def read_compose_service_environment(compose_file: str | Path, container_name: str) -> dict[str, str]:
+    environment: dict[str, str] = {}
+    if yaml is None:
+        return environment
+    try:
+        compose_data = yaml.safe_load(read_text_file(compose_file)) or {}
+    except Exception:
+        return environment
+    service_data = (compose_data.get("services", {}) or {}).get(container_name, {}) or {}
+    raw_environment = service_data.get("environment", {}) or {}
+    if isinstance(raw_environment, dict):
+        for key, value in raw_environment.items():
+            environment[str(key)] = "" if value is None else str(value)
+    elif isinstance(raw_environment, list):
+        for item in raw_environment:
+            key, separator, value = str(item).partition("=")
+            if separator:
+                environment[key] = value
+    return environment
+
+
+def build_django_metadata(module_dir: str | Path, python_files: list[str]) -> DjangoMetadata:
+    metadata = DjangoMetadata()
+    url_files: list[tuple[str, ast.AST]] = []
+    for python_file in python_files:
+        source = read_text_file(python_file)
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            continue
+        module_path = path_to_module_name(python_file, module_dir)
+        collect_django_view_metadata(tree, metadata)
+        if Path(python_file).name == "urls.py":
+            url_files.append((module_path, tree))
+    for module_path, tree in url_files:
+        collect_django_include_prefixes(tree, module_path, metadata)
+    return metadata
+
+
+def collect_django_view_metadata(tree: ast.AST, metadata: DjangoMetadata) -> None:
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        base_names = {expression_to_string(base).lower() for base in node.bases}
+        if any(base.endswith("modelviewset") for base in base_names):
+            metadata.viewset_types[node.name] = "MODELVIEWSET"
+        elif any(base.endswith("viewset") for base in base_names):
+            metadata.viewset_types[node.name] = "VIEWSET"
+        elif any(base.endswith(("apiview", "view")) for base in base_names):
+            metadata.viewset_types[node.name] = "VIEW"
+        methods = {child.name.upper() for child in node.body if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) and child.name.upper() in HTTP_METHODS}
+        if methods:
+            metadata.view_methods[node.name] = methods
+        actions = collect_django_viewset_actions(node)
+        if actions:
+            metadata.viewset_actions[node.name] = actions
+
+
+def collect_django_viewset_actions(class_node: ast.ClassDef) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    for child in class_node.body:
+        if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in child.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+            if get_callable_name(decorator.func).split(".")[-1] != "action":
+                continue
+            detail = False
+            methods = {"GET"}
+            url_path = child.name.replace("_", "-")
+            for keyword in decorator.keywords:
+                if keyword.arg == "detail":
+                    detail_value = evaluate_python_expression(keyword.value, {}, PythonAnalysisContext(module_name="", module_dir=""))
+                    detail = detail_value == "True"
+                elif keyword.arg == "methods":
+                    extracted_methods = extract_http_methods(keyword.value)
+                    if extracted_methods:
+                        methods = set(extracted_methods)
+                elif keyword.arg in {"url_path", "url_name"}:
+                    value = literal_to_string(keyword.value)
+                    if value:
+                        url_path = value
+            actions.append({"name": child.name, "detail": detail, "methods": methods, "url_path": url_path})
+    return actions
+
+
+def collect_django_include_prefixes(tree: ast.AST, module_path: str, metadata: DjangoMetadata) -> None:
+    if module_path not in metadata.module_prefixes:
+        metadata.module_prefixes[module_path] = [""]
+    for call_node in ast.walk(tree):
+        if not isinstance(call_node, ast.Call):
+            continue
+        if get_callable_name(call_node.func).split(".")[-1] not in DJANGO_URL_FUNCTIONS:
+            continue
+        if len(call_node.args) < 2:
+            continue
+        route_path = literal_to_string(call_node.args[0])
+        include_target = extract_django_include_target(call_node.args[1])
+        if include_target:
+            for parent_prefix in metadata.module_prefixes.get(module_path, [""]):
+                combined_prefix = combine_url_paths(parent_prefix, route_path)
+                metadata.module_prefixes.setdefault(include_target, [])
+                if combined_prefix not in metadata.module_prefixes[include_target]:
+                    metadata.module_prefixes[include_target].append(combined_prefix)
+
+
+def extract_django_include_target(node: ast.AST) -> str:
+    if not isinstance(node, ast.Call):
+        return ""
+    if get_callable_name(node.func).split(".")[-1] != "include" or not node.args:
+        return ""
+    first_arg = node.args[0]
+    if not isinstance(first_arg, (ast.Constant, ast.Str)):
+        return ""
+    target = literal_to_string(first_arg)
+    if target.endswith(".urls"):
+        return target
+    return ""
+
+
+def path_to_module_name(file_path: str | Path, module_dir: str | Path) -> str:
+    file_path_obj = Path(file_path)
+    try:
+        relative_file = file_path_obj.relative_to(Path(module_dir))
+        return ".".join(relative_file.with_suffix("").parts)
+    except ValueError:
+        return file_path_obj.stem
+
+
+def parse_python_file(file_path: str | Path, module_dir: str | Path, framework_hint: str = "PYTHON", context: PythonAnalysisContext | None = None) -> PythonModuleData | None:
     source = read_text_file(file_path)
     if not source.strip():
         return None
@@ -341,23 +534,42 @@ def parse_python_file(file_path: str | Path, module_dir: str | Path, framework_h
         tree = ast.parse(source)
     except SyntaxError:
         return None
-    file_path_obj = Path(file_path)
-    module_path = file_path_obj.stem
-    try:
-        relative_file = file_path_obj.relative_to(Path(module_dir))
-        module_path = ".".join(relative_file.with_suffix("").parts)
-    except ValueError:
-        pass
+    module_path = path_to_module_name(file_path, module_dir)
+    if context is None:
+        context = PythonAnalysisContext(module_name="", module_dir=str(module_dir))
+    file_constants = collect_python_constants(tree, context)
     module_data = PythonModuleData(filename=str(file_path), module_name=module_path, framework=framework_hint)
     module_data.imports = extract_imports(tree)
     for node in tree.body:
         if isinstance(node, ast.ClassDef):
-            module_data.classes.append(extract_class(node, framework_hint))
+            module_data.classes.append(extract_class(node, framework_hint, file_constants, context))
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            module_data.functions.append(extract_function(node, framework_hint))
-    if file_path_obj.name == "urls.py":
-        module_data.functions.extend(extract_django_urlpatterns(tree))
+            module_data.functions.append(extract_function(node, framework_hint, file_constants, context))
+    if Path(file_path).name == "urls.py":
+        module_data.functions.extend(extract_django_urlpatterns(tree, module_path, context.django))
     return module_data
+
+
+def collect_python_constants(tree: ast.AST, context: PythonAnalysisContext) -> dict[str, str]:
+    constants: dict[str, str] = dict(context.environment)
+    changed = True
+    while changed:
+        changed = False
+        for node in getattr(tree, "body", []):
+            if isinstance(node, ast.Assign):
+                value = evaluate_python_expression(node.value, constants, context)
+                if value == "":
+                    continue
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and constants.get(target.id) != value:
+                        constants[target.id] = value
+                        changed = True
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                value = evaluate_python_expression(node.value, constants, context)
+                if value and constants.get(node.target.id) != value:
+                    constants[node.target.id] = value
+                    changed = True
+    return constants
 
 
 def extract_imports(tree: ast.AST) -> list[PythonImportData]:
@@ -373,12 +585,14 @@ def extract_imports(tree: ast.AST) -> list[PythonImportData]:
     return imports
 
 
-def extract_class(node: ast.ClassDef, framework_hint: str) -> PythonClassData:
+def extract_class(node: ast.ClassDef, framework_hint: str, constants: dict[str, str] | None = None, context: PythonAnalysisContext | None = None) -> PythonClassData:
+    constants = constants or {}
+    context = context or PythonAnalysisContext(module_name="", module_dir="")
     decorators = [extract_decorator(decorator, framework_hint) for decorator in node.decorator_list]
     methods: list[PythonFunctionData] = []
     for child in node.body:
         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            function_data = extract_function(child, framework_hint)
+            function_data = extract_function(child, framework_hint, constants, context)
             if is_django_http_method(function_data.name, node):
                 function_data.http_method = function_data.name.upper()
             methods.append(function_data)
@@ -391,12 +605,14 @@ def extract_class(node: ast.ClassDef, framework_hint: str) -> PythonClassData:
     )
 
 
-def extract_function(node: ast.FunctionDef | ast.AsyncFunctionDef, framework_hint: str) -> PythonFunctionData:
+def extract_function(node: ast.FunctionDef | ast.AsyncFunctionDef, framework_hint: str, constants: dict[str, str] | None = None, context: PythonAnalysisContext | None = None) -> PythonFunctionData:
+    constants = constants or {}
+    context = context or PythonAnalysisContext(module_name="", module_dir="")
     decorators = [extract_decorator(decorator, framework_hint) for decorator in node.decorator_list]
     decorators = [decorator for decorator in decorators if decorator is not None]
     route_decorator = next((decorator for decorator in decorators if decorator.route_path), None)
     parameters = extract_parameters(node)
-    calls = extract_calls(node)
+    calls = extract_calls(node, constants, context)
     return PythonFunctionData(
         name=node.name,
         is_async=isinstance(node, ast.AsyncFunctionDef),
@@ -485,7 +701,9 @@ def extract_http_methods(node: ast.AST) -> list[str]:
     return methods
 
 
-def extract_calls(node: ast.AST) -> list[PythonCallData]:
+def extract_calls(node: ast.AST, constants: dict[str, str] | None = None, context: PythonAnalysisContext | None = None) -> list[PythonCallData]:
+    constants = constants or {}
+    context = context or PythonAnalysisContext(module_name="", module_dir="")
     calls: list[PythonCallData] = []
     body_nodes = getattr(node, "body", [node])
     for body_node in body_nodes:
@@ -494,14 +712,73 @@ def extract_calls(node: ast.AST) -> list[PythonCallData]:
                 target_name = get_callable_name(child.func)
                 if not target_name:
                     continue
-                endpoint_url = ""
-                if child.args:
-                    first_argument = literal_to_string(child.args[0])
-                    if first_argument.startswith(("http://", "https://")) or "://" in first_argument:
-                        endpoint_url = first_argument
+                endpoint_url = extract_endpoint_url_from_call(child, constants, context)
                 call_type = classify_call(target_name)
                 calls.append(PythonCallData(target_name=target_name, call_type=call_type, endpoint_url=endpoint_url))
     return calls
+
+
+def extract_endpoint_url_from_call(call_node: ast.Call, constants: dict[str, str], context: PythonAnalysisContext) -> str:
+    candidate_node: ast.AST | None = call_node.args[0] if call_node.args else None
+    for keyword in call_node.keywords:
+        if keyword.arg in {"url", "uri", "endpoint"}:
+            candidate_node = keyword.value
+            break
+    if candidate_node is None:
+        return ""
+    endpoint_url = evaluate_python_expression(candidate_node, constants, context)
+    if endpoint_url.startswith(("http://", "https://")) or "://" in endpoint_url:
+        return normalise_endpoint_url(endpoint_url, context)
+    return ""
+
+
+def evaluate_python_expression(node: ast.AST | None, constants: dict[str, str], context: PythonAnalysisContext) -> str:
+    if node is None:
+        return ""
+    if isinstance(node, ast.Constant):
+        return "" if node.value is None else str(node.value)
+    if isinstance(node, ast.Str):
+        return node.s
+    if isinstance(node, ast.Name):
+        return constants.get(node.id, "{" + node.id + "}")
+    if isinstance(node, ast.Attribute):
+        return constants.get(expression_to_string(node), "{" + expression_to_string(node) + "}")
+    if isinstance(node, ast.JoinedStr):
+        parts: list[str] = []
+        for value in node.values:
+            if isinstance(value, ast.Constant):
+                parts.append(str(value.value))
+            elif isinstance(value, ast.Str):
+                parts.append(value.s)
+            elif isinstance(value, ast.FormattedValue):
+                expression = expression_to_string(value.value)
+                parts.append(constants.get(expression, "{" + expression + "}"))
+        return "".join(parts)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return evaluate_python_expression(node.left, constants, context) + evaluate_python_expression(node.right, constants, context)
+    if isinstance(node, ast.Call):
+        callable_name = get_callable_name(node.func)
+        if callable_name in {"os.environ.get", "os.getenv"} and node.args:
+            env_key = evaluate_python_expression(node.args[0], constants, context)
+            default_value = evaluate_python_expression(node.args[1], constants, context) if len(node.args) > 1 else ""
+            return context.environment.get(env_key, os.environ.get(env_key, default_value))
+        if callable_name in {"str", "int", "float"} and node.args:
+            value = evaluate_python_expression(node.args[0], constants, context)
+            if value.startswith("{") and value.endswith("}"):
+                return value
+            return str(value)
+    return expression_to_string(node)
+
+
+def normalise_endpoint_url(endpoint_url: str, context: PythonAnalysisContext) -> str:
+    endpoint_url = endpoint_url.strip().strip('"').strip("'")
+    match = re.match(r"^(https?://)([^/:{}]+):(\d+)(.*)$", endpoint_url)
+    if not match:
+        return endpoint_url
+    scheme, host, port, suffix = match.groups()
+    if host in {"localhost", "127.0.0.1", "0.0.0.0"} and port in context.service_ports:
+        return f"{scheme}{context.service_ports[port]}:{port}{suffix}"
+    return endpoint_url
 
 
 def classify_call(target_name: str) -> str:
@@ -513,26 +790,167 @@ def classify_call(target_name: str) -> str:
     return "FUNCTION_CALL"
 
 
-def extract_django_urlpatterns(tree: ast.AST) -> list[PythonFunctionData]:
+def select_public_django_prefixes(module_path: str, django: DjangoMetadata) -> list[str]:
+    prefixes = django.module_prefixes.get(module_path, [""])
+    non_empty_prefixes = [prefix for prefix in prefixes if str(prefix).strip("/")]
+    return non_empty_prefixes if non_empty_prefixes else prefixes
+
+
+def extract_django_urlpatterns(tree: ast.AST, module_path: str, django: DjangoMetadata) -> list[PythonFunctionData]:
     routes: list[PythonFunctionData] = []
+    prefixes = select_public_django_prefixes(module_path, django)
+    router_registers = collect_django_router_registers(tree)
+    route_index = 1
+    for router_name, register_path, viewset_name in router_registers:
+        base_methods = django_methods_for_viewset(viewset_name, django)
+        for parent_prefix in prefixes:
+            base_path = ensure_route_path(combine_url_paths(parent_prefix, register_path))
+            detail_path = ensure_detail_route_path(base_path)
+            for method in sorted(base_methods.get("list", set())):
+                routes.append(make_django_route_function(viewset_name, method, base_path, route_index, "list"))
+                route_index += 1
+            for method in sorted(base_methods.get("detail", set())):
+                routes.append(make_django_route_function(viewset_name, method, detail_path, route_index, "detail"))
+                route_index += 1
+            for action in django.viewset_actions.get(viewset_name, []):
+                action_base = detail_path if action.get("detail") else base_path.rstrip("/") + "/"
+                action_path = ensure_route_path(combine_url_paths(action_base, str(action.get("url_path", ""))))
+                if not action_path.endswith("/"):
+                    action_path += "/"
+                for method in sorted(action.get("methods", {"HTTP"})):
+                    routes.append(make_django_route_function(viewset_name, method, action_path, route_index, str(action.get("name", "action"))))
+                    route_index += 1
     for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            if any(isinstance(target, ast.Name) and target.id == "urlpatterns" for target in node.targets):
-                route_index = 1
-                for call_node in ast.walk(node.value):
-                    if isinstance(call_node, ast.Call) and get_callable_name(call_node.func).split(".")[-1] in DJANGO_URL_FUNCTIONS:
-                        route_path = literal_to_string(call_node.args[0]) if call_node.args else ""
-                        view_name = expression_to_string(call_node.args[1]) if len(call_node.args) > 1 else "NOT_AVAILABLE"
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "urlpatterns" for target in node.targets):
+            for call_node in ast.walk(node.value):
+                if not isinstance(call_node, ast.Call):
+                    continue
+                if get_callable_name(call_node.func).split(".")[-1] not in DJANGO_URL_FUNCTIONS:
+                    continue
+                route_path = literal_to_string(call_node.args[0]) if call_node.args else ""
+                view_node = call_node.args[1] if len(call_node.args) > 1 else None
+                view_name = expression_to_string(view_node) if view_node is not None else "NOT_AVAILABLE"
+                if should_skip_django_path(route_path, view_node):
+                    continue
+                if is_router_include(view_node):
+                    continue
+                if extract_django_include_target(view_node):
+                    continue
+                http_methods = django_methods_for_view_reference(view_name, django)
+                if not http_methods:
+                    http_methods = {"HTTP"}
+                for parent_prefix in prefixes:
+                    combined_path = ensure_route_path(combine_url_paths(parent_prefix, route_path))
+                    for method in sorted(http_methods):
                         routes.append(PythonFunctionData(
                             name=f"django_urlpattern_{route_index}",
                             line_number=getattr(call_node, "lineno", 0),
-                            route_path=route_path,
-                            http_method="NOT_AVAILABLE",
+                            route_path=combined_path,
+                            http_method=method,
                             calls=[PythonCallData(target_name=view_name, call_type="DJANGO_VIEW_REFERENCE")],
-                            decorators=[PythonDecoratorData(name=get_callable_name(call_node.func), route_path=route_path, http_method="NOT_AVAILABLE")],
+                            decorators=[PythonDecoratorData(name=get_callable_name(call_node.func), route_path=combined_path, http_method=method)],
                         ))
                         route_index += 1
-    return routes
+    return deduplicate_routes(routes)
+
+
+def collect_django_router_registers(tree: ast.AST) -> list[tuple[str, str, str]]:
+    registers: list[tuple[str, str, str]] = []
+    router_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            if get_callable_name(node.value.func).endswith("DefaultRouter") or get_callable_name(node.value.func).endswith("SimpleRouter"):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        router_names.add(target.id)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            callable_name = get_callable_name(node.func)
+            parts = callable_name.split(".")
+            if len(parts) >= 2 and parts[-1] == "register" and parts[-2] in router_names:
+                register_path = literal_to_string(node.args[0]) if node.args else ""
+                viewset_name = expression_to_string(node.args[1]).split(".")[-1] if len(node.args) > 1 else "NOT_AVAILABLE"
+                registers.append((parts[-2], register_path, viewset_name))
+    return registers
+
+
+def django_methods_for_viewset(viewset_name: str, django: DjangoMetadata) -> dict[str, set[str]]:
+    viewset_type = django.viewset_types.get(viewset_name, "VIEWSET")
+    explicit_methods = django.view_methods.get(viewset_name, set())
+    if viewset_type == "MODELVIEWSET":
+        return {"list": {"GET", "POST"}, "detail": {"GET", "PUT", "PATCH", "DELETE"}}
+    if explicit_methods:
+        list_methods = {method for method in explicit_methods if method in {"GET", "POST"}}
+        detail_methods = {method for method in explicit_methods if method in {"GET", "PUT", "PATCH", "DELETE"}}
+        return {"list": list_methods, "detail": detail_methods}
+    return {"list": {"HTTP"}, "detail": set()}
+
+
+def django_methods_for_view_reference(view_name: str, django: DjangoMetadata) -> set[str]:
+    view_name = view_name.split(".")[-1].replace(".as_view()", "")
+    return django.view_methods.get(view_name, set())
+
+
+def make_django_route_function(viewset_name: str, method: str, route_path: str, route_index: int, route_type: str) -> PythonFunctionData:
+    function_name = f"django_{viewset_name}_{route_type}_{method.lower()}_{route_index}"
+    return PythonFunctionData(
+        name=function_name,
+        line_number=0,
+        route_path=route_path,
+        http_method=method,
+        decorators=[PythonDecoratorData(name="django.router", route_path=route_path, http_method=method)],
+        calls=[PythonCallData(target_name=viewset_name, call_type="DJANGO_VIEWSET_REFERENCE")],
+    )
+
+
+def should_skip_django_path(route_path: str, view_node: ast.AST | None) -> bool:
+    route_path = route_path.strip("/")
+    view_name = expression_to_string(view_node) if view_node is not None else ""
+    return route_path == "admin" or view_name.startswith("admin.")
+
+
+def is_router_include(node: ast.AST | None) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    if get_callable_name(node.func).split(".")[-1] != "include" or not node.args:
+        return False
+    first_arg = node.args[0]
+    return isinstance(first_arg, ast.Attribute) and first_arg.attr == "urls"
+
+
+def combine_url_paths(prefix: str, suffix: str) -> str:
+    prefix = str(prefix or "").strip()
+    suffix = str(suffix or "").strip()
+    if not prefix:
+        return suffix
+    if not suffix:
+        return prefix
+    return prefix.rstrip("/") + "/" + suffix.lstrip("/")
+
+
+def ensure_route_path(route_path: str) -> str:
+    route_path = route_path or "/"
+    if not route_path.startswith("/"):
+        route_path = "/" + route_path
+    return route_path
+
+
+def ensure_detail_route_path(base_path: str) -> str:
+    if not base_path.endswith("/"):
+        base_path += "/"
+    return base_path + "{id}/"
+
+
+def deduplicate_routes(routes: list[PythonFunctionData]) -> list[PythonFunctionData]:
+    unique_routes: list[PythonFunctionData] = []
+    seen: set[tuple[str, str]] = set()
+    for route in routes:
+        key = (route.http_method, route.route_path)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_routes.append(route)
+    return unique_routes
 
 
 def is_django_http_method(method_name: str, class_node: ast.ClassDef) -> bool:
@@ -646,8 +1064,9 @@ def python_main_parser(metamodel: Any, module_name: str, module_project: Any, mu
     layer.LayerName = framework + "ApplicationLayer"
     module_project.layers.append(layer)
     python_files = find_python_files(module_dir)
+    analysis_context = build_python_analysis_context(module_name, module_dir, application_containers, python_files)
     for python_file in python_files:
-        module_data = parse_python_file(python_file, module_dir, framework)
+        module_data = parse_python_file(python_file, module_dir, framework, analysis_context)
         if module_data is None:
             continue
         module_element = create_python_module_element(metamodel, module_name, module_data)
