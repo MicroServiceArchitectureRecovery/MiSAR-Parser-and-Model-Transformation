@@ -33,7 +33,7 @@ import webbrowser
 import subprocess
 from MisarParserJava import *
 from MisarParserDocker import *
-from MisarParserConfig import resolve_psm_ecore_path, describe_model_selection
+from MisarParserConfig import resolve_psm_ecore_path, describe_psm_selection
 from MisarParserPython import *
 import sys
 from pathlib import Path
@@ -409,21 +409,28 @@ def create_python_project_element(metamodel, python_framework):
     }.get(python_framework, 'PythonWebApplicationProject')
 
     if not hasattr(metamodel, project_type_name):
-        raise RuntimeError('The selected PSM Ecore file does not define ' + project_type_name + '. Please select PSM-python.ecore.')
+        raise RuntimeError('The selected PSM Ecore file does not define ' + project_type_name + '. Run the parser with --psm-path pointing to PSM-python.ecore.')
 
     return getattr(metamodel, project_type_name)()
 
 def get_python_framework_for_module(module_build_dir, module_build_file):
     return detect_python_framework(module_build_dir, module_build_file)
 
+def _optional_entry_value(input_widget):
+    if input_widget is None:
+        return ''
+    if hasattr(input_widget, 'get'):
+        return input_widget.get().strip()
+    return str(input_widget).strip()
+
+
 def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir, txt_output_dir):
+    psm_ecore_hint = _optional_entry_value(txt_psm_ecore)
     if not txt_proj_name.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'Application Project Name\' !')
     elif not txt_proj_dir.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'Application Project Build Directory\' !')
-    elif not txt_psm_ecore.get().strip():
-        messagebox.showerror('Missing Values', 'please provide one value for \'PSM Ecore File\' !') 
-    elif txt_psm_ecore.get().lower().strip().find('.ecore') == -1:
+    elif psm_ecore_hint and psm_ecore_hint.lower().find('.ecore') == -1:
         messagebox.showerror('Invalid File Type', 'please select an ECORE file type for \'PSM Ecore File\' !') 
     elif not lst_docker_compose.size():
         messagebox.showerror('Missing Values', 'please provide one or more value for \'Docker Compose Files\' !') 
@@ -439,7 +446,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         
         multi_module_project_name = txt_proj_name.get().strip()
         app_root_dir = txt_proj_dir.get().strip()
-        psm_ecore_file = txt_psm_ecore.get().strip()
+        psm_ecore_file = psm_ecore_hint
         output_dir = txt_output_dir.get().strip()
         for docker_compose_file in lst_docker_compose.get(0, 'end'):
             if docker_compose_file.strip():
@@ -464,8 +471,8 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             ) == 'python'
             for module_build_dir in module_build_dirs
         )
-        psm_ecore_file = resolve_psm_ecore_path(project_uses_python, psm_ecore_file)
-        print('MiSAR model selection = {}'.format(describe_model_selection(project_uses_python, psm_ecore_file)))
+        psm_ecore_file = resolve_psm_ecore_path(psm_ecore_file)
+        print('MiSAR runtime PSM selection = {}'.format(describe_psm_selection(psm_ecore_file)))
 
         psm_instance_file_name = multi_module_project_name + "-PSM" + '.xmi'
         psm_instance_file = output_dir + "/" + psm_instance_file_name

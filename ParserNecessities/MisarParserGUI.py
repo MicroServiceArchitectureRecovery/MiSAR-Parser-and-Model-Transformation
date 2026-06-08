@@ -37,8 +37,7 @@ from pathlib import Path
 USER_HOME_DIR = Path.home()
 MISAR_DIR = USER_HOME_DIR / "MiSAR"
 PARSER_DIR = MISAR_DIR / "Parser"
-from MisarParserConfig import resolve_psm_ecore_path, PSM_ORIGINAL_ECORE_PATH, PSM_PYTHON_ECORE_PATH
-PSM_ECORE_PATH = Path(resolve_psm_ecore_path(False))
+from MisarParserConfig import describe_psm_selection
 DEPENDENCY_BUILD_FILES = ["pom.xml", "requirements.txt", "pyproject.toml", "Pipfile", "setup.py", "setup.cfg", "poetry.lock"]
 
 
@@ -112,15 +111,7 @@ def window_quit():
 def select(inputClass):
     print(inputClass.fileType)
     if inputClass.fileType == "file":
-        if inputClass.name == "psmEcore":
-            filename = filedialog.askopenfilename()
-            if filename:
-                inputClass.ent.configure(state='normal')
-                inputClass.ent.delete(0, 'end')
-                inputClass.ent.insert(0, filename)
-                inputClass.ent.configure(state='readonly', readonlybackground='white')
-
-        elif inputClass.name in ["dockerCompose", "appBuild", "moduleBuild"]:
+        if inputClass.name in ["dockerCompose", "appBuild", "moduleBuild"]:
             files = filedialog.askopenfilenames()
             for file in files:
                 if file not in inputClass.lst.get(0, 'end'):
@@ -250,7 +241,7 @@ def create_psm_instance_final_checks():
         output_dir.ent.configure(readonlybackground='red')
     if len(missingValueGenerator) <= 0:
 
-        create_psm_instance(txt_proj_name, proj_dir.ent, psm_ecore.ent, docker_compose.lst, app_build.lst, module_build_dir.lst,
+        create_psm_instance(txt_proj_name, proj_dir.ent, None, docker_compose.lst, app_build.lst, module_build_dir.lst,
                module_build.lst, app_config_dir.lst, output_dir.ent)
     else:
         messagebox.showerror('Error!', ('The following errors are present:\n' + missingValueGenerator + "\n\nThese mandatory fields will be marked in red."))
@@ -304,6 +295,7 @@ window = tkinter.Tk()
 window.title(
     'A Python application to parse YAML, XML, Java and Python artifacts of a microservice architecture project into a MiSAR PSM model. NEW!')
 window.protocol("WM_DELETE_WINDOW", window_quit)
+print('MiSAR parser startup PSM selection = {}'.format(describe_psm_selection()))
 
 # Generates the project name input
 lbl_proj_name = tkinter.Label(window, text='Type Multi-Module Project Name (mandatory):')
@@ -314,11 +306,6 @@ txt_proj_name.grid(row=2, column=0, padx=2, pady=2, sticky='N')
 # Generates the windows
 proj_dir = smallFrame("projectDir", window, "Select Multi-Module Project Build Directory (mandatory):", 2, 0,
                       "directory")
-psm_ecore = smallFrame("psmEcore", window, "Select PSM Ecore File (auto-switches to Python extension when needed):", 4, 0, "file")
-psm_ecore.ent.configure(state='normal')
-psm_ecore.ent.delete(0, 'end')
-psm_ecore.ent.insert(0, str(PSM_ECORE_PATH))
-psm_ecore.ent.configure(state='readonly', readonlybackground='white')
 docker_compose = largeFrame("dockerCompose", window, "Select Docker Compose Files (mandatory):", 1, 2, "file")
 app_build = largeFrame("appBuild", window, "Select Multi-Module Project Build / Dependency Files (optional):", 1, 4, "file")
 module_build_dir = largeFrame("moduleBuildDir", window, "Select Module Projects Build Directories (mandatory):", 7, 0,
