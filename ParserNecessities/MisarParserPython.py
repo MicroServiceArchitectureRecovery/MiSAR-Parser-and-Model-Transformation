@@ -1,4 +1,9 @@
-# Python extension parser for MiSAR: detects Flask, FastAPI and Django services, extracts dependencies, configuration, AST elements, routes and call relationships into the extended PSM metamodel.
+"""
+Python extension parser for MiSAR: detects Flask, FastAPI and Django services, extracts dependencies, configuration, AST elements, routes and call relationships into the extended PSM metamodel.
+
+Since: V2026-05-31
+Author: Alex Javadi <alex.javadimoghadam@brunel.ac.uk>
+"""
 
 from __future__ import annotations
 
@@ -1064,13 +1069,46 @@ def python_main_parser(metamodel: Any, module_name: str, module_project: Any, mu
     layer.LayerName = framework + "ApplicationLayer"
     module_project.layers.append(layer)
     python_files = find_python_files(module_dir)
+    log_python_parser_start(module_name, module_dir, framework, python_files)
     analysis_context = build_python_analysis_context(module_name, module_dir, application_containers, python_files)
     for python_file in python_files:
+        print('python_file = {}'.format(os.path.basename(python_file)))
         module_data = parse_python_file(python_file, module_dir, framework, analysis_context)
         if module_data is None:
+            print('python_parse_skipped = {}'.format(os.path.basename(python_file)))
             continue
+        log_python_module_details(module_data)
         module_element = create_python_module_element(metamodel, module_name, module_data)
         layer.elements.append(module_element)
+
+
+def log_python_parser_start(module_name: str, module_dir: str | Path, framework: str, python_files: list[str]) -> None:
+    dependency_files = find_python_dependency_files(module_dir)
+    print('python_framework = {}'.format(framework))
+    print('python_source_files = {}'.format(len(python_files)))
+    if dependency_files:
+        for dependency_file in dependency_files:
+            print('python_dependency_file = {}'.format(os.path.basename(dependency_file)))
+    else:
+        print('python_dependency_file = NOT_AVAILABLE')
+
+
+def log_python_module_details(module_data: PythonModuleData) -> None:
+    for function_data in module_data.functions:
+        log_python_function_details(function_data)
+    for class_data in module_data.classes:
+        print('python_class = {}'.format(class_data.name))
+        for method_data in class_data.methods:
+            log_python_function_details(method_data)
+
+
+def log_python_function_details(function_data: PythonFunctionData) -> None:
+    if function_data.route_path:
+        method = function_data.http_method or 'HTTP'
+        print('python_route = {} {}'.format(method, function_data.route_path))
+    for call_data in function_data.calls:
+        if call_data.call_type == 'HTTP_CLIENT_CALL' and call_data.endpoint_url:
+            print('python_http_call = {}'.format(call_data.endpoint_url))
 
 
 def resolve_module_dir(module_name: str, app_root_dir: str | Path) -> str:

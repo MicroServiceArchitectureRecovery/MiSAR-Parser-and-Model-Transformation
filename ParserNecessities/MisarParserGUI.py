@@ -1,7 +1,7 @@
 ############################
 # Developed by RanaFakeeh-87
 # 01/20/2020
-# LAST UPDATE: 02/04/2026
+# LAST UPDATE: 11/06/2026 (@aljvdi)
 ############################
 
 import tkinter
@@ -38,6 +38,7 @@ USER_HOME_DIR = Path.home()
 MISAR_DIR = USER_HOME_DIR / "MiSAR"
 PARSER_DIR = MISAR_DIR / "Parser"
 from MisarParserConfig import describe_psm_selection
+from MisarParserLanguage import format_module_display_path, strip_language_badge
 DEPENDENCY_BUILD_FILES = ["pom.xml", "requirements.txt", "pyproject.toml", "Pipfile", "setup.py", "setup.cfg", "poetry.lock"]
 
 
@@ -133,11 +134,12 @@ def select(inputClass):
                         autoImporter(directory)
                     #pomScanner(inputClass, directory)
             elif inputClass.name in ["moduleBuildDir", "appConfigDir"]:
-                if directory not in inputClass.lst.get(0, 'end'):
+                if inputClass.name == "moduleBuildDir":
+                    insert_module_directory(inputClass.lst, directory)
+                    pomScanner(inputClass, directory)
+                elif directory not in inputClass.lst.get(0, 'end'):
                     inputClass.lst.insert(inputClass.lst.size(), directory)
                     inputClass.lst.configure(background='white')
-                    if inputClass.name == "moduleBuildDir":
-                        pomScanner(inputClass, directory)
 
 
 def delete_item(inputClass):
@@ -156,6 +158,21 @@ def forbiddenFinder(projName):
             if projName[x] == AYE4BIDU[y]:
                 clean = False
     return clean
+
+
+def list_contains_raw_path(target_list, raw_path):
+    raw_path = str(raw_path).strip()
+    for item in target_list.get(0, 'end'):
+        if strip_language_badge(item) == raw_path:
+            return True
+    return False
+
+
+def insert_module_directory(target_list, directory):
+    raw_directory = str(Path(directory)).strip()
+    if raw_directory and not list_contains_raw_path(target_list, raw_directory):
+        target_list.insert('end', format_module_display_path(raw_directory))
+        target_list.configure(background='white')
 
 
 def autoImporter(inputDirectory):
@@ -188,9 +205,7 @@ def autoImporter(inputDirectory):
                         candidate_directories.append(build_path)
 
         for targetDirectory in candidate_directories:
-            target_text = str(targetDirectory)
-            if target_text not in module_build_dir.lst.get(0, 'end'):
-                module_build_dir.lst.insert('end', target_text)
+            insert_module_directory(module_build_dir.lst, targetDirectory)
             add_dependency_files_for_directory(targetDirectory, module_build.lst)
         add_dependency_files_for_directory(input_dir_path, app_build.lst)
 

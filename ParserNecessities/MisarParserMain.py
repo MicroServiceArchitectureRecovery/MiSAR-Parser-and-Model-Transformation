@@ -1,7 +1,7 @@
 ############################
 # Developed by RanaFakeeh-87
 # 01/20/2020
-# LAST UPDATE: 02/04/2026 (@aljvdi)
+# LAST UPDATE: 11/06/2026 (@aljvdi)
 ############################
 
 import tkinter
@@ -35,12 +35,15 @@ from MisarParserJava import *
 from MisarParserDocker import *
 from MisarParserConfig import resolve_psm_ecore_path, describe_psm_selection
 from MisarParserPython import *
+from MisarParserLanguage import detect_language_scopes, has_language, primary_framework, format_language_summary, \
+    strip_language_badge
 import sys
 from pathlib import Path
-            
-def fetch_artifacts(filename_part, filepath_part, app_root_dir):   
-    artifact_list = []      
-    for (root,dirs,files) in os.walk(app_root_dir, topdown=True):
+
+
+def fetch_artifacts(filename_part, filepath_part, app_root_dir):
+    artifact_list = []
+    for (root, dirs, files) in os.walk(app_root_dir, topdown=True):
         for file in files:
             if filename_part in file:
                 root = re.sub(r'\\', '/', root)
@@ -49,29 +52,32 @@ def fetch_artifacts(filename_part, filepath_part, app_root_dir):
                     artifact_list.append(artifact_filename)
     return artifact_list
 
+
 def yaml_to_dict(filename):
     yaml_dict = {}
     with open(filename) as file:
         yaml_dict = yaml.load(file, Loader=yaml.FullLoader)
     return yaml_dict
-    
+
+
 def xml_to_dict(filename):
     xml_dict = {}
     with open(filename) as file:
         xml_dict = xmltodict.parse(file.read())
     return xml_dict
 
-def get_library_list(list0, file_n, app_root_dir):       
+
+def get_library_list(list0, file_n, app_root_dir):
     list_n = list0
     if file_n.endswith('pom.xml'):
         pom_xml_dict = xml_to_dict(file_n)
         maven_transitive_scopes = {
-                'COMPILE': {'COMPILE':'COMPILE', 'PROVIDED':'-', 'RUNTIME':'RUNTIME', 'TEST':'-'},
-                'PROVIDED': {'COMPILE':'PROVIDED', 'PROVIDED':'-', 'RUNTIME':'PROVIDED', 'TEST':'-'},
-                'RUNTIME': {'COMPILE':'RUNTIME', 'PROVIDED':'-', 'RUNTIME':'RUNTIME', 'TEST':'-'},
-                'TEST': {'COMPILE':'TEST', 'PROVIDED':'-', 'RUNTIME':'TEST', 'TEST':'-'}
-                }
-        if 'parent' in pom_xml_dict['project']: 
+            'COMPILE': {'COMPILE': 'COMPILE', 'PROVIDED': '-', 'RUNTIME': 'RUNTIME', 'TEST': '-'},
+            'PROVIDED': {'COMPILE': 'PROVIDED', 'PROVIDED': '-', 'RUNTIME': 'PROVIDED', 'TEST': '-'},
+            'RUNTIME': {'COMPILE': 'RUNTIME', 'PROVIDED': '-', 'RUNTIME': 'RUNTIME', 'TEST': '-'},
+            'TEST': {'COMPILE': 'TEST', 'PROVIDED': '-', 'RUNTIME': 'TEST', 'TEST': '-'}
+        }
+        if 'parent' in pom_xml_dict['project']:
             if 'artifactId' in pom_xml_dict['project']['parent']:
                 parent_artifact_Id = pom_xml_dict['project']['parent']['artifactId']
                 for parent_build_file in fetch_artifacts('pom.xml', '', app_root_dir):
@@ -79,17 +85,18 @@ def get_library_list(list0, file_n, app_root_dir):
                     if 'artifactId' in parent_pom_xml_dict['project']:
                         if parent_artifact_Id == parent_pom_xml_dict['project']['artifactId']:
                             list_n = get_library_list(list_n, parent_build_file, app_root_dir)
-                            break        
+                            break
         dependency_list = []
         if 'dependencies' in pom_xml_dict['project']:
             if 'dependency' in pom_xml_dict['project']['dependencies']:
                 dependency_object = pom_xml_dict['project']['dependencies']['dependency']
                 if isinstance(dependency_object, OrderedDict):
                     dependency_list.append(dependency_object)
-                elif isinstance(dependency_object, list):                                       
-                    dependency_list = dependency_object               
+                elif isinstance(dependency_object, list):
+                    dependency_list = dependency_object
                 for dependency in dependency_list:
-                    library = {'filename':file_n, 'groupId':dependency['groupId'], 'artifactId':dependency['artifactId'], 'scope':'COMPILE'}
+                    library = {'filename': file_n, 'groupId': dependency['groupId'],
+                               'artifactId': dependency['artifactId'], 'scope': 'COMPILE'}
                     if 'scope' in dependency:
                         library['scope'] = dependency['scope'].upper()
                     build_file = os.path.basename(file_n)
@@ -101,18 +108,21 @@ def get_library_list(list0, file_n, app_root_dir):
                         index = -1
                         for library_n in list_n:
                             index += 1
-                            if library_n['groupId'] == library['groupId'] and library_n['artifactId'] == library['artifactId']:
+                            if library_n['groupId'] == library['groupId'] and library_n['artifactId'] == library[
+                                'artifactId']:
                                 found_at = index
                                 break
                         if found_at == -1:
                             list_n.append(library)
                         else:
-                            list_n[found_at]['scope'] = maven_transitive_scopes[list_n[found_at]['scope']][library['scope']]
+                            list_n[found_at]['scope'] = maven_transitive_scopes[list_n[found_at]['scope']][
+                                library['scope']]
                             if list_n[found_at]['scope'] == '-':
                                 list_n.remove(list_n[found_at])
     return list_n
-                        
-def yaml_to_properties(config_file):    
+
+
+def yaml_to_properties(config_file):
     with open(config_file) as file:
         properties = []
         value_section = ''
@@ -128,9 +138,9 @@ def yaml_to_properties(config_file):
                             tabs = re.findall(r'(\s\s)', line)
                             levels = len(tabs)
                             if parts[0].strip().startswith('-'):
-                                levels += 1      
+                                levels += 1
                             if levels == 0:
-                                property_sections = [] 
+                                property_sections = []
                             else:
                                 property_sections = property_sections[:levels]
                             property_sections.append(parts[0].strip())
@@ -141,24 +151,25 @@ def yaml_to_properties(config_file):
                                     value_section = parts[2]
                         else:
                             value_section = parts[0].lstrip('-')
-                        if value_section: 
+                        if value_section:
                             property_line = property_sections[0]
                             for property_section in property_sections[1:]:
-                                property_line += '.' + property_section  
+                                property_line += '.' + property_section
                             property_line = property_line.lstrip('.')
                             property_line = re.sub(r'\-\s', '', property_line)
                             properties.append(property_line + '=' + value_section.strip())
                             value_section = ''
-                            
+
     return properties
 
-def properties_to_property_documents(config_file, apllication_name):    
+
+def properties_to_property_documents(config_file, apllication_name):
     properties = []
     file_extension = ''
-    if config_file.endswith(('.yml','.yaml')):
+    if config_file.endswith(('.yml', '.yaml')):
         file_extension = '.yml'
         if config_file.endswith('.yaml'):
-            file_extension = '.yml'            
+            file_extension = '.yml'
         properties = yaml_to_properties(config_file)
     elif config_file.endswith('.properties'):
         file_extension = '.properties'
@@ -166,28 +177,29 @@ def properties_to_property_documents(config_file, apllication_name):
             for line in file:
                 line = line.strip()
                 if line and '#' not in line:
-                    properties.append(line)         
+                    properties.append(line)
     property_documents = []
     property_document = []
     for property_line in properties:
         if property_line == '---':
             property_documents.append(property_document)
             property_document = []
-            continue            
+            continue
         delimiter = ''
         if '=' in property_line:
             delimiter = '='
         elif ':' in property_line:
-            delimiter = ':' 
+            delimiter = ':'
         parts = property_line.partition(delimiter)
-        property_document.append({'filename':config_file, 'property':parts[0].strip(), 'value':parts[2].strip(), 'profile':''})
+        property_document.append(
+            {'filename': config_file, 'property': parts[0].strip(), 'value': parts[2].strip(), 'profile': ''})
     if property_document:
-        property_documents.append(property_document)              
+        property_documents.append(property_document)
     config_profile = 'compile'
-    if apllication_name: 
+    if apllication_name:
         parts = os.path.basename(config_file).rstrip(file_extension).partition(apllication_name)
         if parts[2]:
-            config_profile = parts[2].lstrip('-')        
+            config_profile = parts[2].lstrip('-')
     for property_document in property_documents:
         for property_dict in property_document:
             if property_dict['property'] == 'spring.profiles':
@@ -195,15 +207,17 @@ def properties_to_property_documents(config_file, apllication_name):
             property_dict['profile'] = config_profile.upper()
 
     return property_documents
-    
+
+
 def evaluate_property_local_variable1(property_value):
     variable_terms = re.findall(r'\$\{(\w+[.\w+]*):(\w+[:\w+]*)\}', property_value.strip())
     if len(variable_terms) > 0:
         property_value = re.sub(r'\$\{(\w+[.\w+]*):(\w+[:\w+]*)\}', variable_terms[0][1], property_value)
         return evaluate_property_local_variable1(property_value)
     else:
-        return property_value 
-    
+        return property_value
+
+
 def evaluate_property_local_variable2(property_value, property_document, property_documents):
     property_found = False
     variable_terms = re.findall(r'\$\{(\w+[.\w+[\-\w+]*]*)\}', property_value)
@@ -211,29 +225,34 @@ def evaluate_property_local_variable2(property_value, property_document, propert
         for config_property in property_document:
             if config_property['property'] == variable_term:
                 property_found = True
-                property_value = re.sub(r'\$\{'+variable_term+'\}', config_property['value'], property_value)
+                property_value = re.sub(r'\$\{' + variable_term + '\}', config_property['value'], property_value)
                 if len(re.findall(r'\$\{(\w+[.\w+[\-\w+]*]*)\}', property_value)) > 0:
-                    property_value = evaluate_property_local_variable2(property_value, property_document, property_documents)                    
+                    property_value = evaluate_property_local_variable2(property_value, property_document,
+                                                                       property_documents)
                 break
     if not property_found:
         for variable_term in variable_terms:
             for _document in property_documents:
                 for config_property in _document:
                     if config_property['property'] == variable_term:
-                        property_value = re.sub(r'\$\{'+variable_term+'\}', config_property['value'], property_value)
+                        property_value = re.sub(r'\$\{' + variable_term + '\}', config_property['value'],
+                                                property_value)
                         if len(re.findall(r'\$\{(\w+[.\w+[\-\w+]*]*)\}', property_value)) > 0:
-                            property_value = evaluate_property_local_variable2(property_value, property_document, property_documents)                    
-                        break   
-    return property_value 
-    
+                            property_value = evaluate_property_local_variable2(property_value, property_document,
+                                                                               property_documents)
+                        break
+    return property_value
+
+
 def get_property_list(filename_part, filepath_part, app_root_dir, application_name):
-    property_list = [] 
+    property_list = []
     for config_file in fetch_artifacts(filename_part, filepath_part, app_root_dir):
-        if config_file.endswith(('.yml','.yaml','.properties')):
+        if config_file.endswith(('.yml', '.yaml', '.properties')):
             if '/src/test/' not in config_file:
                 property_list += properties_to_property_documents(config_file, application_name)
-                
-    return property_list  
+
+    return property_list
+
 
 def resolve_hostname1(port_number, application_containers):
     hostname = ''
@@ -241,8 +260,9 @@ def resolve_hostname1(port_number, application_containers):
         for container_port in application_containers[container_name]['ports']:
             if port_number in container_port:
                 hostname = container_name
-                break        
+                break
     return hostname
+
 
 def resolve_hostname2(port_number, application_project):
     hostname = ''
@@ -257,6 +277,7 @@ def resolve_hostname2(port_number, application_project):
 
     return hostname
 
+
 def get_annotations(element):
     annotations = []
     for _annotation in element.annotations:
@@ -265,38 +286,40 @@ def get_annotations(element):
         annotation['parameters'] = []
         if _annotation.element:
             if isinstance(_annotation.element, javalang.tree.Literal):
-                annotation['parameters'].append({'name':'', 'value':_annotation.element.value})
+                annotation['parameters'].append({'name': '', 'value': _annotation.element.value})
             elif isinstance(_annotation.element, list):
                 for _element in _annotation.element:
                     if isinstance(_element, javalang.tree.ElementValuePair):
                         if isinstance(_element.value, javalang.tree.Literal):
-                            annotation['parameters'].append({'name':_element.name, 'value':_element.value.value})
+                            annotation['parameters'].append({'name': _element.name, 'value': _element.value.value})
                         elif isinstance(_element.value, javalang.tree.MemberReference):
-                            annotation['parameters'].append({'name':_element.name, 'value':_element.value.qualifier + '.' + _element.value.member})
+                            annotation['parameters'].append({'name': _element.name,
+                                                             'value': _element.value.qualifier + '.' + _element.value.member})
                             # get the literal value from referenced member
         annotations.append(annotation)
     return annotations
-                      
+
+
 def evaluate_member_reference(member_reference, element):
-    literal_value = ''    
+    literal_value = ''
     if isinstance(element, javalang.tree.ClassDeclaration):
         for path, _field in element.filter(javalang.tree.FieldDeclaration):
             if _field.declarators:
                 for _declarator in _field.declarators:
                     if isinstance(_declarator, javalang.tree.VariableDeclarator):
-                        if _declarator.name ==  member_reference.member:
+                        if _declarator.name == member_reference.member:
                             if _declarator.initializer:
                                 if isinstance(_declarator.initializer, javalang.tree.Literal):
                                     literal_value = _declarator.initializer.value
                                     break
                 if literal_value:
-                    break               
+                    break
     elif isinstance(element, javalang.tree.MethodDeclaration):
         for path, _variable in element.filter(javalang.tree.LocalVariableDeclaration):
             if _variable.declarators:
                 for _declarator in _variable.declarators:
                     if isinstance(_declarator, javalang.tree.VariableDeclarator):
-                        if _declarator.name ==  member_reference.member:
+                        if _declarator.name == member_reference.member:
                             if _declarator.initializer:
                                 if isinstance(_declarator.initializer, javalang.tree.Literal):
                                     literal_value = _declarator.initializer.value
@@ -306,35 +329,37 @@ def evaluate_member_reference(member_reference, element):
 
     return literal_value
 
+
 def get_member_reference_type(member_reference_name, element):
-    type_value = ''    
+    type_value = ''
     if isinstance(element, javalang.tree.ClassDeclaration):
         for path, _field in element.filter(javalang.tree.FieldDeclaration):
             if _field.declarators:
                 for _declarator in _field.declarators:
                     if isinstance(_declarator, javalang.tree.VariableDeclarator):
-                        if _declarator.name ==  member_reference_name:
+                        if _declarator.name == member_reference_name:
                             if _field.type:
                                 if isinstance(_field.type, javalang.tree.ReferenceType):
                                     type_value = _field.type.name
-                                    break 
+                                    break
                 if type_value:
-                    break  
-                
+                    break
+
     elif isinstance(element, javalang.tree.MethodDeclaration):
         for path, _variable in element.filter(javalang.tree.LocalVariableDeclaration):
             if _variable.declarators:
                 for _declarator in _variable.declarators:
                     if isinstance(_declarator, javalang.tree.VariableDeclarator):
-                        if _declarator.name ==  member_reference_name:
+                        if _declarator.name == member_reference_name:
                             if _variable.type:
                                 if isinstance(_variable.type, javalang.tree.ReferenceType):
                                     type_value = _variable.type.name
-                                    break 
+                                    break
                 if type_value:
                     break
 
     return type_value
+
 
 def get_member(member_reference, element):
     member = {}
@@ -342,35 +367,53 @@ def get_member(member_reference, element):
     if member_reference.qualifier:
         member['name'] = member_reference.qualifier + '.' + member['name']
     member['value'] = evaluate_member_reference(member_reference, element)
-    
+
     return member
+
 
 def get_reference_type(reference_type):
     type_str = reference_type.name
     if reference_type.arguments:
         type_str += '<'
         arguments = ''
-        for _argument in reference_type.arguments:                                        
+        for _argument in reference_type.arguments:
             if isinstance(_argument, javalang.tree.TypeArgument):
                 if _argument.type:
-                    if isinstance(_argument.type, javalang.tree.ReferenceType): 
+                    if isinstance(_argument.type, javalang.tree.ReferenceType):
                         arguments += get_reference_type(_argument.type) + ','
         arguments = arguments.rstrip(',')
         type_str += arguments + '>'
-    
+
     return type_str
 
-def is_java_build_file(file_path):
-    return str(file_path).endswith('pom.xml')
 
-def find_module_build_file(module_build_dir, module_build_files):
+def is_java_build_file(file_path):
+    return str(file_path).endswith(('pom.xml', 'build.gradle', 'build.gradle.kts'))
+
+
+def is_python_build_file(file_path):
+    return Path(str(file_path)).name in PYTHON_DEPENDENCY_FILES
+
+
+def find_java_build_file(module_build_dir, module_build_files):
+    module_build_dir = strip_language_badge(module_build_dir)
     for module_build_file in module_build_files:
-        if module_build_file.startswith(module_build_dir):
+        if module_build_file.startswith(module_build_dir) and is_java_build_file(module_build_file):
             return module_build_file
 
-    pom_file = Path(module_build_dir) / 'pom.xml'
-    if pom_file.is_file():
-        return str(pom_file)
+    for candidate in ['pom.xml', 'build.gradle', 'build.gradle.kts']:
+        build_file = Path(module_build_dir) / candidate
+        if build_file.is_file():
+            return str(build_file)
+
+    return ''
+
+
+def find_python_build_file(module_build_dir, module_build_files):
+    module_build_dir = strip_language_badge(module_build_dir)
+    for module_build_file in module_build_files:
+        if module_build_file.startswith(module_build_dir) and is_python_build_file(module_build_file):
+            return module_build_file
 
     python_dependency_files = find_python_dependency_files(module_build_dir)
     if python_dependency_files:
@@ -378,19 +421,34 @@ def find_module_build_file(module_build_dir, module_build_files):
 
     return ''
 
-def detect_misar_module_language(module_build_dir, module_build_file):
-    if is_java_build_file(module_build_file) or (Path(module_build_dir) / 'pom.xml').is_file():
-        return 'java'
 
-    python_detection = detect_python_project(module_build_dir, module_build_file)
-    if python_detection.language == 'python':
+def find_module_build_file(module_build_dir, module_build_files):
+    java_build_file = find_java_build_file(module_build_dir, module_build_files)
+    if java_build_file:
+        return java_build_file
+
+    python_build_file = find_python_build_file(module_build_dir, module_build_files)
+    if python_build_file:
+        return python_build_file
+
+    module_build_dir = strip_language_badge(module_build_dir)
+    for module_build_file in module_build_files:
+        if module_build_file.startswith(module_build_dir):
+            return module_build_file
+
+    return ''
+
+
+def detect_misar_module_language(module_build_dir, module_build_file=''):
+    scopes = detect_language_scopes(module_build_dir)
+    if has_language(scopes, 'java') and has_language(scopes, 'python'):
+        return 'mixed'
+    if has_language(scopes, 'java'):
+        return 'java'
+    if has_language(scopes, 'python'):
         return 'python'
-
-    java_files = fetch_artifacts('.java', Path(module_build_dir).name, module_build_dir)
-    if java_files:
-        return 'java'
-
     return 'unknown'
+
 
 def create_dependency_library_element(metamodel, module_name, library):
     dependency_library = metamodel.DependencyLibrary()
@@ -401,6 +459,7 @@ def create_dependency_library_element(metamodel, module_name, library):
     dependency_library.LibraryScope = library['scope']
     return dependency_library
 
+
 def create_python_project_element(metamodel, python_framework):
     project_type_name = {
         'FLASK': 'PythonFlaskApplicationProject',
@@ -409,12 +468,41 @@ def create_python_project_element(metamodel, python_framework):
     }.get(python_framework, 'PythonWebApplicationProject')
 
     if not hasattr(metamodel, project_type_name):
-        raise RuntimeError('The selected PSM Ecore file does not define ' + project_type_name + '. Run the parser with --psm-path pointing to PSM-python.ecore.')
+        raise RuntimeError(
+            'The selected PSM Ecore file does not define ' + project_type_name + '. Run the parser with --psm-path pointing to PSM-python.ecore.')
 
     return getattr(metamodel, project_type_name)()
 
+
 def get_python_framework_for_module(module_build_dir, module_build_file):
-    return detect_python_framework(module_build_dir, module_build_file)
+    scopes = detect_language_scopes(module_build_dir)
+    framework = primary_framework(scopes, 'python', 'UNKNOWN')
+    if framework != 'UNKNOWN':
+        return framework
+    return detect_python_framework(strip_language_badge(module_build_dir), module_build_file)
+
+
+def create_module_project_element(metamodel, module_languages, python_framework, spring_boot_app, spring_web_flux_app):
+    has_java_module = 'java' in module_languages
+    has_python_module = 'python' in module_languages
+
+    if has_java_module and spring_boot_app:
+        if spring_web_flux_app:
+            return metamodel.JavaSpringWebFluxApplicationProject()
+        return metamodel.JavaSpringMVCApplicationProject()
+
+    if has_python_module:
+        return create_python_project_element(metamodel, python_framework)
+
+    if has_java_module:
+        return metamodel.MicroserviceProject()
+
+    return metamodel.MicroserviceProject()
+
+
+def normalise_listbox_path(value):
+    return strip_language_badge(value)
+
 
 def _optional_entry_value(input_widget):
     if input_widget is None:
@@ -424,18 +512,20 @@ def _optional_entry_value(input_widget):
     return str(input_widget).strip()
 
 
-def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build, lst_module_build_dir, lst_module_build, lst_app_config_dir, txt_output_dir):
+def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build,
+                        lst_module_build_dir, lst_module_build, lst_app_config_dir, txt_output_dir):
     psm_ecore_hint = _optional_entry_value(txt_psm_ecore)
     if not txt_proj_name.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'Application Project Name\' !')
     elif not txt_proj_dir.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'Application Project Build Directory\' !')
     elif psm_ecore_hint and psm_ecore_hint.lower().find('.ecore') == -1:
-        messagebox.showerror('Invalid File Type', 'please select an ECORE file type for \'PSM Ecore File\' !') 
+        messagebox.showerror('Invalid File Type', 'please select an ECORE file type for \'PSM Ecore File\' !')
     elif not lst_docker_compose.size():
-        messagebox.showerror('Missing Values', 'please provide one or more value for \'Docker Compose Files\' !') 
+        messagebox.showerror('Missing Values', 'please provide one or more value for \'Docker Compose Files\' !')
     elif not lst_module_build_dir.size():
-        messagebox.showerror('Missing Values', 'please provide one or more value for \'Microservice Projects Build Directories\' !') 
+        messagebox.showerror('Missing Values',
+                             'please provide one or more value for \'Microservice Projects Build Directories\' !')
     else:
         start_time = datetime.now().strftime("%H:%M:%S")
         docker_compose_files = []
@@ -443,7 +533,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         module_build_dirs = []
         module_build_files = []
         app_config_dirs = []
-        
+
         multi_module_project_name = txt_proj_name.get().strip()
         app_root_dir = txt_proj_dir.get().strip()
         psm_ecore_file = psm_ecore_hint
@@ -455,6 +545,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             if app_build_file.strip():
                 app_build_files.append(app_build_file)
         for module_build_dir in lst_module_build_dir.get(0, 'end'):
+            module_build_dir = normalise_listbox_path(module_build_dir)
             if module_build_dir.strip():
                 module_build_dirs.append(module_build_dir)
         for module_build_file in lst_module_build.get(0, 'end'):
@@ -465,10 +556,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                 app_config_dirs.append(app_config_dir)
 
         project_uses_python = any(
-            detect_misar_module_language(
-                module_build_dir,
-                find_module_build_file(module_build_dir, module_build_files),
-            ) == 'python'
+            has_language(detect_language_scopes(module_build_dir), 'python')
             for module_build_dir in module_build_dirs
         )
         psm_ecore_file = resolve_psm_ecore_path(psm_ecore_file)
@@ -483,15 +571,15 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         metamodel_root = metamodel_resource.contents[0]
         metamodel_resource_set.metamodel_registry[metamodel_root.nsURI] = metamodel_root
         metamodel = DynamicEPackage(metamodel_root)
-        
+
         # create instance model
         model = metamodel.RootPSM()
-        
+
         # create application instance
-        application = metamodel.DistributedApplicationProject() 
+        application = metamodel.DistributedApplicationProject()
         application.ApplicationName = multi_module_project_name
         application.ProjectPackageURL = app_root_dir
-        
+
         # parse docker compose artifacts into containers
         application_containers = dockerComposeAnalysis(docker_compose_files, multi_module_project_name)
         """
@@ -587,13 +675,13 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                 container.links.append(links)
             application.containers.append(container)
         """
-        # parse multi module project build artifacts (pom.xml / build.gradle) into application project and its module projects 
+        # parse multi module project build artifacts (pom.xml / build.gradle) into application project and its module projects
         multi_module_project = {}
         multi_module_project['parent'] = multi_module_project_name
-        multi_module_project['build'] = ''  
+        multi_module_project['build'] = ''
         for app_build_file in app_build_files:
             multi_module_project['build'] += app_build_file + ';'
-        multi_module_project['build'] = multi_module_project['build'].rstrip(';') 
+        multi_module_project['build'] = multi_module_project['build'].rstrip(';')
         multi_module_project_artifact_Id = multi_module_project_name
         if len(app_build_files) == 1 and app_build_files[0].endswith('pom.xml'):
             pom_xml = xml_to_dict(app_build_files[0])
@@ -602,87 +690,119 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                     multi_module_project_artifact_Id = pom_xml['project']['artifactId']
         multi_module_project['artifactId'] = multi_module_project_artifact_Id
         multi_module_project['modules'] = {}
-        
+
         # create application project instance
         application_project = metamodel.ApplicationProject()
         application_project.ParentProjectName = multi_module_project['parent']
         application_project.ArtifactFileName = multi_module_project['build']
         application_project.ProjectArtifactId = multi_module_project['artifactId']
-        
+
         # create modules for application project
         for module_build_dir in module_build_dirs:
             module_name = os.path.basename(module_build_dir)
             build_file = find_module_build_file(module_build_dir, module_build_files)
-            if is_java_build_file(build_file):
-                pom_xml = xml_to_dict(build_file)
+            java_build_file = find_java_build_file(module_build_dir, module_build_files)
+            python_build_file = find_python_build_file(module_build_dir, module_build_files)
+            language_scopes = detect_language_scopes(module_build_dir)
+            module_languages = []
+            if has_language(language_scopes, 'java'):
+                module_languages.append('java')
+            if has_language(language_scopes, 'python'):
+                module_languages.append('python')
+            if not module_languages:
+                module_languages.append('unknown')
+
+            if is_java_build_file(java_build_file):
+                pom_xml = xml_to_dict(java_build_file)
                 if 'project' in pom_xml:
                     if 'artifactId' in pom_xml['project']:
                         module_name = pom_xml['project']['artifactId']
+
             multi_module_project['modules'][module_name] = {}
             multi_module_project['modules'][module_name]['parent'] = multi_module_project_name
             multi_module_project['modules'][module_name]['build'] = build_file
+            multi_module_project['modules'][module_name]['java_build'] = java_build_file
+            multi_module_project['modules'][module_name]['python_build'] = python_build_file
             multi_module_project['modules'][module_name]['build_dir'] = module_build_dir
             multi_module_project['modules'][module_name]['artifactId'] = module_name
             multi_module_project['modules'][module_name]['libraries'] = []
             multi_module_project['modules'][module_name]['properties'] = []
             multi_module_project['modules'][module_name]['java_elements'] = []
             multi_module_project['modules'][module_name]['python_elements'] = []
-            multi_module_project['modules'][module_name]['language'] = detect_misar_module_language(module_build_dir, build_file)
-            multi_module_project['modules'][module_name]['framework'] = 'UNKNOWN'
+            multi_module_project['modules'][module_name]['language'] = 'mixed' if len(
+                [language for language in module_languages if language != 'unknown']) > 1 else module_languages[0]
+            multi_module_project['modules'][module_name]['languages'] = module_languages
+            multi_module_project['modules'][module_name]['language_scopes'] = language_scopes
+            multi_module_project['modules'][module_name]['framework'] = format_language_summary(language_scopes)
 
         # create libraries and properties instances for every module project
         for module_name in multi_module_project['modules']:
             print('\nmodule_name = {}'.format(module_name))
             module_build_file = multi_module_project['modules'][module_name]['build']
             module_build_dir = multi_module_project['modules'][module_name]['build_dir']
-            module_language = multi_module_project['modules'][module_name]['language']
+            module_languages = multi_module_project['modules'][module_name].get('languages', [])
+            has_java_module = 'java' in module_languages
+            has_python_module = 'python' in module_languages
+            java_build_file = multi_module_project['modules'][module_name].get('java_build', '')
+            python_build_file = multi_module_project['modules'][module_name].get('python_build', '')
             module_libraries = []
             spring_boot_app = True
             spring_web_flux_app = False
             python_framework = 'UNKNOWN'
 
-            if module_language == 'python':
-                python_framework = get_python_framework_for_module(module_build_dir, module_build_file)
-                multi_module_project['modules'][module_name]['framework'] = python_framework
-                module_libraries = get_python_library_list(module_build_dir, module_build_file, app_root_dir)
-                if not module_libraries:
-                    module_libraries.append({'filename': module_build_dir, 'groupId': 'pypi', 'artifactId': 'NOT_AVAILABLE', 'scope': 'COMPILE'})
-            else:
-                module_libraries = get_library_list(module_libraries, module_build_file, app_root_dir)
-                for library in module_libraries:
+            if has_java_module:
+                java_libraries = get_library_list([], java_build_file or module_build_file, app_root_dir)
+                for library in java_libraries:
                     if library['groupId'] in ['org.springframework.boot', 'org.springframework.cloud']:
                         spring_boot_app = True
-                    if 'webflux' in library['artifactId'] or 'reactive' in library['artifactId'] or 'reactor' in library['artifactId']:
+                    if 'webflux' in library['artifactId'] or 'reactive' in library['artifactId'] or 'reactor' in \
+                            library['artifactId']:
                         spring_web_flux_app = True
+                module_libraries.extend(java_libraries)
+
+            if has_python_module:
+                python_framework = get_python_framework_for_module(module_build_dir,
+                                                                   python_build_file or module_build_file)
+                python_libraries = get_python_library_list(module_build_dir, python_build_file or module_build_file,
+                                                           app_root_dir)
+                if not python_libraries:
+                    python_libraries.append(
+                        {'filename': module_build_dir, 'groupId': 'pypi', 'artifactId': 'NOT_AVAILABLE',
+                         'scope': 'COMPILE'})
+                module_libraries.extend(python_libraries)
+
+            if not has_java_module and not has_python_module and module_build_file:
+                module_libraries = get_library_list(module_libraries, module_build_file, app_root_dir)
 
             for library in module_libraries:
                 multi_module_project['modules'][module_name]['libraries'].append(library)
 
             try:
-                if module_language == 'python':
-                    module_project = create_python_project_element(metamodel, python_framework)
-                elif spring_boot_app:
-                    if spring_web_flux_app:
-                        module_project = metamodel.JavaSpringWebFluxApplicationProject()
-                    else:
-                        module_project = metamodel.JavaSpringMVCApplicationProject()
-                else:
-                    module_project = metamodel.MicroserviceProject()
+                module_project = create_module_project_element(
+                    metamodel,
+                    module_languages,
+                    python_framework,
+                    spring_boot_app,
+                    spring_web_flux_app
+                )
             except RuntimeError as error:
                 messagebox.showerror('PSM Python Extension Missing', str(error))
                 return
 
             module_project.ParentProjectName = multi_module_project['modules'][module_name]['parent']
-            module_project.ArtifactFileName = multi_module_project['modules'][module_name]['build']
+            module_project.ArtifactFileName = multi_module_project['modules'][module_name]['build'] or module_build_dir
             module_project.ProjectArtifactId = module_name
 
             for library in module_libraries:
                 module_project.libraries.append(create_dependency_library_element(metamodel, module_name, library))
 
-            if module_language == 'python':
-                python_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir, app_config_dirs, application_containers, module_build_dir, module_build_file)
-            else:
-                java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir, app_config_dirs, spring_boot_app, application_containers)
+            if has_java_module:
+                java_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir,
+                                 app_config_dirs, spring_boot_app, application_containers)
+            if has_python_module:
+                python_main_parser(metamodel, module_name, module_project, multi_module_project, app_root_dir,
+                                   app_config_dirs, application_containers, module_build_dir,
+                                   python_build_file or module_build_file)
             """
             # fetch module properties
             if spring_boot_app:
@@ -712,7 +832,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                 for property_document in module_properties:
                     for config_property in property_document:
                         multi_module_project['modules'][module_name]['properties'].append(config_property)
-                        
+
                 # create configuration property instance and append it to module project
                 for module_property in multi_module_project['modules'][module_name]['properties']:
                     configuration_property = metamodel.ConfigurationProperty()
@@ -722,13 +842,13 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                     configuration_property.PropertyValue = module_property['value']
                     configuration_property.ConfigurationProfile = module_property['profile']
                     module_project.properties.append(configuration_property) 
-                    
+
                 # parse java files
                 java_layer = metamodel.SpringWebApplicationLayer()
                 java_layer.ParentProjectName = module_name
                 java_layer.LayerName = 'SpringWebApplicationLayer'
                 module_project.layers.append(java_layer)
-                
+
                 for java_file in fetch_artifacts('.java', module_name, app_root_dir):
                     if '/src/test/' not in java_file:
                         print('java_file = {}'.format(os.path.basename(java_file)))
@@ -789,7 +909,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                         java_element.ElementProfile = 'COMPILE'
                                         java_element.JsonSchema = ''
                                         java_element.PackageName = package_name
-    
+
                                         if _type.extends:
                                             if isinstance(_type.extends, javalang.tree.ReferenceType):
                                                 element_identifier = get_reference_type(_type.extends)
@@ -899,7 +1019,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                 java_method_parameter.ElementProfile = 'COMPILE'
                                                                 java_method_parameter.FieldValue = 'NOT_AVAILABLE'
                                                                 java_method_parameter.ParameterOrder = parameter_order                                                                
-                                                                
+
                                                                 if _parameter.annotations:
                                                                     for annotation in get_annotations(_parameter):
                                                                         java_annotation = metamodel.JavaAnnotation()
@@ -918,7 +1038,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                                 annotation_parameter.ParameterValue = 'NOT_AVAILABLE'
                                                                             java_annotation.parameters.append(annotation_parameter)
                                                                         java_method_parameter.annotations.append(java_annotation)
-                                                                
+
                                                                 if _parameter.type:
                                                                     if isinstance(_parameter.type, javalang.tree.ReferenceType): 
                                                                         element_identifier = get_reference_type(_parameter.type)
@@ -936,7 +1056,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                                 java_data_type.PackageName = _import[:(_import.index(element_identifier)-1)]
                                                                         java_method_parameter.type = java_data_type
                                                                 java_method.parameters.append(java_method_parameter)
-                                                    
+
                                                     if _declaration.body:
                                                         for body_element in _declaration.body:
                                                             for path, _invocation in body_element.filter(javalang.tree.MethodInvocation):
@@ -947,7 +1067,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                 java_invoked_method.ElementIdentifier = element_identifier
                                                                 java_invoked_method.ElementProfile = 'COMPILE'
                                                                 java_invoked_method.RootCallingMethod = _declaration.name + '()'
-                                                                
+
                                                                 if _invocation.qualifier: 
                                                                     element_identifier = _invocation.qualifier
                                                                     java_user_defined_type = metamodel.JavaUserDefinedType()
@@ -963,7 +1083,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                             element_identifier = element_identifier[:element_identifier.index('<')]
                                                                         if parts[-1] == element_identifier:
                                                                             java_user_defined_type.PackageName = _import[:(_import.index(element_identifier)-1)]
-                                                                        
+
                                                                     if not java_user_defined_type.PackageName:
                                                                         if _declaration.parameters:
                                                                             for _parameter in _declaration.parameters:
@@ -980,7 +1100,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                                                     if parts[-1] == type_identifier:
                                                                                                         java_user_defined_type.PackageName = _import[:(_import.index(type_identifier)-1)]
                                                                                                         break
-                                                                    
+
                                                                     if not java_user_defined_type.PackageName:
                                                                         type_identifier = get_member_reference_type(_invocation.qualifier, _declaration)
                                                                         if type_identifier:
@@ -992,7 +1112,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                             if parts[-1] == type_identifier:
                                                                                 java_user_defined_type.PackageName = _import[:(_import.index(type_identifier)-1)]
                                                                                 break
-                                                                    
+
                                                                     if not java_user_defined_type.PackageName:
                                                                         type_identifier = get_member_reference_type(_invocation.qualifier, _type)
                                                                         if type_identifier:
@@ -1004,13 +1124,13 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                             if parts[-1] == type_identifier:
                                                                                 java_user_defined_type.PackageName = _import[:(_import.index(type_identifier)-1)]
                                                                                 break
-                                                                            
+
                                                                     if java_user_defined_type.ElementIdentifier in ['String', 'Boolean', 'Integer', 'Float', 'Object']:
                                                                         java_user_defined_type.PackageName = 'java.lang'
-                                                                        
+
                                                                     if java_user_defined_type.PackageName:
                                                                         java_invoked_method.parent = java_user_defined_type
-                                                                        
+
                                                                 if _invocation.arguments:
                                                                     if isinstance(_invocation.arguments, list):
                                                                         argument_order = 0
@@ -1040,7 +1160,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                                     if not literal_value:
                                                                                         literal_value += get_member(_argument.operandr, _type)['value']        
                                                                                 argument = {'name':'', 'value':re.sub(r'\"', '', literal_value)}                                                          
-                                                                            
+
                                                                             if argument:
                                                                                 argument_order += 1
                                                                                 if not argument['name']:
@@ -1055,11 +1175,11 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                                                                 java_method_argument.FieldValue = argument['value']
                                                                                 java_method_argument.ParameterOrder = argument_order 
                                                                                 java_invoked_method.parameters.append(java_method_argument)
-                                                                            
+
                                                                 java_method.invokes.append(java_invoked_method)
-                                                                
+
                                                     java_element.methods.append(java_method)
-                                        
+
                                         module_project.layers[-1].elements.append(java_element)
 
                         except Exception as e:
@@ -1068,25 +1188,25 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                             continue
             """
             # append module to application project
-            application_project.modules.append(module_project)                
-                
-        # append application project instance to application
-        application.application_project = application_project          
+            application_project.modules.append(module_project)
+
+            # append application project instance to application
+        application.application_project = application_project
 
         # append application instance to model
         model.application = application
-        
+
         # export instance model to XMI file
         model_resource_set = ResourceSet()
         model_resource = model_resource_set.create_resource(URI(psm_instance_file))
         model_resource.append(model)
         model_resource.save()
-        
+
         # edit PSM:RootPSM element
         xmlns_xsi = ''
         xsi_schemaLocation = ''
         psm_ecore_dict = xml_to_dict(psm_ecore_file)
-        if 'ecore:EPackage' in psm_ecore_dict: 
+        if 'ecore:EPackage' in psm_ecore_dict:
             if '@xmlns:xsi' in psm_ecore_dict['ecore:EPackage']:
                 xmlns_xsi = psm_ecore_dict['ecore:EPackage']['@xmlns:xsi']
             if '@nsURI' in psm_ecore_dict['ecore:EPackage']:
@@ -1111,4 +1231,3 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         end_time = datetime.now().strftime("%H:%M:%S")
         print(start_time)
         print(end_time)
-
