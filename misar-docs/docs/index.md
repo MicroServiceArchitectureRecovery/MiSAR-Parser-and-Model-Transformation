@@ -46,6 +46,8 @@ Before using MiSAR, ensure the following tools and runtimes are installed or ava
 | QVTo                | QVTo 3.11.2                          | Transforming PSM models into PIM models                  |
 | Python dependencies | Installed automatically by MiSAR AIO | Required Python modules used by the MiSAR application    |
 
+> MISAR only requires internet access during the initial setup to download necessary dependencies. Once set up, it can be used offline without any issues.
+
 ## Sections
 - [MISAR Installation](installation.md)
 - [Create PSM](create-psm.md)

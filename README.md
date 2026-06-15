@@ -82,6 +82,7 @@ MiSAR has been evaluated on:
 
 -   Parser is currently focused on **Java-based microservices**
 -   QVT setup requires Eclipse Modeling Tools
+-  MISAR only requires internet access during the initial setup to download necessary dependencies. Once set up, it can be used offline without any issues.
 
 ## 🤝 Contributing
 
