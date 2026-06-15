@@ -31,6 +31,10 @@ Code → PSM → PIM → UML
 A full demonstration is available here:  
 👉 [https://www.youtube.com/watch?v=sdRDkLesyS0](https://www.youtube.com/watch?v=sdRDkLesyS0)
 
+## Supported Technologies/Frameworks
+- Java (Spring Boot / Spring Cloud)
+- Docker / docker-compose
+- Python (Flask / FastAPI / Django)
 
 ##  Core Components
 

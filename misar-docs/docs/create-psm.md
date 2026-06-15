@@ -26,17 +26,17 @@ The MiSAR Parser requires information about the multi-module microservice projec
 
 The field names below match the MiSAR Parser interface.
 
-| Number | Field in MiSAR Parser                            | Required | Description                                                                                                                                                    |
-|--------|--------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **1**  | **Type Multi-Module Project Name**               | ✅        | The name of the microservice system or project being analysed. The parser automatically adds `-PSM` at the end of this name when creating the PSM model.       |
-| **2**  | **Select Multi-Module Project Build Directory**  | ✅        | The main build directory of the project.                                                                                                                       |
-| **3**  | **Select Docker Compose Files**                  | ✅        | The Docker Compose file or files used by the system. These help MiSAR understand the services and project structure.                                           |
-| **4**  | **Select Module Projects Build Directories**     | ✅        | The build directories of the individual microservices. These may be populated automatically by the importer, or selected manually if MiSAR cannot detect them. |
-| **5**  | **Select Directory where the PSM will be saved** | ✅        | The output folder where the generated PSM file will be saved. Only select the folder, MiSAR will create the PSM file inside it.                                |
-| -      | **Select Multi-Module Project POM Build Files**  | ❌        | The main Maven `pom.xml` build file or files for the multi-module project, if available.                                                                       |
-| -      | **Select Module Projects POM Build Files**       | ❌        | The Maven `pom.xml` files for the individual module projects, if available. These may be populated automatically for Maven-based Java projects.                |
-| -      | **Select Centralised Configuration Directories** | ❌        | Directories that contain centralised configuration files used by the microservice system, if applicable.                                                       |
-| **6**  | **Create PSM Model**                             | ▶️       | Button used to start the PSM generation process after the mandatory fields have been completed.                                                                |
+| Number | Field in MiSAR Parser                            | Required | Description                                                                                                                                                                                                                                                                                                      |
+|--------|--------------------------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **1**  | **Type Multi-Module Project Name**               | ✅        | The name of the microservice system or project being analysed. The parser automatically adds `-PSM` at the end of this name when creating the PSM model.                                                                                                                                                         |
+| **2**  | **Select Multi-Module Project Build Directory**  | ✅        | The main build directory of the project.                                                                                                                                                                                                                                                                         |
+| **3**  | **Select Docker Compose Files**                  | ✅        | The Docker Compose file or files used by the system. These help MiSAR understand the services and project structure.                                                                                                                                                                                             |
+| **4**  | **Select Module Projects Build Directories**     | ✅        | The build directories of the individual microservices. These may be populated automatically by the importer, or selected manually if MiSAR cannot detect them. MiSAR may also show detected language/framework labels next to each directory, for example `[Java: SPRING]`, `[Python: FASTAPI]`, or `[Unknown]`. |
+| **5**  | **Select Directory where the PSM will be saved** | ✅        | The output folder where the generated PSM file will be saved. Only select the folder, MiSAR will create the PSM file inside it.                                                                                                                                                                                  |
+| -      | **Select Multi-Module Project POM Build Files**  | ❌        | The main Maven `pom.xml` build file or files for the multi-module project, if available.                                                                                                                                                                                                                         |
+| -      | **Select Module Projects POM Build Files**       | ❌        | The Maven `pom.xml` files for the individual module projects, if available. These may be populated automatically for Maven-based Java projects.                                                                                                                                                                  |
+| -      | **Select Centralised Configuration Directories** | ❌        | Directories that contain centralised configuration files used by the microservice system, if applicable.                                                                                                                                                                                                         |
+| **6**  | **Create PSM Model**                             | ▶️       | Button used to start the PSM generation process after the mandatory fields have been completed.                                                                                                                                                                                                                  |
 
 ## How to Create a PSM File
 
@@ -50,7 +50,6 @@ For example:
 
 ```text
 my-company-code
-
 ```
 
 MiSAR will automatically add `-PSM` at the end of the name when creating the PSM model.
@@ -94,6 +93,21 @@ You can still manually edit, add, or remove entries if needed.
 
 After using the automatic importer, check whether **Select Module Projects Build Directories** has been filled correctly.
 
+When module project build directories are selected, MiSAR may display the detected language and framework next to each directory.
+
+For example:
+
+```text
+/path/to/book-service [Python: FASTAPI]
+/path/to/order-service [Java: SPRING]
+/path/to/payment-service [Python: DJANGO]
+/path/to/mixed-service [Java: SPRING; Python: FASTAPI]
+```
+
+This label is only shown to help users understand what MiSAR has detected in each folder. The actual selected directory path is still used internally by the parser.
+
+If MiSAR shows `[Unknown]`, it means the folder was selected but MiSAR could not confidently identify a supported language or framework from the files inside that directory. This can happen for frontend projects, unsupported languages, incomplete services, or folders that do not contain recognisable build/dependency files.
+
 Depending on the Docker Compose file and project structure, MiSAR may not be able to automatically detect every microservice directory.
 
 If this happens, add each microservice directory manually.
@@ -117,9 +131,9 @@ During the import process in **Select Module Projects Build Directories**, MiSAR
 MiSAR initially recovered Java projects, so this prompt is useful for Maven-based Java systems.
 
 -   If your project is Maven-based, click **Yes**.
-    
+
 -   If your project is not Maven-based, click **No**.
-    
+
 
 ### 5. Select the PSM Output Directory
 
@@ -162,8 +176,10 @@ A success message may also be displayed showing the file location.
 -   Docker Compose files can help MiSAR auto-detect project information.
     
 -   If automatic import does not detect all microservice directories, add them manually.
-    
--   For Maven-based Java projects, allow MiSAR to read the `pom.xml` files when prompted.
+
+-   Module project build directories may display detected language/framework labels, such as `[Java: SPRING]`, `[Python: FASTAPI]`, `[Python: DJANGO]`, or `[Unknown]`. These labels are informational and help confirm what MiSAR detected in each selected folder.
+  
+- For Maven-based Java projects, allow MiSAR to read the `pom.xml` files when prompted.
     
 -   For non-Java projects, manual microservice directory selection may be required.
 

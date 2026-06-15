@@ -48,6 +48,12 @@ Before using MiSAR, ensure the following tools and runtimes are installed or ava
 
 > MISAR only requires internet access during the initial setup to download necessary dependencies. Once set up, it can be used offline without any issues.
 
+## Supported Technologies/Frameworks
+- Java (Spring Boot / Spring Cloud)
+- Docker / docker-compose
+- Python (Flask / FastAPI / Django)
+
+
 ## Sections
 - [MISAR Installation](installation.md)
 - [Create PSM](create-psm.md)
