@@ -4,17 +4,17 @@ modeltype PIM uses PIM('http://localhost/mdd/PIM.ecore');
 transformation MisarTransformation4(in source: PSM, out target: PIM );
 
 main() {
-	
+
 	source.rootObjects()[RootPSM] -> map RootPSM2RootPIM();
 }
 
 
-mapping RootPSM :: RootPSM2RootPIM() : RootPIM 
+mapping RootPSM :: RootPSM2RootPIM() : RootPIM
 when {self.application <> null} {
 
 	// transform DistributedApplicationProject into MicroserviceArchitecture
 	architecture := self.application.map DistributedApplicationProject2MicroserviceArchitecture();
-	
+
 	// transform ApplicationProject into MicroserviceArchitecture
 	architecture := self.application.application_project.map ApplicationProject2MicroserviceArchitecture();
 }
@@ -23,7 +23,7 @@ mapping DistributedApplicationProject :: DistributedApplicationProject2Microserv
 
 	ArchitectureName := self.ApplicationName;
 	GeneratingPSM += 'DistributedApplicationProject[ApplicationName:'+self.ApplicationName+']';
-	
+
 	// map microservices association
 	self.containers->forEach(container){
 		if container.ImageField.indexOf('mongo') <> 0
@@ -32,61 +32,61 @@ mapping DistributedApplicationProject :: DistributedApplicationProject2Microserv
 		   or container.ImageField.indexOf('consul') <> 0
 		   or container.ImageField.indexOf('kibana') <> 0
 		   or container.ImageField.indexOf('elasticsearch') <> 0
-		   or container.ImageField.indexOf('logstash') <> 0 
-		   or container.ImageField.indexOf('redis') <> 0 
+		   or container.ImageField.indexOf('logstash') <> 0
+		   or container.ImageField.indexOf('redis') <> 0
 		   or container.ImageField.indexOf('zipkin') <> 0 then {
 		   	microservices += container.map DockerContainerDefinition2InfrastructureMicroservice();
 		} else {
 			microservices += container.map DockerContainerDefinition2Microservice();
-		} endif; 
+		} endif;
      };
 }
 
 mapping DockerContainerDefinition :: DockerContainerDefinition2Microservice(): Microservice {
-	
+
 	MicroserviceName := self.ContainerName;
 	GeneratingPSM += 'DockerContainerDefinition[ContainerName:'+self.ContainerName+',ImageField:'+self.ImageField+', GeneratesLogs:'+self.GeneratesLogs.toString()+']';
-		
+
 	// map container association
 	container := self.map DockerContainerDefinition2Container();
-		
+
 	// map components association
 	if self.GeneratesLogs then{
-		components += self.map DockerContainerDefinition2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Generation, 'Logging');   	
+		components += self.map DockerContainerDefinition2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Generation, 'Logging');
 	} endif;
 	if self.ImageField.indexOf('mongo') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MongoDB');   	
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MongoDB');
 	} endif;
 	if self.ImageField.indexOf('mysql') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MySQL');   	
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MySQL');
 	} endif;
 	if self.ImageField.indexOf('rabbitmq') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Asynchronous_Message_Brokering, 'RabbitMQ');   	
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Asynchronous_Message_Brokering, 'RabbitMQ');
 	} endif;
 	if self.ImageField.indexOf('consul') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Asynchronous_Message_Brokering, 'Consul');   	
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Consul');  
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Consul');  
-	} endif;	
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Asynchronous_Message_Brokering, 'Consul');
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Consul');
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Consul');
+	} endif;
 	if self.ImageField.indexOf('kibana') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Monitoring, 'Logging');   
-	} endif;	
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Monitoring, 'Logging');
+	} endif;
 	if self.ImageField.indexOf('elasticsearch') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Analysis, 'Logging');    
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Analysis, 'Logging');
 	} endif;
 	if self.ImageField.indexOf('logstash') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Aggregation, 'Logging');    
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Aggregation, 'Logging');
 	} endif;
 	if self.ImageField.indexOf('redis') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Data_Cache, 'Redis');    
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Data_Cache, 'Redis');
 	} endif;
 	if self.ImageField.indexOf('scope') <> 0 then {
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Monitoring, 'Scope');    
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Monitoring, 'Scope');
 	} endif;
-	if self.ImageField.indexOf('zipkin') <> 0 then { 
-        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Distributed_Tracing_and_Monitoring, 'Zipkin');    
+	if self.ImageField.indexOf('zipkin') <> 0 then {
+        components += self.map DockerContainerDefinition2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Distributed_Tracing_and_Monitoring, 'Zipkin');
 	} endif;
-	
+
 	// map interface association
 	interface := self.map DockerContainerDefinition2ServiceInterface();
 
@@ -94,7 +94,7 @@ mapping DockerContainerDefinition :: DockerContainerDefinition2Microservice(): M
 	self.links->forEach(_link){
 		dependencies += _link.map DockerContainerLink2ServiceDependency()
 	};
-	
+
 }
 
 mapping DockerContainerDefinition :: DockerContainerDefinition2InfrastructureMicroservice(): InfrastructureMicroservice
@@ -113,7 +113,7 @@ mapping DockerContainerDefinition :: DockerContainerDefinition2ServiceInterface(
 
 	ServerURL := '[http|https]://'+self.ContainerName+':<port-number>';
 	GeneratingPSM += 'DockerContainerDefinition[ContainerName:'+self.ContainerName+',ImageField:'+self.ImageField+', GeneratesLogs:'+self.GeneratesLogs.toString()+']';
-	
+
 	// map destinations association
 	if self.ImageField.indexOf('consul') <> 0 then {
 		destinations += self.map DockerContainerDefinition2Endpoint('PUT /catalog/register');
@@ -122,7 +122,7 @@ mapping DockerContainerDefinition :: DockerContainerDefinition2ServiceInterface(
 		destinations += self.map DockerContainerDefinition2Endpoint('GET /api/v2/spans');
 		destinations += self.map DockerContainerDefinition2Endpoint('POST /api/v2/spans');
 	} endif;
-		 
+
 }
 
 mapping DockerContainerDefinition :: DockerContainerDefinition2InfrastructurePatternComponent (category: InfrastructurePatternCategory, technology: String): InfrastructurePatternComponent {
@@ -133,16 +133,16 @@ mapping DockerContainerDefinition :: DockerContainerDefinition2InfrastructurePat
 }
 
 mapping DockerContainerDefinition :: DockerContainerDefinition2InfrastructureServerComponent (category: InfrastructurePatternCategory, technology: String): InfrastructureServerComponent {
-	
+
 	Category := category;
-	Technology := technology;	
+	Technology := technology;
 	GeneratingPSM += 'DockerContainerDefinition[ContainerName:'+self.ContainerName+',ImageField:'+self.ImageField+', GeneratesLogs:'+self.GeneratesLogs.toString()+']';
 }
 
 mapping DockerContainerDefinition :: DockerContainerDefinition2InfrastructureClientComponent (category: InfrastructurePatternCategory, technology: String): InfrastructureClientComponent {
 
 	Category := category;
-	Technology := technology;	
+	Technology := technology;
 	GeneratingPSM += 'DockerContainerDefinition[ContainerName:'+self.ContainerName+',ImageField:'+self.ImageField+', GeneratesLogs:'+self.GeneratesLogs.toString()+']';
 }
 
@@ -153,15 +153,15 @@ mapping DockerContainerDefinition :: DockerContainerDefinition2Endpoint(uri: Str
 
 	// map messages association
     if uri = 'PUT /catalog/register' then {
-    	messages += self.map DockerContainerDefinition2EndpointServiceMessage('REQUEST', '{"type":"object","properties":{"Datacenter":{"type":"string"},"ID":{"type":"string"},"Node":{"type":"string"},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"string"},"wan":{"type":"string"}}},"NodeMeta":{"type":"object","properties":{"somekey":{"type":"string"}}},"Service":{"type":"object","properties":{"ID":{"type":"string"},"Service":{"type":"string"},"Tags":{"type":"array","items":{"type":"string"}},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}},"wan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}}}},"Meta":{"type":"object"},"Port":{"type":"integer"}}},"Check":{"type":"object"},"SkipNodeUpdate":{"type":"boolean"}}}', 'JSON'); 
+    	messages += self.map DockerContainerDefinition2EndpointServiceMessage('REQUEST', '{"type":"object","properties":{"Datacenter":{"type":"string"},"ID":{"type":"string"},"Node":{"type":"string"},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"string"},"wan":{"type":"string"}}},"NodeMeta":{"type":"object","properties":{"somekey":{"type":"string"}}},"Service":{"type":"object","properties":{"ID":{"type":"string"},"Service":{"type":"string"},"Tags":{"type":"array","items":{"type":"string"}},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}},"wan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}}}},"Meta":{"type":"object"},"Port":{"type":"integer"}}},"Check":{"type":"object"},"SkipNodeUpdate":{"type":"boolean"}}}', 'JSON');
     } endif;
     if uri = 'GET /api/v2/spans' then {
-    	messages += self.map DockerContainerDefinition2EndpointServiceMessage('RESPONSE', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON'); 
+    	messages += self.map DockerContainerDefinition2EndpointServiceMessage('RESPONSE', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON');
     } endif;
     if uri = 'POST /api/v2/spans' then {
-    	messages += self.map DockerContainerDefinition2EndpointServiceMessage('REQUEST', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON'); 
+    	messages += self.map DockerContainerDefinition2EndpointServiceMessage('REQUEST', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON');
     	messages += self.map DockerContainerDefinition2EndpointServiceMessage('RESPONSE','{"type":"string"}','JSON');
-    } endif;		
+    } endif;
 }
 
 mapping DockerContainerDefinition :: DockerContainerDefinition2EndpointServiceMessage(type: String, schema: String, format: String): ServiceMessage {
@@ -176,7 +176,7 @@ mapping DockerContainerLink :: DockerContainerLink2ServiceDependency(): ServiceD
 
     ProviderName:= self.LinksDependsOnField;
 	GeneratingPSM += 'DockerContainerDefinition[ContainerName:'+self.container().oclAsType(DockerContainerDefinition).ContainerName+',ImageField:'+self.container().oclAsType(DockerContainerDefinition).ImageField+', GeneratesLogs:'+self.container().oclAsType(DockerContainerDefinition).GeneratesLogs.toString()+']';
-	GeneratingPSM += 'DockerContainerLink[LinksDependsOnField:'+self.LinksDependsOnField+']';       	
+	GeneratingPSM += 'DockerContainerLink[LinksDependsOnField:'+self.LinksDependsOnField+']';
 }
 
 mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): MicroserviceArchitecture {
@@ -188,43 +188,43 @@ mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): Mic
 			result:= architecture;
 		} endif;
 	}
-	
+
 	ArchitectureName := self.ParentProjectName;
 	GeneratingPSM += 'ApplicationProject[ProjectArtifactId:'+self.ProjectArtifactId+']';
-	
+
 	// map microservices association
 	microservices += self.modules.map MicroserviceProject2Microservice();
-	
-	end { 
-	
+
+	end {
+
 		// map asynch dependencies
 		JavaMethod.allInstances()->forEach(_method | _method.ElementIdentifier = 'convertAndSend'
 		                                             and _method.parameters->size() >= 2) {
-			
+
 			var routing_key := _method.parameters->any(_parameter | _parameter.ParameterOrder = 2
 			                                                        and _parameter.FieldValue <> 'NOT_AVAILABLE').FieldValue;
 			routing_key := routing_key.substringAfter('"').substringBefore('*');
-			
+
 			QueueListener.allInstances()->forEach(_queue | _queue.QueueName.indexOf(routing_key) <> 0){
-			
+
 				var provider_service := _queue.container().container().oclAsType(Microservice);
 				var consumer_project := self.modules->any(_project | _project.ProjectArtifactId = _method.ParentProjectName);
 				var consumer_service := consumer_project.resolveone(Microservice);
 				var operation := _method.RootCallingMethod;
 				var destination := 'QueueListener[QueueName:' + _queue.QueueName + ']';
-				
-				consumer_service.dependencies += _method.map JavaMethod2ServiceDependency(operation, provider_service.MicroserviceName, destination, false);				
+
+				consumer_service.dependencies += _method.map JavaMethod2ServiceDependency(operation, provider_service.MicroserviceName, destination, false);
 			};
-			
+
 		};
-		
+
 		architecture := self.resolveone(MicroserviceArchitecture);
-		
-		if architecture <> null then {	
-			
-			// map microservice type		 
+
+		if architecture <> null then {
+
+			// map microservice type
 			architecture.microservices->forEach(microservice) {
-				if microservice.oclIsTypeOf(Microservice) = true 
+				if microservice.oclIsTypeOf(Microservice) = true
 				   and (microservice.invresolveone(JavaSpringWebApplicationProject) <> null
                        or microservice.invresolveone(PythonWebApplicationProject) <> null) then {
 					if microservice.components->exists(component | component.oclIsTypeOf(InfrastructureServerComponent)) = true then {
@@ -234,7 +234,7 @@ mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): Mic
 							container := microservice.container;
 							components := microservice.components;
 							interface := microservice.interface;
-							dependencies := microservice.dependencies;							
+							dependencies := microservice.dependencies;
 						};
 						architecture.microservices := architecture.microservices->excluding(microservice);
 					} else {
@@ -244,20 +244,20 @@ mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): Mic
 							container := microservice.container;
 							components := microservice.components;
 							interface := microservice.interface;
-							dependencies := microservice.dependencies;							
+							dependencies := microservice.dependencies;
 						};
 						architecture.microservices := architecture.microservices->excluding(microservice);
 					} endif;
 				} endif;
 			}; // end of mapping microservice type
-			
+
 			// map dependencies of turbine and hystrix dashboard microservices
 			architecture.microservices->forEach(microservice1) {
 				if microservice1.components->exists(component | (component.oclIsTypeOf(InfrastructureServerComponent)
 															     and component.Category = InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Monitoring = true)
 															     or  component.Category = InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Aggregation = true) then {
 					architecture.microservices->forEach(microservice2) {
-						if microservice2.interface.destinations->exists(destination | destination.oclIsTypeOf(Endpoint) 
+						if microservice2.interface.destinations->exists(destination | destination.oclIsTypeOf(Endpoint)
 						                                                              and destination.oclAsType(Endpoint).RequestURI.endsWith('hystrix.stream')) = true then {
 						   microservice2.interface.destinations->forEach(destination) {
 						   		if (destination.oclIsTypeOf(Endpoint)
@@ -266,15 +266,15 @@ mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): Mic
 										ProviderName := microservice2.MicroserviceName;
 										ProviderDestination := 'Endpoint[RequestURI:' + destination.oclAsType(Endpoint).RequestURI + ']';
 										Environment := destination.Environment;
-										GeneratingPSM := microservice1.GeneratingPSM;							
+										GeneratingPSM := microservice1.GeneratingPSM;
 									};
 						   		} endif;
 						   };
 						} endif;
 					};
-				} endif;	
+				} endif;
 			}; // end of mapping dependencies of hystrix dashboard microservice
-			
+
 			// map endpoints and dependencies of zuul microservice
 			architecture.microservices->forEach(microservice1) {
 				if microservice1.components->exists(component | component.oclIsTypeOf(InfrastructureServerComponent)
@@ -283,13 +283,13 @@ mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): Mic
 					var eurekaClientsIgnored := false;
 					self.modules->forOne(module | module.ProjectArtifactId = microservice1.MicroserviceName) {
 						module.properties->forEach(property1) {
-							if property1.FullyQualifiedPropertyName = 'zuul.ignoredServices' 
+							if property1.FullyQualifiedPropertyName = 'zuul.ignoredServices'
 							   and property1.PropertyValue.indexOf('*') <> 0 then {
 									eurekaClientsIgnored := true;
 							} endif;
 							if property1.FullyQualifiedPropertyName.startsWith('zuul.routes.')
 						       and property1.FullyQualifiedPropertyName.endsWith('.path') then {
-						       
+
 									var microservice_id := property1.FullyQualifiedPropertyName.substringAfter('zuul.routes.').substringBefore('.path');
 									var prefix := property1.PropertyValue.substringBefore('/*');
 									module.properties->forEach(property2 | property2.FullyQualifiedPropertyName.startsWith('zuul.routes.'+microservice_id)
@@ -319,7 +319,7 @@ mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): Mic
 														Environment := destination.Environment;
 														GeneratingPSM := microservice1.GeneratingPSM;
 													};
-											} endif;												
+											} endif;
 										};
 									};
 							} endif;
@@ -331,17 +331,17 @@ mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): Mic
 																			and microservice2.components->exists(component | component.oclIsTypeOf(InfrastructureClientComponent)
 															    														 and component.Category = InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery
 															    														 and component.Technology = 'Eureka') = true) {
-							microservice2.interface.destinations->forEach(destination | destination.oclIsTypeOf(Endpoint)) {								
+							microservice2.interface.destinations->forEach(destination | destination.oclIsTypeOf(Endpoint)) {
 								if configuredServices->exists(service | service = microservice2.MicroserviceName) = false then {
 									var http_method := destination.oclAsType(Endpoint).RequestURI.substringBefore(' ');
 									var destination_uri := destination.oclAsType(Endpoint).RequestURI.substringAfter(' ');
 									destination_uri := http_method + ' /' + microservice2.MicroserviceName + destination_uri;
-									// map microservice destination to zuul endpoint 
+									// map microservice destination to zuul endpoint
 									microservice1.interface.destinations += object Endpoint {
 										RequestURI := destination_uri;
 										Environment := destination.Environment;
 										GeneratingPSM := microservice1.GeneratingPSM;
-									};	
+									};
 									// map microservice destination to zuul dependency
 									if microservice1.dependencies->exists(dependency | dependency.ProviderName = microservice2.MicroserviceName
 									                                                   and dependency.ProviderDestination = 'Endpoint[RequestURI:'+destination.oclAsType(Endpoint).RequestURI+']') = false then {
@@ -352,14 +352,14 @@ mapping ApplicationProject :: ApplicationProject2MicroserviceArchitecture(): Mic
 												Environment := destination.Environment;
 												GeneratingPSM := microservice1.GeneratingPSM;
 											};
-									} endif;																	
-								} endif;									
+									} endif;
+								} endif;
 							};
-						};					
+						};
 					} endif;
-				} endif;	
+				} endif;
 			}; // end of mapping endpoints and dependencies of zuul microservice
-			
+
 		} endif;
 	}
 }
@@ -373,16 +373,16 @@ mapping MicroserviceProject :: MicroserviceProject2Microservice(): Microservice 
 			result:= microservice;
 		} endif;
 	}
-	
+
 	MicroserviceName := self.ProjectArtifactId;
 	GeneratingPSM += 'MicroserviceProject[ProjectArtifactId:'+self.ProjectArtifactId+']';
-	
+
 	// map container association
 	container := self.map MicroserviceProject2Container();
-	
+
 	// map interface association
 	interface := self.map MicroserviceProject2ServiceInterface();
-	
+
 	// map components association
 	var hasActuator := false;
 	var hasHystrix := false;
@@ -390,156 +390,156 @@ mapping MicroserviceProject :: MicroserviceProject2Microservice(): Microservice 
 	var hasEurekaServer := false;
     self.libraries->forEach(_library){
 		if _library.LibraryName = 'spring-boot-starter-actuator' then {
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Generation, 'Actuator'); 
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Generation, 'Actuator');
         	hasActuator := true;
         	if hasHystrix then {
-        		components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Generation, 'Hystrix')   
+        		components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Generation, 'Hystrix')
 	    	} endif;
 	    } endif;
-	    if _library.LibraryName = 'spring-cloud-starter-netflix-hystrix' 
+	    if _library.LibraryName = 'spring-cloud-starter-netflix-hystrix'
 	      or _library.LibraryName = 'spring-cloud-starter-hystrix' then {
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Circuit_Breaker, 'Hystrix');   
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Circuit_Breaker, 'Hystrix');
 	    	hasHystrix := true;
         	if hasActuator then {
-        		components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Generation, 'Hystrix')   
+        		components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Generation, 'Hystrix')
 	    	} endif;
 	    } endif;
-	    if _library.LibraryName = 'spring-cloud-starter-config' 
+	    if _library.LibraryName = 'spring-cloud-starter-config'
 	       or _library.LibraryName = 'spring-cloud-config-client' then {
-        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');   
+        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');
 	    	hasClientConfig := true;
 	    } endif;
 	    if _library.LibraryName = 'spring-boot-starter-security'
 	       or _library.LibraryName = 'spring-cloud-starter-security' then {
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Security_Pattern_Web_Security, 'Spring Security');  
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Security_Pattern_Web_Security, 'Spring Security');
 	    } endif;
 	    if _library.LibraryName = 'spring-security-oauth2' then {
         	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');
 	    } endif;
 		if _library.LibraryName = 'spring-boot-starter-data-mongodb' then {
-        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MongoDB');   
+        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MongoDB');
 	    } endif;
 		if _library.LibraryName = 'de.flapdoodle.embed.mongo' then {
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MongoDB');   
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MongoDB');
 	    } endif;
 	    if _library.LibraryName = 'spring-cloud-starter-turbine' then {
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Aggregation, 'Turbine');   
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Aggregation, 'Turbine');
 	    } endif;
 	    if _library.LibraryName = 'hsqldb'
 	       and _library.LibraryScope = 'RUNTIME' then {
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'HSQLDB');   
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'HSQLDB');
 	    } endif;
 	    if _library.LibraryName = 'mysql-connector-java'
 	       and _library.LibraryScope <> 'RUNTIME' then {
-        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MySQL');   
+        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MySQL');
 	    } endif;
 	    if _library.LibraryName = 'spring-boot-starter-amqp'
 	       and _library.LibraryScope <> 'RUNTIME' then {
-        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Asynchronous_Message_Brokering, 'RabbitMQ');   
+        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Asynchronous_Message_Brokering, 'RabbitMQ');
 	    } endif;
 		if _library.LibraryName = 'spring-cloud-config-server' then {
-        	components += _library.map DependencyLibrary2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');   
+        	components += _library.map DependencyLibrary2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');
 	    } endif;
-	    if _library.LibraryName = 'spring-cloud-starter-eureka-server' 
+	    if _library.LibraryName = 'spring-cloud-starter-eureka-server'
 	       or _library.LibraryName = 'spring-cloud-starter-netflix-eureka-server' then {
-        	components += _library.map DependencyLibrary2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');   
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');    			
+        	components += _library.map DependencyLibrary2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');
 	    	hasEurekaServer := true;
 	    } endif;
 	    if _library.LibraryName = 'spring-cloud-starter-netflix-eureka-client'
 	       or _library.LibraryName = 'spring-cloud-starter-eureka' then {
-        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');   
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');    			
+        	components += _library.map DependencyLibrary2InfrastructureClientComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');
 	    } endif;
-	    if _library.LibraryName = 'spring-cloud-starter-netflix-zuul' 
+	    if _library.LibraryName = 'spring-cloud-starter-netflix-zuul'
 	       or _library.LibraryName = 'spring-cloud-starter-zuul' then {
-        	components += _library.map DependencyLibrary2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_API_Gateway_and_Proxy, 'Zuul')   
-	    } endif;	
+        	components += _library.map DependencyLibrary2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_API_Gateway_and_Proxy, 'Zuul')
+	    } endif;
 	    if _library.LibraryName = 'spring-cloud-starter-sleuth' then {
-        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Distributed_Tracing, 'Spring Cloud Slueth')   
-	    } endif; 
+        	components += _library.map DependencyLibrary2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Distributed_Tracing, 'Spring Cloud Slueth')
+	    } endif;
 	    if _library.LibraryName = 'spring-cloud-starter-hystrix-dashboard' then {
-        	components += _library.map DependencyLibrary2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Monitoring, 'Hystrix');   
-	    } endif;   
+        	components += _library.map DependencyLibrary2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Monitoring, 'Hystrix');
+	    } endif;
     };
     self.properties->forEach(_property1){
-		if (_property1.FullyQualifiedPropertyName = 'eureka.client.registerWithEureka' 
-		    and _property1.PropertyValue = 'false') then {	   
+		if (_property1.FullyQualifiedPropertyName = 'eureka.client.registerWithEureka'
+		    and _property1.PropertyValue = 'false') then {
 			   self.properties->forEach(_property2){
-			   		if (_property2.FullyQualifiedPropertyName = 'eureka.client.fetchRegistry' 
+			   		if (_property2.FullyQualifiedPropertyName = 'eureka.client.fetchRegistry'
 			   			and _property2.PropertyValue = 'false') then {
-		        			components += _property1.map ConfigurationProperty2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');    		   				
+		        			components += _property1.map ConfigurationProperty2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');
 			   				hasEurekaServer := true;
 			   				break;
 			   		} endif;
 			   };
-			   break;						   	
-		} endif; 
+			   break;
+		} endif;
     };
     self.properties->forEach(_property){
 		if _property.FullyQualifiedPropertyName.startsWith('management.endpoints.actuator.') then {
-        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Generation, 'Actuator');    			
+        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Generation, 'Actuator');
 			hasActuator := true;
 			if hasHystrix then {
-        		components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Generation, 'Hystrix')   
+        		components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Generation, 'Hystrix')
 			} endif;
 		} endif;
 		if (_property.FullyQualifiedPropertyName = 'hystrix.command.default.circuitBreaker.requestVolumeThreshold'
 		      and _property.PropertyValue <> '0')
 		   or (_property.FullyQualifiedPropertyName = 'hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds'
 		      and _property.PropertyValue <> '0') then {
-        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Circuit_Breaker, 'Hystrix');    			
+        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Circuit_Breaker, 'Hystrix');
 			hasHystrix := true;
 			if hasActuator then {
-        		components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Generation, 'Hystrix')   
+        		components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Generation, 'Hystrix')
 			} endif;
-		} endif; 
-		if _property.FullyQualifiedPropertyName = 'spring.cloud.config.uri' then {
-        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');    			
-			hasClientConfig := true;
-		} endif; 
-		if (_property.FullyQualifiedPropertyName.startsWith('eureka.client.serviceUrl') 
-		    and hasEurekaServer = false) then {
-        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');    			
-        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');    			
 		} endif;
-		if _property.FullyQualifiedPropertyName.startsWith('management.tracing') then {	 
+		if _property.FullyQualifiedPropertyName = 'spring.cloud.config.uri' then {
+        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');
+			hasClientConfig := true;
+		} endif;
+		if (_property.FullyQualifiedPropertyName.startsWith('eureka.client.serviceUrl')
+		    and hasEurekaServer = false) then {
+        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');
+        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');
+		} endif;
+		if _property.FullyQualifiedPropertyName.startsWith('management.tracing') then {
 			if _property.FullyQualifiedPropertyName = 'management.tracing.exporter.zipkin.endpoint' then {
-	        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Observability_Pattern_Distributed_Tracing_and_Monitoring, 'Zipkin');    			
+	        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Observability_Pattern_Distributed_Tracing_and_Monitoring, 'Zipkin');
 			} else {
-        		components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Observability_Pattern_Distributed_Tracing_and_Monitoring, '');    			
+        		components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Observability_Pattern_Distributed_Tracing_and_Monitoring, '');
 			} endif;
-		} endif; 
+		} endif;
 		if _property.FullyQualifiedPropertyName.startsWith('spring.data.mongodb.') then {
-        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MongoDB');    			
+        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MongoDB');
 		} endif;
 		if _property.FullyQualifiedPropertyName.startsWith('spring.cloud.config.server.native.')
 	       or _property.FullyQualifiedPropertyName.startsWith('spring.cloud.config.server.git.') then  {
-        	components += _property.map ConfigurationProperty2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');    			
-		} endif; 
+        	components += _property.map ConfigurationProperty2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');
+		} endif;
 		if _property.FullyQualifiedPropertyName.startsWith('security.oauth2.resource.') then {
-        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');    			
+        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');
 		} endif;
 		if _property.FullyQualifiedPropertyName = 'security.user.password' then {
-        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Security_Pattern_Web_Security, 'Spring Security');    			
+        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Security_Pattern_Web_Security, 'Spring Security');
 		} endif;
 		if _property.FullyQualifiedPropertyName.startsWith('spring.rabbitmq.') then {
-        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Asynchronous_Message_Brokering, 'RabbitMQ');    			
-		} endif;	
-		if (_property.FullyQualifiedPropertyName = 'ribbon.ReadTimeout' 
+        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Asynchronous_Message_Brokering, 'RabbitMQ');
+		} endif;
+		if (_property.FullyQualifiedPropertyName = 'ribbon.ReadTimeout'
 		   or _property.FullyQualifiedPropertyName = 'ribbon.ConnectTimeout')
 		   and _property.PropertyValue <> '0'  then {
-        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');    			
-		} endif;	
-		if _property.FullyQualifiedPropertyName = 'zuul.ignoredServices' 
+        	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');
+		} endif;
+		if _property.FullyQualifiedPropertyName = 'zuul.ignoredServices'
 		   or _property.FullyQualifiedPropertyName.startsWith('zuul.routes.') then {
-        	components += _property.map ConfigurationProperty2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_API_Gateway_and_Proxy, 'Zuul');    			
-		} endif; 	
+        	components += _property.map ConfigurationProperty2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_API_Gateway_and_Proxy, 'Zuul');
+		} endif;
 		if _property.FullyQualifiedPropertyName.startsWith('mysql.client.') then {
-        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MySQL');    			
-		} endif; 
+        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Persistence, 'MySQL');
+		} endif;
 		if _property.FullyQualifiedPropertyName.startsWith('redis.client.') then {
-        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Cache, 'Redis');    			
+        	components += _property.map ConfigurationProperty2InfrastructureClientComponent(InfrastructurePatternCategory::Development_Pattern_Data_Cache, 'Redis');
 		} endif;
 		if _property.FullyQualifiedPropertyName.startsWith('logging.level') then {
         	components += _property.map ConfigurationProperty2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Logging, '');
@@ -550,91 +550,91 @@ mapping MicroserviceProject :: MicroserviceProject2Microservice(): Microservice 
 														     or _type.oclIsKindOf(JavaInterfaceType))) {
 		_type.imports->forEach(_import) {
 			if (_import.ElementIdentifier = 'EnableAuthorizationServer'
-			   and _import.PackageName = 'org.springframework.security.oauth2.config.annotation.web.configuration') 
+			   and _import.PackageName = 'org.springframework.security.oauth2.config.annotation.web.configuration')
 			   or (_import.ElementIdentifier = 'AuthorizationServerConfigurerAdapter'
 			      and _import.PackageName = 'org.springframework.security.oauth2.config.annotation.web.configuration') then {
-					components += _import.map JavaUserDefinedType2InfrastructureServerComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');						   	
+					components += _import.map JavaUserDefinedType2InfrastructureServerComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');
 			} endif;
 			if (_import.ElementIdentifier = 'Logger'
-			   and _import.PackageName = 'org.slf4j') 
+			   and _import.PackageName = 'org.slf4j')
 			   or (_import.ElementIdentifier = 'LoggerFactory'
 			      and _import.PackageName = 'org.slf4j') then {
-					components += _import.map JavaUserDefinedType2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Logging, 'Slf4j');						   	
+					components += _import.map JavaUserDefinedType2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Logging, 'Slf4j');
 			} endif;
-			 
-		};	
-	};    
+
+		};
+	};
 	JavaAnnotation.allInstances()->forEach(_annotation | _annotation.ParentProjectName = self.ProjectArtifactId
-                                                         and _annotation.container().oclIsKindOf(JavaUserDefinedType)) {                                                         	
+                                                         and _annotation.container().oclIsKindOf(JavaUserDefinedType)) {
 		if _annotation.AnnotationName = 'EnableConfigServer' then {
-			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');   		
+			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Development_Pattern_Centralized_Configuration, 'Spring Cloud Config');
 		} endif;
 		if _annotation.AnnotationName = 'EnableZuulProxy' then {
-			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_API_Gateway_and_Proxy, 'Zuul');   		
+			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_API_Gateway_and_Proxy, 'Zuul');
 		} endif;
 		if _annotation.AnnotationName = 'EnableEurekaServer' then {
-        	components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');    			
-        	components += _annotation.map JavaAnnotation2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon'); 		
+        	components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, 'Eureka');
+        	components += _annotation.map JavaAnnotation2InfrastructurePatternComponent(InfrastructurePatternCategory::Client_Resiliency_Pattern_Load_Balancer, 'Ribbon');
         	hasEurekaServer := true;
         } endif;
 		if _annotation.AnnotationName = 'EnableDiscoveryClient' then {
-        	components += _annotation.map JavaAnnotation2InfrastructureClientComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, '');    			
+        	components += _annotation.map JavaAnnotation2InfrastructureClientComponent(InfrastructurePatternCategory::Service_Routing_Pattern_Registry_and_Discovery, '');
         } endif;
 		if _annotation.AnnotationName = 'EnableWebSecurity' then {
-			components += _annotation.map JavaAnnotation2InfrastructurePatternComponent(InfrastructurePatternCategory::Security_Pattern_Web_Security, 'Spring Security');			
+			components += _annotation.map JavaAnnotation2InfrastructurePatternComponent(InfrastructurePatternCategory::Security_Pattern_Web_Security, 'Spring Security');
 		} endif;
 		if _annotation.AnnotationName = 'EnableResourceServer' then {
-			components += _annotation.map JavaAnnotation2InfrastructureClientComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');			
+			components += _annotation.map JavaAnnotation2InfrastructureClientComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');
 		} endif;
 		if _annotation.AnnotationName = 'EnableAuthorizationServer' then {
-			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');			
+			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Cloud OAuth2');
 		} endif;
 		if _annotation.AnnotationName = 'EnableHystrixDashboard' then {
-			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Monitoring, 'Hystrix');			
+			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Monitoring, 'Hystrix');
 		} endif;
 		if _annotation.AnnotationName = 'EnableTurbineStream' then {
-			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Aggregation, 'Turbine');			
+			components += _annotation.map JavaAnnotation2InfrastructureServerComponent(InfrastructurePatternCategory::Observability_Pattern_Circuit_Breaker_Metrics_Aggregation, 'Turbine');
 		} endif;
 		if _annotation.AnnotationName = 'Slf4j' then {
-			components += _annotation.map JavaAnnotation2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Logging, 'Slf4j');			
-		} endif;	                                                          	
+			components += _annotation.map JavaAnnotation2InfrastructurePatternComponent(InfrastructurePatternCategory::Observability_Pattern_Application_Metrics_Logging, 'Slf4j');
+		} endif;
 	};
 	JavaMethod.allInstances()->forEach(_method | _method.ParentProjectName = self.ProjectArtifactId
 												 and _method.ElementIdentifier = 'authenticate'
 	                                             and _method.parent.ElementIdentifier = 'AuthenticationManager'
-	                                             and _method.parent.PackageName = 'org.springframework.security.authentication') {	                                             
-		components += _method.map JavaMethod2InfrastructureServerComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Security');					
+	                                             and _method.parent.PackageName = 'org.springframework.security.authentication') {
+		components += _method.map JavaMethod2InfrastructureServerComponent(InfrastructurePatternCategory::Security_Pattern_Authorization_and_Authentication, 'Spring Security');
 	};
-	
+
 
 	// map dependencies association
 	self.properties->forEach(_property1){
-		if (_property1.FullyQualifiedPropertyName = 'eureka.client.registerWithEureka' 
-		    and _property1.PropertyValue = 'false') then {	   
+		if (_property1.FullyQualifiedPropertyName = 'eureka.client.registerWithEureka'
+		    and _property1.PropertyValue = 'false') then {
 			   self.properties->forEach(_property2){
-			   		if (_property2.FullyQualifiedPropertyName = 'eureka.client.fetchRegistry' 
+			   		if (_property2.FullyQualifiedPropertyName = 'eureka.client.fetchRegistry'
 			   			and _property2.PropertyValue = 'false') then {
 			   				hasEurekaServer := true;
 			   				break;
 			   		} endif;
 			   };
-			   break;						   	
-		} endif; 
+			   break;
+		} endif;
     };
 	self.properties->forEach(_property){
-		if _property.FullyQualifiedPropertyName = 'spring.data.mongodb.host' 
-		   or _property.FullyQualifiedPropertyName = 'redis.client.host' 
-		   or _property.FullyQualifiedPropertyName.startsWith('spring.rabbitmq.host') 
-		   //or _property.FullyQualifiedPropertyName = 'opentracing.jaeger.udp-sender.host' 
+		if _property.FullyQualifiedPropertyName = 'spring.data.mongodb.host'
+		   or _property.FullyQualifiedPropertyName = 'redis.client.host'
+		   or _property.FullyQualifiedPropertyName.startsWith('spring.rabbitmq.host')
+		   //or _property.FullyQualifiedPropertyName = 'opentracing.jaeger.udp-sender.host'
 		   or _property.FullyQualifiedPropertyName = 'mysql.client.server' then {
 		       	var provider := _property.PropertyValue.toLowerCase();
-		       	if provider <> 'localhost' 
+		       	if provider <> 'localhost'
 		       	   and provider <> '127.0.0.1' then {
-        				dependencies += _property.map ConfigurationProperty2ServiceDependency(provider, '', false);   					       	   	
+        				dependencies += _property.map ConfigurationProperty2ServiceDependency(provider, '', false);
 		       	   } endif;
 		} endif;
 		if (_property.FullyQualifiedPropertyName.startsWith('eureka.client.serviceUrl')
-		    and hasEurekaServer = false) 
+		    and hasEurekaServer = false)
 		   or _property.FullyQualifiedPropertyName = 'spring.cloud.config.uri'
 		   or _property.FullyQualifiedPropertyName = 'spring.data.mongodb.uri'
 		   or _property.FullyQualifiedPropertyName = 'security.oauth2.resource.user-info-uri'
@@ -642,8 +642,8 @@ mapping MicroserviceProject :: MicroserviceProject2Microservice(): Microservice 
 		   or _property.FullyQualifiedPropertyName.endsWith('.oauth2.client.accessTokenUri')
 		   or _property.FullyQualifiedPropertyName.endsWith('.oauth2.client.userAuthorizationUri')
 		   or _property.FullyQualifiedPropertyName = 'management.tracing.exporterEndpoint'
-		   or _property.FullyQualifiedPropertyName = 'management.tracing.exporter.zipkin.endpoint' then {		    
-		    
+		   or _property.FullyQualifiedPropertyName = 'management.tracing.exporter.zipkin.endpoint' then {
+
 		    var provider := _property.PropertyValue.substringAfter('://');
 		    if provider.indexOf(':') <> 0 then {
 		    	provider := provider.substringBefore(':');
@@ -675,14 +675,14 @@ mapping MicroserviceProject :: MicroserviceProject2Microservice(): Microservice 
 			    	destination := destination + ']';
 		    } endif;
 		    if provider <> null
-		       and provider <> 'localhost' 
+		       and provider <> 'localhost'
 		       and provider <> '127.0.0.1' then {
             	dependencies += _property.map ConfigurationProperty2ServiceDependency(provider, destination, false);
 			} endif;
 		} endif;
 	};
 	JavaMethod.allInstances()->forEach(_method | _method.ParentProjectName = self.ProjectArtifactId
-	                                             and _method.annotations->exists(a | a.AnnotationName.endsWith('Mapping') ) 
+	                                             and _method.annotations->exists(a | a.AnnotationName.endsWith('Mapping') )
 	                                             and _method.container().oclAsType(JavaUserDefinedType).annotations->exists(a | a.AnnotationName = 'FeignClient')) {
 		var operation := _method.ElementIdentifier + '()';
 		var http_method := '';
@@ -690,29 +690,29 @@ mapping MicroserviceProject :: MicroserviceProject2Microservice(): Microservice 
 		var provider := '';
 		http_method := _method.annotations->any(annotation | annotation.AnnotationName.endsWith('Mapping')).AnnotationName.substringBefore('Mapping');
 		if http_method = 'Request' then {
-			http_method := 'GET';	
+			http_method := 'GET';
 		} endif;
 		_method.annotations->any(a | a.AnnotationName.endsWith('Mapping')).parameters->forEach(_parameter){
 			if _parameter.ParameterName = 'method' then {
 				http_method := _parameter.ParameterValue.substringAfter('RequestMethod.');
 			} endif;
-			if _parameter.ParameterName = 'value' 
+			if _parameter.ParameterName = 'value'
 			   or _parameter.ParameterName = 'path'
 			   or _parameter.ParameterName = 'NOT_AVAILABLE' then {
 				destination := _parameter.ParameterValue.substringAfter('"').substringBefore('"');
 			} endif;
-		}; 
+		};
 		destination := 'Endpoint[RequestURI:' + http_method.toUpperCase() + ' ' +  destination + ']';
 		provider := _method.container().oclAsType(JavaUserDefinedType).annotations->any(a | a.AnnotationName = 'FeignClient').parameters->any(p | p.ParameterName = 'name').ParameterValue;
 		provider := provider.substringAfter('"').substringBefore('"');
 		if provider <> null then {
 			dependencies += _method.map JavaMethod2ServiceDependency(operation, provider, destination, false);
-		} endif;                                     	
-	};	
+		} endif;
+	};
 	JavaMethod.allInstances()->forEach(_method | _method.ParentProjectName = self.ProjectArtifactId
 												 and _method.ElementIdentifier = 'exchange'
 	                                             and _method.parent.ElementIdentifier = 'RestTemplate'
-	                                             and _method.parent.PackageName = 'org.springframework.web.client') {	                                             
+	                                             and _method.parent.PackageName = 'org.springframework.web.client') {
 		var operation := _method.RootCallingMethod;
 		var provider := '';
 		var destination := '';
@@ -723,7 +723,7 @@ mapping MicroserviceProject :: MicroserviceProject2Microservice(): Microservice 
 				if provider.indexOf(':') <> 0 then {
 					provider := provider.substringBefore(':');
 				} endif;
-			} endif;			
+			} endif;
 		};
 		var http_method := 'HTTP_REQUEST';
 		_method.parameters->forOne(_parameter | _parameter.ParameterOrder = 2){
@@ -731,12 +731,12 @@ mapping MicroserviceProject :: MicroserviceProject2Microservice(): Microservice 
 				if _parameter.ElementIdentifier.indexOf('HttpMethod.') <> 0 then {
 					http_method := _parameter.ElementIdentifier.substringAfter('HttpMethod.');
 				} endif;
-			} endif;			
+			} endif;
 		};
 		destination := 'Endpoint[RequestURI:' + http_method + ' ' +  destination + ']';
-		dependencies += _method.map JavaMethod2ServiceDependency(operation, provider, destination, false); 				
+		dependencies += _method.map JavaMethod2ServiceDependency(operation, provider, destination, false);
 	};
-		
+
 
 	// map Python web endpoints recovered from Flask, FastAPI and Django source elements
 	PythonFunction.allInstances()->forEach(_function | _function.ParentProjectName = self.ProjectArtifactId
@@ -788,7 +788,7 @@ mapping MicroserviceProject :: MicroserviceProject2Container(): Container  {
 			result:= container;
 		} endif;
 	}
-	
+
 	ContainerName := self.ProjectArtifactId;
 	GeneratingPSM += 'MicroserviceProject[ProjectArtifactId:'+self.ProjectArtifactId+']';
 }
@@ -802,18 +802,18 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
 			result := interface;
 		} endif;
 	}
-	
+
 	ServerURL := '[http|https]://'+self.ProjectArtifactId+':<port-number>';
 	GeneratingPSM += 'MicroserviceProject[ProjectArtifactId:'+self.ProjectArtifactId+']';
-	
+
 	log('-------------------------------');
 	log(self.ProjectArtifactId);
 	log('-------------------------------');
-	
+
 	// map destinations association
 	var endpointPrefix := '';
 	self.properties->forEach(_property){
-		if _property.FullyQualifiedPropertyName = 'server.contextPath' 
+		if _property.FullyQualifiedPropertyName = 'server.contextPath'
 		   or _property.FullyQualifiedPropertyName = 'server.servlet.context-path' then {
 		   	endpointPrefix := _property.PropertyValue;
 		   	break;
@@ -827,12 +827,12 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
 	var hasZuulServer := false;
     self.libraries->forEach(_library){
     	if _library.LibraryName = 'spring-boot-starter-actuator' then {
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/env');   
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/logfile');   
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/health');   
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/info');   
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/metrics');   
-        	destinations += _library.map DependencyLibrary2Endpoint('POST '+endpointPrefix+'/actuator/shutdown');   
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/env');
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/logfile');
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/health');
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/info');
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/actuator/metrics');
+        	destinations += _library.map DependencyLibrary2Endpoint('POST '+endpointPrefix+'/actuator/shutdown');
         	hasActuator := true;
         	if hasClientConfig then {
         		destinations += _library.map DependencyLibrary2Endpoint('POST '+endpointPrefix+'/actuator/refresh');
@@ -843,16 +843,16 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
         	if hasZuulServer then {
         		destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/routes');
         		destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/filters');
-        	} endif;  
+        	} endif;
 	    } endif;
-	    if _library.LibraryName = 'spring-cloud-starter-config' 
+	    if _library.LibraryName = 'spring-cloud-starter-config'
 	       or _library.LibraryName = 'spring-cloud-config-client' then {
 	    	hasClientConfig := true;
 	    	if hasActuator then {
         		destinations += _library.map DependencyLibrary2Endpoint('POST '+endpointPrefix+'/actuator/refresh');
         	} endif;
 	    } endif;
-	    if _library.LibraryName = 'spring-cloud-starter-netflix-hystrix' 
+	    if _library.LibraryName = 'spring-cloud-starter-netflix-hystrix'
 	      or _library.LibraryName = 'spring-cloud-starter-hystrix' then {
 	    	hasHystrix := true;
 	    	if hasActuator then {
@@ -860,23 +860,23 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
         	} endif;
 	    } endif;
 	    if _library.LibraryName = 'spring-cloud-config-server' then {
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/{appID}/{profile}');   	    	
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/{appID}/{profile}');
 	    } endif;
-	    if _library.LibraryName = 'spring-cloud-starter-eureka-server' 
+	    if _library.LibraryName = 'spring-cloud-starter-eureka-server'
 	       or _library.LibraryName = 'spring-cloud-starter-netflix-eureka-server' then {
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/');   	    	
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/{appID}');   	    	
-        	destinations += _library.map DependencyLibrary2Endpoint('POST '+endpointPrefix+'/eureka/v2/apps/{appID}');   	    	
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/');
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/{appID}');
+        	destinations += _library.map DependencyLibrary2Endpoint('POST '+endpointPrefix+'/eureka/v2/apps/{appID}');
 	    	hasEurekaServer := true;
 	    } endif;
 	    if _library.LibraryName = 'spring-cloud-starter-hystrix-dashboard' then {
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/hystrix');   	    	
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/hystrix');
 	    } endif;
 	    if _library.LibraryName = 'spring-cloud-starter-turbine' then {
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/clusters');   	    	
-        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/turbine.stream');   	    	
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/clusters');
+        	destinations += _library.map DependencyLibrary2Endpoint('GET '+endpointPrefix+'/turbine.stream');
 	    } endif;
-	    if _library.LibraryName = 'spring-cloud-starter-netflix-zuul' 
+	    if _library.LibraryName = 'spring-cloud-starter-netflix-zuul'
 	       or _library.LibraryName = 'spring-cloud-starter-zuul' then {
 	       hasZuulServer := true;
 	       if hasActuator then {
@@ -886,37 +886,37 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
 	    } endif;
 	 };
 	 self.properties->forEach(_property1){
-		if (_property1.FullyQualifiedPropertyName = 'eureka.client.registerWithEureka' 
-		    and _property1.PropertyValue = 'false') then {	   
+		if (_property1.FullyQualifiedPropertyName = 'eureka.client.registerWithEureka'
+		    and _property1.PropertyValue = 'false') then {
 			   self.properties->forEach(_property2){
-			   		if (_property2.FullyQualifiedPropertyName = 'eureka.client.fetchRegistry' 
+			   		if (_property2.FullyQualifiedPropertyName = 'eureka.client.fetchRegistry'
 			   			and _property2.PropertyValue = 'false') then {
 			   				hasEurekaServer := true;
-		        			destinations += _property1.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/');   	    	
-				        	destinations += _property1.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/{appID}');   	    	
-				        	destinations += _property1.map ConfigurationProperty2Endpoint('POST '+endpointPrefix+'/eureka/v2/apps/{appID}');   	    	
+		        			destinations += _property1.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/');
+				        	destinations += _property1.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/{appID}');
+				        	destinations += _property1.map ConfigurationProperty2Endpoint('POST '+endpointPrefix+'/eureka/v2/apps/{appID}');
 					    	break;
 			   		} endif;
 			   };
-			   break;						   	
-		} endif; 
+			   break;
+		} endif;
     };
 	self.properties->forEach(_property){
 		if _property.FullyQualifiedPropertyName.startsWith('management.endpoints.actuator.') then {
-        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/env');    			
-        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/logfile');    			
-        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/health');    			
-        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/info');    			
-        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/metrics');    			
-        	destinations += _property.map ConfigurationProperty2Endpoint('POST '+endpointPrefix+'/actuator/shutdown');    			
+        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/env');
+        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/logfile');
+        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/health');
+        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/info');
+        	destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/metrics');
+        	destinations += _property.map ConfigurationProperty2Endpoint('POST '+endpointPrefix+'/actuator/shutdown');
         	hasActuator := true;
         	if hasClientConfig then {
         		destinations += destinations += _property.map ConfigurationProperty2Endpoint('POST '+endpointPrefix+'/actuator/refresh');
         	} endif;
         	if hasHystrix then {
         		destinations += destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/actuator/hystrix.stream');
-        	} endif;    			
-		} endif; 
+        	} endif;
+		} endif;
 		if _property.FullyQualifiedPropertyName = 'spring.cloud.config.uri' then {
 	    	hasClientConfig := true;
 	    	if hasActuator then {
@@ -934,14 +934,14 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
 	    } endif;
 	    if _property.FullyQualifiedPropertyName.startsWith('spring.cloud.config.server.native.')
 	       or _property.FullyQualifiedPropertyName.startsWith('spring.cloud.config.server.git.') then {
-        		destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/{appID}/{profile}');	    	
+        		destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/{appID}/{profile}');
 	    } endif;
-	    if _property.FullyQualifiedPropertyName = 'zuul.ignoredServices' 
+	    if _property.FullyQualifiedPropertyName = 'zuul.ignoredServices'
 		   or _property.FullyQualifiedPropertyName.startsWith('zuul.routes.') then {
 	    	hasZuulServer := true;
 	    	if hasActuator then {
         		destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/routes');
-        		destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/filters'); 
+        		destinations += _property.map ConfigurationProperty2Endpoint('GET '+endpointPrefix+'/filters');
         	} endif;
 	    } endif;
 	};
@@ -950,19 +950,19 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
 														     or _type.oclIsKindOf(JavaInterfaceType))) {
 		_type.imports->forEach(_import) {
 			if (_import.ElementIdentifier = 'EnableAuthorizationServer'
-			   and _import.PackageName = 'org.springframework.security.oauth2.config.annotation.web.configuration') 
+			   and _import.PackageName = 'org.springframework.security.oauth2.config.annotation.web.configuration')
 			   or (_import.ElementIdentifier = 'AuthorizationServerConfigurerAdapter'
 			      and _import.PackageName = 'org.springframework.security.oauth2.config.annotation.web.configuration') then {
-        			destinations += _import.map JavaUserDefinedType2Endpoint('GET '+endpointPrefix+'/oauth/token_key');   	    	
-        			destinations += _import.map JavaUserDefinedType2Endpoint('POST '+endpointPrefix+'/oauth/token');   	    	
-        			destinations += _import.map JavaUserDefinedType2Endpoint('POST '+endpointPrefix+'/oauth/authorize');   	    	
+        			destinations += _import.map JavaUserDefinedType2Endpoint('GET '+endpointPrefix+'/oauth/token_key');
+        			destinations += _import.map JavaUserDefinedType2Endpoint('POST '+endpointPrefix+'/oauth/token');
+        			destinations += _import.map JavaUserDefinedType2Endpoint('POST '+endpointPrefix+'/oauth/authorize');
 			   } endif;
 		};
-		
+
 		_type.annotations->forOne(_annotation | _annotation.AnnotationName = 'RepositoryRestResource') {
 			_annotation.parameters->forOne(_parameter | _parameter.ParameterName = 'path'){
 				var prefix := endpointPrefix + '/' + _parameter.ParameterValue.substringAfter('"').substringBefore('"');
-				destinations += _annotation.map JavaAnnotation2Endpoint('GET ' + prefix);     
+				destinations += _annotation.map JavaAnnotation2Endpoint('GET ' + prefix);
 				if _type.methods <> null then {
 					prefix := prefix + '/search/';
 					_type.methods->forEach(_method) {
@@ -984,26 +984,26 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
 								};
 								destination := destination + '}';
 							} endif;
-							destinations += _method.map JavaMethod2Endpoint(destination);     
+							destinations += _method.map JavaMethod2Endpoint(destination);
 						} endif;
-					};				
+					};
 				} endif;
 			};
-		};	
+		};
 	};
 	JavaAnnotation.allInstances()->forEach(_annotation | _annotation.ParentProjectName = self.ProjectArtifactId
-                                                         and _annotation.container().oclIsKindOf(JavaUserDefinedType)) {                                                         	
+                                                         and _annotation.container().oclIsKindOf(JavaUserDefinedType)) {
 		if _annotation.AnnotationName = 'EnableConfigServer' then {
-			destinations += _annotation.map JavaAnnotation2Endpoint('GET '+endpointPrefix+'/{appID}/{profile}');	   		
+			destinations += _annotation.map JavaAnnotation2Endpoint('GET '+endpointPrefix+'/{appID}/{profile}');
 		} endif;
 		if _annotation.AnnotationName = 'EnableEurekaServer' then {
 			hasEurekaServer := true;
-        	destinations += _annotation.map JavaAnnotation2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/');   	    	
-        	destinations += _annotation.map JavaAnnotation2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/{appID}');   	    	
-        	destinations += _annotation.map JavaAnnotation2Endpoint('POST '+endpointPrefix+'/eureka/v2/apps/{appID}');   	    	
-        } endif;  
+        	destinations += _annotation.map JavaAnnotation2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/');
+        	destinations += _annotation.map JavaAnnotation2Endpoint('GET '+endpointPrefix+'/eureka/v2/apps/{appID}');
+        	destinations += _annotation.map JavaAnnotation2Endpoint('POST '+endpointPrefix+'/eureka/v2/apps/{appID}');
+        } endif;
         if _annotation.AnnotationName = 'EnableHystrixDashboard' then {
-			destinations += _annotation.map JavaAnnotation2Endpoint('GET '+endpointPrefix+'/hystrix');	   		
+			destinations += _annotation.map JavaAnnotation2Endpoint('GET '+endpointPrefix+'/hystrix');
 		} endif;
 		if _annotation.AnnotationName = 'EnableZuulProxy' then {
 			if hasActuator then {
@@ -1013,34 +1013,34 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
 		} endif;
 	};
 	JavaMethod.allInstances()->forEach(_method | _method.ParentProjectName = self.ProjectArtifactId
-	                                             and _method.annotations->exists(a | a.AnnotationName.endsWith('Mapping')) 
+	                                             and _method.annotations->exists(a | a.AnnotationName.endsWith('Mapping'))
 	                                             and _method.container().oclAsType(JavaUserDefinedType).annotations->exists(a | a.AnnotationName.endsWith('Controller'))) {
 		var http_method := '';
 		var destination := '';
 		var prefix = '';
 		_method.container().oclAsType(JavaClassType).annotations->any(a | a.AnnotationName = 'RequestMapping').parameters->forEach(_parameter){
-			if _parameter.ParameterName = 'value' 
+			if _parameter.ParameterName = 'value'
 			   or _parameter.ParameterName = 'NOT_AVAILABLE' then {
 				prefix := endpointPrefix + _parameter.ParameterValue.substringAfter('"').substringBefore('"');
-			} endif;				
+			} endif;
 		};
 		http_method := _method.annotations->any(annotation | annotation.AnnotationName.endsWith('Mapping')).AnnotationName.substringBefore('Mapping');
 		if http_method = 'Request' then {
-			http_method := 'GET';	
+			http_method := 'GET';
 		} endif;
 		_method.annotations->any(a | a.AnnotationName.endsWith('Mapping')).parameters->forEach(_parameter){
 			if _parameter.ParameterName = 'method' then {
 				http_method := _parameter.ParameterValue.substringAfter('RequestMethod.');
 			} endif;
-			if _parameter.ParameterName = 'value' 
+			if _parameter.ParameterName = 'value'
 			   or _parameter.ParameterName = 'path'
 			   or _parameter.ParameterName = 'NOT_AVAILABLE' then {
 				destination := _parameter.ParameterValue.substringAfter('"').substringBefore('"');
 			} endif;
-		}; 
+		};
 		if http_method <> '' then {
-			destinations += _method.map JavaMethod2Endpoint(http_method.toUpperCase() + ' ' + prefix + destination);     
-		} endif;                                       	
+			destinations += _method.map JavaMethod2Endpoint(http_method.toUpperCase() + ' ' + prefix + destination);
+		} endif;
 	};
 	JavaMethod.allInstances()->forEach(_method | _method.ParentProjectName = self.ProjectArtifactId
 	                                             and _method.annotations->exists(a | a.AnnotationName = 'RabbitListener')) {
@@ -1052,46 +1052,46 @@ mapping MicroserviceProject :: MicroserviceProject2ServiceInterface(): ServiceIn
 				if queue_name.indexOf('"') <> 0 then {
 					queue_name := _parameter.ParameterValue.substringAfter('"').substringBefore('"');
 					operation_name := _method.ElementIdentifier +'()';
-					
+
 				} endif;
 			} endif;
 		};
 		if queue_name <> '' then {
-			destinations += _method.map JavaMethod2QueueListener(queue_name, operation_name);     
-		} endif;  
+			destinations += _method.map JavaMethod2QueueListener(queue_name, operation_name);
+		} endif;
 	};
 	// some code has been removed
-	
+
 }
 
 mapping DependencyLibrary :: DependencyLibrary2InfrastructurePatternComponent(category: InfrastructurePatternCategory, technology: String): InfrastructurePatternComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;															                          													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructurePatternComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1100,37 +1100,37 @@ mapping DependencyLibrary :: DependencyLibrary2InfrastructurePatternComponent(ca
    	if component = null then {
    	  Environment := self.LibraryScope;
    	} endif;
-    GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';		
+    GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';
 }
 
 mapping DependencyLibrary :: DependencyLibrary2InfrastructureServerComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureServerComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureServerComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1139,37 +1139,37 @@ mapping DependencyLibrary :: DependencyLibrary2InfrastructureServerComponent(cat
    	if component = null then {
    	  Environment := self.LibraryScope;
    	} endif;
-    GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';		
+    GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';
 }
 
 mapping DependencyLibrary :: DependencyLibrary2InfrastructureClientComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureClientComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureClientComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1178,96 +1178,96 @@ mapping DependencyLibrary :: DependencyLibrary2InfrastructureClientComponent(cat
    	if component = null then {
    	  Environment := self.LibraryScope;
    	} endif;
-    GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';		
+    GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';
 }
 
 mapping DependencyLibrary :: DependencyLibrary2Endpoint(uri: String): Endpoint {
 
 	// if an Endpoint with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                               and e.RequestURI = uri);
 		if endpoint <> null then {
 			result:= endpoint;
 		} endif;
-	}	
+	}
     RequestURI := uri;
     Environment := self.LibraryScope;
-	GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']'; 
-		
+	GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';
+
 	// some code has been removed
-	
-	// map messages association 
+
+	// map messages association
     if uri.indexOf('/actuator/health') <> 0 then {
-    	messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"status":{"type":"string"},"details":{"type":"object"}}}', 'JSON'); 
+    	messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"status":{"type":"string"},"details":{"type":"object"}}}', 'JSON');
     } endif;
     if uri.indexOf('/actuator/info') <> 0 then {
-    	messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"git":{"type":"object","properties":{"branch":{"type":"string"},"commit":{"type":"type":"object","properties":{"time":{"type":"object"},"id":{"type":"string"}}}}},"build":{"type":"object","properties":{"artifact":{"type":"string"},"group":{"type":"string"},"name":{"type":"string"},"version":{"type":"string"},"time":{"type":"object"}}}}}', 'JSON'); 
+    	messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"git":{"type":"object","properties":{"branch":{"type":"string"},"commit":{"type":"type":"object","properties":{"time":{"type":"object"},"id":{"type":"string"}}}}},"build":{"type":"object","properties":{"artifact":{"type":"string"},"group":{"type":"string"},"name":{"type":"string"},"version":{"type":"string"},"time":{"type":"object"}}}}}', 'JSON');
     } endif;
     if uri.indexOf('/actuator/metrics') <> 0 then {
-    	messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"Datacenter":{"type":"string"},"ID":{"type":"string"},"Node":{"type":"string"},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"string"},"wan":{"type":"string"}}},"NodeMeta":{"type":"object","properties":{"somekey":{"type":"string"}}},"Service":{"type":"object","properties":{"ID":{"type":"string"},"Service":{"type":"string"},"Tags":{"type":"array","items":{"type":"string"}},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}},"wan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}}}},"Meta":{"type":"object"},"Port":{"type":"integer"}}},"Check":{"type":"object"},"SkipNodeUpdate":{"type":"boolean"}}}', 'JSON'); 
+    	messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"Datacenter":{"type":"string"},"ID":{"type":"string"},"Node":{"type":"string"},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"string"},"wan":{"type":"string"}}},"NodeMeta":{"type":"object","properties":{"somekey":{"type":"string"}}},"Service":{"type":"object","properties":{"ID":{"type":"string"},"Service":{"type":"string"},"Tags":{"type":"array","items":{"type":"string"}},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}},"wan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}}}},"Meta":{"type":"object"},"Port":{"type":"integer"}}},"Check":{"type":"object"},"SkipNodeUpdate":{"type":"boolean"}}}', 'JSON');
     } endif;
     if uri.indexOf('/actuator/shutdown') <> 0 then {
-    	messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"message":{"type":"string"}}}', 'JSON'); 
+    	messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"message":{"type":"string"}}}', 'JSON');
     } endif;
     if uri.indexOf('/api/v2/spans') <> 0 then {
     	if uri.indexOf('GET') <> 0 then {
-    		messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON');     		
+    		messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON');
     	} endif;
     	if uri.indexOf('POST') <> 0 then {
-    	    messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'REQUEST', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON'); 
-    	    messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE','{"type":"string"}','JSON');	
+    	    messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'REQUEST', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON');
+    	    messages += self.map DependencyLibrary2EndpointServiceMessage(uri, 'RESPONSE','{"type":"string"}','JSON');
     	} endif;
-    } endif;	
+    } endif;
 }
 
 mapping DependencyLibrary :: DependencyLibrary2EndpointServiceMessage(uri: String, type: String, schema: String, format: String): ServiceMessage {
 
 	// if a Message with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var message := ServiceMessage.allInstances()->selectOne(m | m.container().oclAsType(Endpoint).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var message := ServiceMessage.allInstances()->selectOne(m | m.container().oclAsType(Endpoint).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                                    and m.container().oclAsType(Endpoint).RequestURI = uri
-				                                                    and m.MessageType = type 
-				                                                    and m.BodySchema = schema 
+				                                                    and m.MessageType = type
+				                                                    and m.BodySchema = schema
 		                                                            and m.SchemaFormat = format);
 		if message <> null then {
 			result:= message;
 		} endif;
-	}	
+	}
     MessageType := type;
     BodySchema := schema;
     SchemaFormat := format;
-	GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';       
+	GeneratingPSM += 'DependencyLibrary[LibraryName:'+self.LibraryName+']';
 }
 
 mapping ConfigurationProperty :: ConfigurationProperty2InfrastructurePatternComponent(category: InfrastructurePatternCategory, technology: String): InfrastructurePatternComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructurePatternComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1276,37 +1276,37 @@ mapping ConfigurationProperty :: ConfigurationProperty2InfrastructurePatternComp
    	if component = null then {
    	  Environment := self.ConfigurationProfile;
    	} endif;
-   	GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';		
+   	GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';
 }
 
 mapping ConfigurationProperty :: ConfigurationProperty2InfrastructureServerComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureServerComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureServerComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1315,38 +1315,38 @@ mapping ConfigurationProperty :: ConfigurationProperty2InfrastructureServerCompo
    	if component = null then {
    	  Environment := self.ConfigurationProfile;
    } endif;
-   GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';		
+   GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';
 }
 
 mapping ConfigurationProperty :: ConfigurationProperty2InfrastructureClientComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureClientComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureClientComponent);
-	   } endif;		
-	}   
+	   } endif;
+	}
 	Category := category;
 	if technology <> '' then {
 		Technology := technology;
@@ -1354,14 +1354,14 @@ mapping ConfigurationProperty :: ConfigurationProperty2InfrastructureClientCompo
    	if component = null then {
    	  Environment := self.ConfigurationProfile;
    } endif;
-   GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';		
+   GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';
 }
 
 mapping ConfigurationProperty :: ConfigurationProperty2ServiceDependency(provider: String, destination: String, wrapped: Boolean): ServiceDependency {
 
 	// if a Dependency with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var dependency := ServiceDependency.allInstances()->selectOne(d | d.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var dependency := ServiceDependency.allInstances()->selectOne(d | d.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                                    	  and d.ProviderName = provider
 				                                                    	  and (d.ProviderDestination = destination
 				                                                    	       or d.ProviderDestination = ''
@@ -1370,72 +1370,72 @@ mapping ConfigurationProperty :: ConfigurationProperty2ServiceDependency(provide
 			result:= dependency;
 		} endif;
 	}
-	
+
 	ProviderName:= provider;
 	ProviderDestination:= destination;
 	Environment := self.ConfigurationProfile;
 	isWrappedByCircuitBreaker := wrapped;
-	GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';       	
+	GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';
 }
 
 mapping ConfigurationProperty :: ConfigurationProperty2Endpoint(uri: String): Endpoint {
 
 	// if an Endpoint with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                               and e.RequestURI = uri);
 		if endpoint <> null then {
 			result:= endpoint;
 		} endif;
-	}	
+	}
     RequestURI := uri;
     Environment := self.ConfigurationProfile;
-	GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']'; 
-	
+	GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';
+
 	// some code has been removed
-	
+
 	// map messages association
 	if uri.indexOf('/actuator/health') <> 0 then {
-    	messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"status":{"type":"string"},"details":{"type":"object"}}}', 'JSON'); 
+    	messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"status":{"type":"string"},"details":{"type":"object"}}}', 'JSON');
     } endif;
     if uri.indexOf('/actuator/info') <> 0 then {
-    	messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"git":{"type":"object","properties":{"branch":{"type":"string"},"commit":{"type":"type":"object","properties":{"time":{"type":"object"},"id":{"type":"string"}}}}},"build":{"type":"object","properties":{"artifact":{"type":"string"},"group":{"type":"string"},"name":{"type":"string"},"version":{"type":"string"},"time":{"type":"object"}}}}}', 'JSON'); 
+    	messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"git":{"type":"object","properties":{"branch":{"type":"string"},"commit":{"type":"type":"object","properties":{"time":{"type":"object"},"id":{"type":"string"}}}}},"build":{"type":"object","properties":{"artifact":{"type":"string"},"group":{"type":"string"},"name":{"type":"string"},"version":{"type":"string"},"time":{"type":"object"}}}}}', 'JSON');
     } endif;
     if uri.indexOf('/actuator/metrics') <> 0 then {
-    	messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"Datacenter":{"type":"string"},"ID":{"type":"string"},"Node":{"type":"string"},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"string"},"wan":{"type":"string"}}},"NodeMeta":{"type":"object","properties":{"somekey":{"type":"string"}}},"Service":{"type":"object","properties":{"ID":{"type":"string"},"Service":{"type":"string"},"Tags":{"type":"array","items":{"type":"string"}},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}},"wan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}}}},"Meta":{"type":"object"},"Port":{"type":"integer"}}},"Check":{"type":"object"},"SkipNodeUpdate":{"type":"boolean"}}}', 'JSON'); 
+    	messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"Datacenter":{"type":"string"},"ID":{"type":"string"},"Node":{"type":"string"},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"string"},"wan":{"type":"string"}}},"NodeMeta":{"type":"object","properties":{"somekey":{"type":"string"}}},"Service":{"type":"object","properties":{"ID":{"type":"string"},"Service":{"type":"string"},"Tags":{"type":"array","items":{"type":"string"}},"Address":{"type":"string"},"TaggedAddresses":{"type":"object","properties":{"lan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}},"wan":{"type":"object","properties":{"address":{"type":"string"},"port":{"type":"integer"}}}}},"Meta":{"type":"object"},"Port":{"type":"integer"}}},"Check":{"type":"object"},"SkipNodeUpdate":{"type":"boolean"}}}', 'JSON');
     } endif;
     if uri.indexOf('/actuator/shutdown') <> 0 then {
-    	messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"message":{"type":"string"}}}', 'JSON'); 
+    	messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"object","properties":{"message":{"type":"string"}}}', 'JSON');
     } endif;
     if uri.indexOf('/api/v2/spans') <> 0 then {
     	if uri.indexOf('GET') <> 0 then {
-    		messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON');     		
+    		messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON');
     	} endif;
     	if uri.indexOf('POST') <> 0 then {
-    	    messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'REQUEST', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON'); 
-    	    messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE','{"type":"string"}','JSON');	
+    	    messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'REQUEST', '{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"traceId":{"type":"string"},"parentId":{"type":"string"},"name":{"type":"string"},"timestamp":{"type":"integer"},"duration":{"type":"integer"},"kind":{"type":"string"},"localEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"remoteEndpoint":{"type":"object","properties":{"serviceName":{"type":"string"},"ipv4":{"type":"string"},"port":{"type":"integer"}}},"tags":{"type":"object","properties":{"http.method":{"type":"string"},"http.path":{"type":"string"}}}}}}', 'JSON');
+    	    messages += self.map ConfigurationProperty2EndpointServiceMessage(uri, 'RESPONSE','{"type":"string"}','JSON');
     	} endif;
     } endif;
-    
+
 }
 
 mapping ConfigurationProperty :: ConfigurationProperty2EndpointServiceMessage(uri: String, type: String, schema: String, format: String): ServiceMessage {
 
 	// if a Message with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var message := ServiceMessage.allInstances()->selectOne(m | m.container().oclAsType(Endpoint).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var message := ServiceMessage.allInstances()->selectOne(m | m.container().oclAsType(Endpoint).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                                    and m.container().oclAsType(Endpoint).RequestURI = uri
-				                                                    and m.MessageType = type 
-				                                                    and m.BodySchema = schema 
+				                                                    and m.MessageType = type
+				                                                    and m.BodySchema = schema
 		                                                            and m.SchemaFormat = format);
 		if message <> null then {
 			result:= message;
 		} endif;
-	}	
+	}
     MessageType := type;
     BodySchema := schema;
     SchemaFormat := format;
-	GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']'; 
+	GeneratingPSM += 'ConfigurationProperty[FullyQualifiedPropertyName:'+self.FullyQualifiedPropertyName+']';
 }
 
 
@@ -1444,29 +1444,29 @@ mapping JavaUserDefinedType :: JavaUserDefinedType2InfrastructurePatternComponen
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
+																                          and c.Technology = null);
 			} endif;
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructurePatternComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1475,37 +1475,37 @@ mapping JavaUserDefinedType :: JavaUserDefinedType2InfrastructurePatternComponen
    	if component = null then {
    	  Environment := self.ElementProfile;
     } endif;
-    GeneratingPSM += 'JavaUserDefinedType[ElementIdentifier:'+self.ElementIdentifier+']';		
+    GeneratingPSM += 'JavaUserDefinedType[ElementIdentifier:'+self.ElementIdentifier+']';
 }
 
 mapping JavaUserDefinedType :: JavaUserDefinedType2InfrastructureServerComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureServerComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureServerComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1514,37 +1514,37 @@ mapping JavaUserDefinedType :: JavaUserDefinedType2InfrastructureServerComponent
    	if component = null then {
    	  Environment := self.ElementProfile;
    	} endif;
-    GeneratingPSM += 'JavaUserDefinedType[ElementIdentifier:'+self.ElementIdentifier+']';		
+    GeneratingPSM += 'JavaUserDefinedType[ElementIdentifier:'+self.ElementIdentifier+']';
 }
 
 mapping JavaUserDefinedType :: JavaUserDefinedType2InfrastructureClientComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureClientComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureClientComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1553,55 +1553,55 @@ mapping JavaUserDefinedType :: JavaUserDefinedType2InfrastructureClientComponent
    	if component = null then {
    	  Environment := self.ElementProfile;
    	} endif;
-    GeneratingPSM += 'JavaUserDefinedType[ElementIdentifier:'+self.ElementIdentifier+']';		
+    GeneratingPSM += 'JavaUserDefinedType[ElementIdentifier:'+self.ElementIdentifier+']';
 }
 
 mapping JavaUserDefinedType :: JavaUserDefinedType2Endpoint(uri: String): Endpoint {
 
 	// if an Endpoint with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                               and e.RequestURI = uri);
 		if endpoint <> null then {
 			result:= endpoint;
 		} endif;
-	}	
+	}
     RequestURI := uri;
     if endpoint = null then {
    		Environment := self.ElementProfile;
     } endif;
-    GeneratingPSM += 'JavaUserDefinedType[ElementIdentifier:'+self.ElementIdentifier+']'; 
-		 
+    GeneratingPSM += 'JavaUserDefinedType[ElementIdentifier:'+self.ElementIdentifier+']';
+
 }
 
 mapping JavaAnnotation :: JavaAnnotation2InfrastructurePatternComponent(category: InfrastructurePatternCategory, technology: String): InfrastructurePatternComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructurePatternComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1614,39 +1614,39 @@ mapping JavaAnnotation :: JavaAnnotation2InfrastructurePatternComponent(category
 	   		Environment := self.container().oclAsType(JavaInterfaceType).ElementProfile;
 	   } elif self.container().oclIsTypeOf(JavaMethod) then {
 	   		Environment := self.container().oclAsType(JavaMethod).ElementProfile;
-	   } endif;   	
+	   } endif;
    	} endif;
-    GeneratingPSM += 'JavaAnnotation[AnnotationName:'+self.AnnotationName+']';		
+    GeneratingPSM += 'JavaAnnotation[AnnotationName:'+self.AnnotationName+']';
 }
 
 mapping JavaAnnotation :: JavaAnnotation2InfrastructureServerComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureServerComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureServerComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1659,39 +1659,39 @@ mapping JavaAnnotation :: JavaAnnotation2InfrastructureServerComponent(category:
 	   		Environment := self.container().oclAsType(JavaInterfaceType).ElementProfile;
 	   } elif self.container().oclIsTypeOf(JavaMethod) then {
 	   		Environment := self.container().oclAsType(JavaMethod).ElementProfile;
-	   } endif;   	
+	   } endif;
    	} endif;
-   GeneratingPSM += 'JavaAnnotation[AnnotationName:'+self.AnnotationName+']';		
+   GeneratingPSM += 'JavaAnnotation[AnnotationName:'+self.AnnotationName+']';
 }
 
 mapping JavaAnnotation :: JavaAnnotation2InfrastructureClientComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureClientComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureClientComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1704,22 +1704,22 @@ mapping JavaAnnotation :: JavaAnnotation2InfrastructureClientComponent(category:
 	   		Environment := self.container().oclAsType(JavaInterfaceType).ElementProfile;
 	   } elif self.container().oclIsTypeOf(JavaMethod) then {
 	   		Environment := self.container().oclAsType(JavaMethod).ElementProfile;
-	   } endif;   	
+	   } endif;
    	} endif;
-   GeneratingPSM += 'JavaAnnotation[AnnotationName:'+self.AnnotationName+']';		
+   GeneratingPSM += 'JavaAnnotation[AnnotationName:'+self.AnnotationName+']';
 }
 
 mapping JavaAnnotation :: JavaAnnotation2Endpoint(uri: String): Endpoint {
 
 	// if an Endpoint with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                               and e.RequestURI = uri);
 		if endpoint <> null then {
 			result:= endpoint;
 		} endif;
 	}
-	
+
     RequestURI := uri;
     if endpoint = null then {
 	   if self.container().oclIsTypeOf(JavaClassType) then {
@@ -1728,40 +1728,40 @@ mapping JavaAnnotation :: JavaAnnotation2Endpoint(uri: String): Endpoint {
 	   		Environment := self.container().oclAsType(JavaInterfaceType).ElementProfile;
 	   } elif self.container().oclIsTypeOf(JavaMethod) then {
 	   		Environment := self.container().oclAsType(JavaMethod).ElementProfile;
-	   } endif; 
+	   } endif;
     } endif;
-	GeneratingPSM += 'JavaAnnotation[AnnotationName:'+self.AnnotationName+']'; 
-	 
+	GeneratingPSM += 'JavaAnnotation[AnnotationName:'+self.AnnotationName+']';
+
 }
 
 mapping JavaMethod :: JavaMethod2InfrastructurePatternComponent(category: InfrastructurePatternCategory, technology: String): InfrastructurePatternComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructurePatternComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1770,37 +1770,37 @@ mapping JavaMethod :: JavaMethod2InfrastructurePatternComponent(category: Infras
    	if component = null then {
    	  Environment := self.ElementProfile;
    	} endif;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';		
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
 }
 
 mapping JavaMethod :: JavaMethod2InfrastructureServerComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureServerComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructureClientComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;												                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false
 		  and component.oclIsTypeOf(InfrastructureClientComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureServerComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1809,37 +1809,37 @@ mapping JavaMethod :: JavaMethod2InfrastructureServerComponent(category: Infrast
    	if component = null then {
    	  Environment := self.ElementProfile;
    	} endif;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';		
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
 }
 
 mapping JavaMethod :: JavaMethod2InfrastructureClientComponent(category: InfrastructurePatternCategory, technology: String): InfrastructureClientComponent {
 
 	// if a Component with the same category was recovered before, update it, otherwise, create a new one.
 	init {
-				
-		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-															                          and c.Category = category);	    
-	    if technology <> '' then {	    
-	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+
+		var component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+															                          and c.Category = category);
+	    if technology <> '' then {
+	    	component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+		   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+		                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 															                          and c.Category = category
 															                          and c.Technology = technology);
 			if component = null then {
-				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false 
-			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false 
-			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+				component := InfrastructurePatternComponent.allInstances()->selectOne(c | c.oclIsTypeOf(InfrastructureServerComponent) = false
+			   														   					  and c.oclIsTypeOf(InfrastructurePatternComponent) = false
+			                                                                              and c.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 																                          and c.Category = category
-																                          and c.Technology = null);	
-			} endif;													                               	
-	   } endif;	    
-	   if component <> null 
-		  and component.oclIsTypeOf(InfrastructureServerComponent) = false 
+																                          and c.Technology = null);
+			} endif;
+	   } endif;
+	   if component <> null
+		  and component.oclIsTypeOf(InfrastructureServerComponent) = false
 		  and component.oclIsTypeOf(InfrastructurePatternComponent) = false then {
 		   	  result:= component.oclAsType(InfrastructureClientComponent);
-	   } endif;		
+	   } endif;
 	}
 	Category := category;
 	if technology <> '' then {
@@ -1848,14 +1848,14 @@ mapping JavaMethod :: JavaMethod2InfrastructureClientComponent(category: Infrast
    	if component = null then {
    	  Environment := self.ElementProfile;
    	} endif;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';		
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
 }
 
 mapping JavaMethod :: JavaMethod2ServiceDependency(operation: String, provider: String, destination: String, wrapped: Boolean): ServiceDependency {
 
 	// if a Dependency with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var dependency := ServiceDependency.allInstances()->selectOne(d | d.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var dependency := ServiceDependency.allInstances()->selectOne(d | d.container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                                    	  and d.ProviderName = provider
 				                                                    	  and (d.ProviderDestination = destination
 				                                                    	       or d.ProviderDestination = ''
@@ -1864,7 +1864,7 @@ mapping JavaMethod :: JavaMethod2ServiceDependency(operation: String, provider: 
 			result:= dependency;
 		} endif;
 	}
-	
+
 	ConsumerOperation:= operation;
 	ProviderName:= provider;
 	ProviderDestination:= destination;
@@ -1872,26 +1872,26 @@ mapping JavaMethod :: JavaMethod2ServiceDependency(operation: String, provider: 
     if dependency = null then {
    		Environment := self.ElementProfile;
     } endif;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';	
-    
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
+
 }
 
 mapping JavaMethod :: JavaMethod2Endpoint(uri: String): Endpoint {
 
 	// if an Endpoint with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var endpoint := Endpoint.allInstances()->selectOne(e | e.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                               and e.RequestURI = uri);
 		if endpoint <> null then {
 			result:= endpoint;
 		} endif;
-	}	
+	}
     RequestURI := uri;
     if endpoint = null then {
    		Environment := self.ElementProfile;
     } endif;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';	
-		 
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
+
 	// map messages and operation associations
 	var operation_description = 'An operation with name '+self.ElementIdentifier+'()';
 	var request_description = '';
@@ -1901,7 +1901,7 @@ mapping JavaMethod :: JavaMethod2Endpoint(uri: String): Endpoint {
 	self.parameters->forEach(_parameter | _parameter.annotations->exists(a | a.AnnotationName = 'RequestBody') = true){
 		json_schema := _parameter.type.JsonSchema;
 		request_description := ' requests object ' + _parameter.type.ElementIdentifier;
-		messages += self.map JavaMethod2EndpointServiceMessage(uri, 'REQUEST', json_schema, 'JSON'); 
+		messages += self.map JavaMethod2EndpointServiceMessage(uri, 'REQUEST', json_schema, 'JSON');
 		break;
 	};
 	self.annotations->forOne(_annotation | _annotation.AnnotationName = 'ResponseStatus'){
@@ -1912,18 +1912,18 @@ mapping JavaMethod :: JavaMethod2Endpoint(uri: String): Endpoint {
 	if self.returns <> null then {
 		json_schema := self.returns.JsonSchema;
 		response_description := ' responds with object ' + self.returns.ElementIdentifier;
-		messages += self.map JavaMethod2EndpointServiceMessage(uri, 'RESPONSE', json_schema, 'JSON');	
+		messages += self.map JavaMethod2EndpointServiceMessage(uri, 'RESPONSE', json_schema, 'JSON');
 	} endif;
 	// map operation association
 	if request_description <> '' then {
 		operation_description := operation_description + ' that' + request_description;
 		if response_description <> '' then {
-			operation_description := operation_description + ' and' + response_description;			
+			operation_description := operation_description + ' and' + response_description;
 		} endif;
 	} else {
 		if response_description <> '' then {
-			operation_description := operation_description + ' that' + response_description;			
-		} endif;		
+			operation_description := operation_description + ' that' + response_description;
+		} endif;
 	} endif;
 	operation := self.map JavaMethod2ServiceOperation(self.ElementIdentifier + '()', operation_description);
 
@@ -1933,19 +1933,19 @@ mapping JavaMethod :: JavaMethod2EndpointServiceMessage(uri: String, type: Strin
 
 	// if a Message with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var message := ServiceMessage.allInstances()->selectOne(m | m.container().oclAsType(Endpoint).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var message := ServiceMessage.allInstances()->selectOne(m | m.container().oclAsType(Endpoint).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                                    and m.container().oclAsType(Endpoint).RequestURI = uri
-				                                                    and m.MessageType = type 
-				                                                    and m.BodySchema = schema 
+				                                                    and m.MessageType = type
+				                                                    and m.BodySchema = schema
 		                                                            and m.SchemaFormat = format);
 		if message <> null then {
 			result:= message;
 		} endif;
-	}	
+	}
     MessageType := type;
     BodySchema := schema;
     SchemaFormat := format;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';	 
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
 }
 
 
@@ -1953,36 +1953,36 @@ mapping JavaMethod :: JavaMethod2ServiceOperation(name: String, description: Str
 
 	// if a Service Operation with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var operation := ServiceOperation.allInstances()->selectOne(o | o.container().oclAsType(Endpoint).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
-				                                                    	and o.OperationName = name 
+		var operation := ServiceOperation.allInstances()->selectOne(o | o.container().oclAsType(Endpoint).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
+				                                                    	and o.OperationName = name
 		                                                            	and o.OperationDescription = description);
 		if operation <> null then {
 			result:= operation;
 		} endif;
-	}	
+	}
     OperationName := name;
     OperationDescription := description;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';	 
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
 }
 
 mapping JavaMethod :: JavaMethod2QueueListener(qname: String, operation_name: String): QueueListener {
 
 	// if an QueueListener with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var queue := QueueListener.allInstances()->selectOne(q | q.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var queue := QueueListener.allInstances()->selectOne(q | q.container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                                 and q.QueueName = qname
 				                                                 and q.operation.OperationName = operation_name);
 		if queue <> null then {
 			result:= queue;
 		} endif;
-	}	
+	}
     QueueName := qname;
     if queue = null then {
    		Environment := self.ElementProfile;
     } endif;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';	 
-		
-	// map messages and operation associations 
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
+
+	// map messages and operation associations
 	var operation_description = 'An operation with name '+self.ElementIdentifier+'()';
 	var inbound_description = '';
 	var json_schema := '';
@@ -1990,7 +1990,7 @@ mapping JavaMethod :: JavaMethod2QueueListener(qname: String, operation_name: St
 	self.parameters->forEach(_parameter | _parameter.ParameterOrder = 1){
 		json_schema := _parameter.type.JsonSchema;
 		inbound_description := ' reads object ' + _parameter.type.ElementIdentifier;
-		messages += self.map JavaMethod2QueueServiceMessage(qname, 'INBOUND', json_schema, 'JSON'); 
+		messages += self.map JavaMethod2QueueServiceMessage(qname, 'INBOUND', json_schema, 'JSON');
 		break;
 	};
 	// map operation association
@@ -2004,19 +2004,19 @@ mapping JavaMethod :: JavaMethod2QueueServiceMessage(qname: String, type: String
 
 	// if a Message with the same details was recovered before, update it, otherwise, create a new one.
 	init{
-		var message := ServiceMessage.allInstances()->selectOne(m | m.container().oclAsType(QueueListener).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName 
+		var message := ServiceMessage.allInstances()->selectOne(m | m.container().oclAsType(QueueListener).container().oclAsType(ServiceInterface).container().oclAsType(Microservice).MicroserviceName = self.ParentProjectName
 				                                                    and m.container().oclAsType(QueueListener).QueueName = qname
-				                                                    and m.MessageType = type 
-				                                                    and m.BodySchema = schema 
+				                                                    and m.MessageType = type
+				                                                    and m.BodySchema = schema
 		                                                            and m.SchemaFormat = format);
 		if message <> null then {
 			result:= message;
 		} endif;
-	}	
+	}
     MessageType := type;
     BodySchema := schema;
     SchemaFormat := format;
-    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';	 
+    GeneratingPSM += 'JavaMethod[ElementIdentifier:'+self.ElementIdentifier+'()]';
 }
 
 mapping PythonFunction :: PythonFunction2Endpoint(uri: String): Endpoint {
