@@ -1,7 +1,7 @@
 ############################
 # Developed by RanaFakeeh-87
 # 01/20/2020
-# LAST UPDATE: 02/04/2026
+# LAST UPDATE: 11/06/2026 (@aljvdi)
 ############################
 
 import tkinter
@@ -37,7 +37,9 @@ from pathlib import Path
 USER_HOME_DIR = Path.home()
 MISAR_DIR = USER_HOME_DIR / "MiSAR"
 PARSER_DIR = MISAR_DIR / "Parser"
-PSM_ECORE_PATH = PARSER_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore"
+from MisarParserConfig import describe_psm_selection
+from MisarParserLanguage import format_module_display_path, strip_language_badge
+DEPENDENCY_BUILD_FILES = ["pom.xml", "requirements.txt", "pyproject.toml", "Pipfile", "setup.py", "setup.cfg", "poetry.lock"]
 
 
 def yaml_to_dict(filename):
@@ -110,15 +112,7 @@ def window_quit():
 def select(inputClass):
     print(inputClass.fileType)
     if inputClass.fileType == "file":
-        if inputClass.name == "psmEcore":
-            filename = filedialog.askopenfilename()
-            if filename:
-                inputClass.ent.configure(state='normal')
-                inputClass.ent.delete(0, 'end')
-                inputClass.ent.insert(0, filename)
-                inputClass.ent.configure(state='readonly', readonlybackground='white')
-
-        elif inputClass.name in ["dockerCompose", "appBuild", "moduleBuild"]:
+        if inputClass.name in ["dockerCompose", "appBuild", "moduleBuild"]:
             files = filedialog.askopenfilenames()
             for file in files:
                 if file not in inputClass.lst.get(0, 'end'):
@@ -140,11 +134,12 @@ def select(inputClass):
                         autoImporter(directory)
                     #pomScanner(inputClass, directory)
             elif inputClass.name in ["moduleBuildDir", "appConfigDir"]:
-                if directory not in inputClass.lst.get(0, 'end'):
+                if inputClass.name == "moduleBuildDir":
+                    insert_module_directory(inputClass.lst, directory)
+                    pomScanner(inputClass, directory)
+                elif directory not in inputClass.lst.get(0, 'end'):
                     inputClass.lst.insert(inputClass.lst.size(), directory)
                     inputClass.lst.configure(background='white')
-                    if inputClass.name == "moduleBuildDir":
-                        pomScanner(inputClass, directory)
 
 
 def delete_item(inputClass):
@@ -165,63 +160,77 @@ def forbiddenFinder(projName):
     return clean
 
 
+def list_contains_raw_path(target_list, raw_path):
+    raw_path = str(raw_path).strip()
+    for item in target_list.get(0, 'end'):
+        if strip_language_badge(item) == raw_path:
+            return True
+    return False
+
+
+def insert_module_directory(target_list, directory):
+    raw_directory = str(Path(directory)).strip()
+    if raw_directory and not list_contains_raw_path(target_list, raw_directory):
+        target_list.insert('end', format_module_display_path(raw_directory))
+        target_list.configure(background='white')
+
+
 def autoImporter(inputDirectory):
     automatic = messagebox.askquestion("Automatic Importer",
                                        "Would you like to use the automatic importer to try and automatically import all of the required files located within " + folderNameCalc(
                                            inputDirectory) + "? If you use the automatic importer, it will save you a lot of time uploading files manually.", icon="info")
     if automatic == "yes":
-        docker_compose_files = []
-        for docker_compose_file in docker_compose.lst.get(0, 'end'):
-            if docker_compose_file.strip():
-                docker_compose_files.append(docker_compose_file)
-                application_containers = {}
-                for docker_compose_file in docker_compose_files:
-                    docker_compose_dict = {}
-                    if docker_compose_file.endswith(('.yml', '.yaml')):
-                        docker_compose_dict = yaml_to_dict(docker_compose_file)
-                    if 'services' in docker_compose_dict:
-                        docker_compose_dict = docker_compose_dict['services']
-                    for container_name in docker_compose_dict:
-                        if 'build' in docker_compose_dict[container_name] or 'image' in docker_compose_dict[container_name]:
-                            if container_name not in application_containers:
-                                application_containers[container_name] = {}
-        dockerList = list(application_containers.keys())
-        print(dockerList)
-
         input_dir_path = Path(inputDirectory)
-        for file in os.listdir(input_dir_path):
-            targetDirectory = input_dir_path / file
-            if file in dockerList:
-                if os.path.isdir(targetDirectory):
-                    if str(targetDirectory) not in module_build_dir.lst.get(0, 'end'):
-                        module_build_dir.lst.insert('end', str(targetDirectory))
-                    pom_file = targetDirectory / "pom.xml"
-                    if os.path.isfile(pom_file):
-                        if str(pom_file) not in module_build.lst.get(0, 'end'):
-                            module_build.lst.insert('end', str(pom_file))
-            app_pom = input_dir_path / "pom.xml"
-            if os.path.isfile(app_pom):
-                if str(app_pom) not in app_build.lst.get(0, 'end'):
-                    app_build.lst.insert('end', str(app_pom))
+        candidate_directories = []
+        for docker_compose_file in docker_compose.lst.get(0, 'end'):
+            if not docker_compose_file.strip():
+                continue
+            docker_compose_dict = {}
+            if docker_compose_file.endswith(('.yml', '.yaml')):
+                docker_compose_dict = yaml_to_dict(docker_compose_file)
+            services = docker_compose_dict.get('services', docker_compose_dict)
+            for container_name, service_definition in services.items():
+                service_name_dir = input_dir_path / container_name
+                if service_name_dir.is_dir():
+                    candidate_directories.append(service_name_dir)
+                build_definition = service_definition.get('build', '') if isinstance(service_definition, dict) else ''
+                build_context = ''
+                if isinstance(build_definition, str):
+                    build_context = build_definition
+                elif isinstance(build_definition, dict):
+                    build_context = build_definition.get('context', '')
+                if build_context:
+                    build_path = (input_dir_path / build_context).resolve()
+                    if build_path.is_dir():
+                        candidate_directories.append(build_path)
+
+        for targetDirectory in candidate_directories:
+            insert_module_directory(module_build_dir.lst, targetDirectory)
+            add_dependency_files_for_directory(targetDirectory, module_build.lst)
+        add_dependency_files_for_directory(input_dir_path, app_build.lst)
+
+
+def add_dependency_files_for_directory(inputDirectory, targetList):
+    input_path = Path(inputDirectory)
+    for dependency_file in DEPENDENCY_BUILD_FILES:
+        candidate = input_path / dependency_file
+        if candidate.is_file():
+            candidate_text = str(candidate)
+            if candidate_text not in targetList.get(0, 'end'):
+                targetList.insert('end', candidate_text)
 
 
 def pomScanner(inputClass, inputDirectory):
-    pomScan = messagebox.askquestion("POM Scanner",
-                                     "Would you like to add any corresponding POM files that exist within " + folderNameCalc(
-                                         inputDirectory) + "?", icon="info")
-    if pomScan == "yes":
-        inputDirectory = Path(inputDirectory) / "pom.xml"
-        print(inputDirectory)
-        print(os.path.isfile(inputDirectory))
-        if os.path.isfile(inputDirectory):
-            if inputClass.name == "projectDir":
-                if str(inputDirectory) not in app_build.lst.get(0, 'end'):
-                    app_build.lst.insert('end', str(inputDirectory))
-            if inputClass.name == "moduleBuildDir":
-                if str(inputDirectory) not in module_build.lst.get(0, 'end'):
-                    module_build.lst.insert('end', str(inputDirectory))
-        else:
-            messagebox.showerror('POM Scanner', 'This folder does not have a corresponding POM file.')
+    dependencyScan = messagebox.askquestion("Build / Dependency Scanner",
+                                            "Would you like to add any corresponding build or dependency files that exist within " + folderNameCalc(
+                                                inputDirectory) + "?", icon="info")
+    if dependencyScan == "yes":
+        if inputClass.name == "projectDir":
+            add_dependency_files_for_directory(inputDirectory, app_build.lst)
+        if inputClass.name == "moduleBuildDir":
+            add_dependency_files_for_directory(inputDirectory, module_build.lst)
+        if inputClass.name not in ["projectDir", "moduleBuildDir"]:
+            add_dependency_files_for_directory(inputDirectory, module_build.lst)
 
 
 def create_psm_instance_final_checks():
@@ -247,7 +256,7 @@ def create_psm_instance_final_checks():
         output_dir.ent.configure(readonlybackground='red')
     if len(missingValueGenerator) <= 0:
 
-        create_psm_instance(txt_proj_name, proj_dir.ent, psm_ecore, docker_compose.lst, app_build.lst, module_build_dir.lst,
+        create_psm_instance(txt_proj_name, proj_dir.ent, None, docker_compose.lst, app_build.lst, module_build_dir.lst,
                module_build.lst, app_config_dir.lst, output_dir.ent)
     else:
         messagebox.showerror('Error!', ('The following errors are present:\n' + missingValueGenerator + "\n\nThese mandatory fields will be marked in red."))
@@ -299,8 +308,9 @@ class largeFrame:
 # Generates the window instance
 window = tkinter.Tk()
 window.title(
-    'A Python application to parse YAML, XML and JAVA artifacts of a microservice architecture project into a MiSAR PSM model. NEW!')
+    'A Python application to parse YAML, XML, Java and Python artifacts of a microservice architecture project into a MiSAR PSM model. NEW!')
 window.protocol("WM_DELETE_WINDOW", window_quit)
+print('MiSAR parser startup PSM selection = {}'.format(describe_psm_selection()))
 
 # Generates the project name input
 lbl_proj_name = tkinter.Label(window, text='Type Multi-Module Project Name (mandatory):')
@@ -311,16 +321,11 @@ txt_proj_name.grid(row=2, column=0, padx=2, pady=2, sticky='N')
 # Generates the windows
 proj_dir = smallFrame("projectDir", window, "Select Multi-Module Project Build Directory (mandatory):", 2, 0,
                       "directory")
-psm_ecore = tkinter.Entry(window, text='', width=50, foreground='navy')
-psm_ecore.configure(state='normal')
-psm_ecore.delete(0, 'end')
-psm_ecore.insert(0, str(PSM_ECORE_PATH))
-psm_ecore.configure(state='readonly', readonlybackground='white')
 docker_compose = largeFrame("dockerCompose", window, "Select Docker Compose Files (mandatory):", 1, 2, "file")
-app_build = largeFrame("appBuild", window, "Select Multi-Module Project POM Build Files (optional):", 1, 4, "file")
+app_build = largeFrame("appBuild", window, "Select Multi-Module Project Build / Dependency Files (optional):", 1, 4, "file")
 module_build_dir = largeFrame("moduleBuildDir", window, "Select Module Projects Build Directories (mandatory):", 7, 0,
                               "directory")
-module_build = largeFrame("moduleBuild", window, "Select Module Projects POM Build Files (optional):", 7, 2, "file")
+module_build = largeFrame("moduleBuild", window, "Select Module Projects Build / Dependency Files (optional):", 7, 2, "file")
 app_config_dir = largeFrame("appConfigDir", window, "Select Centralized Configuration Directories (optional):", 7, 4,
                             "directory")
 
