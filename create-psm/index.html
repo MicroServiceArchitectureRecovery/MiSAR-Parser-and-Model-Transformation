@@ -989,7 +989,7 @@
 <td><strong>4</strong></td>
 <td><strong>Select Module Projects Build Directories</strong></td>
 <td>✅</td>
-<td>The build directories of the individual microservices. These may be populated automatically by the importer, or selected manually if MiSAR cannot detect them.</td>
+<td>The build directories of the individual microservices. These may be populated automatically by the importer, or selected manually if MiSAR cannot detect them. MiSAR may also show detected language/framework labels next to each directory, for example <code>[Java: SPRING]</code>, <code>[Python: FASTAPI]</code>, or <code>[Unknown]</code>.</td>
 </tr>
 <tr>
 <td><strong>5</strong></td>
@@ -1054,6 +1054,15 @@
 <p>You can still manually edit, add, or remove entries if needed.</p>
 <h3 id="4-check-or-add-module-project-build-directories">4. Check or Add Module Project Build Directories<a class="headerlink" href="#4-check-or-add-module-project-build-directories" title="Permanent link">&para;</a></h3>
 <p>After using the automatic importer, check whether <strong>Select Module Projects Build Directories</strong> has been filled correctly.</p>
+<p>When module project build directories are selected, MiSAR may display the detected language and framework next to each directory.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>/path/to/book-service [Python: FASTAPI]
+/path/to/order-service [Java: SPRING]
+/path/to/payment-service [Python: DJANGO]
+/path/to/mixed-service [Java: SPRING; Python: FASTAPI]
+</code></pre></div>
+<p>This label is only shown to help users understand what MiSAR has detected in each folder. The actual selected directory path is still used internally by the parser.</p>
+<p>If MiSAR shows <code>[Unknown]</code>, it means the folder was selected but MiSAR could not confidently identify a supported language or framework from the files inside that directory. This can happen for frontend projects, unsupported languages, incomplete services, or folders that do not contain recognisable build/dependency files.</p>
 <p>Depending on the Docker Compose file and project structure, MiSAR may not be able to automatically detect every microservice directory.</p>
 <p>If this happens, add each microservice directory manually.</p>
 <p>For each microservice, select the exact folder where that microservice's source code is located.</p>
@@ -1105,6 +1114,9 @@ The Docker Compose automatic importer currently works best with Java-based micro
 </li>
 <li>
 <p>If automatic import does not detect all microservice directories, add them manually.</p>
+</li>
+<li>
+<p>Module project build directories may display detected language/framework labels, such as <code>[Java: SPRING]</code>, <code>[Python: FASTAPI]</code>, <code>[Python: DJANGO]</code>, or <code>[Unknown]</code>. These labels are informational and help confirm what MiSAR detected in each selected folder.</p>
 </li>
 <li>
 <p>For Maven-based Java projects, allow MiSAR to read the <code>pom.xml</code> files when prompted.</p>
