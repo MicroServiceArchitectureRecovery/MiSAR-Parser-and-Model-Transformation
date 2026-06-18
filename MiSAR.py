@@ -10,7 +10,7 @@ import tkinter
 import webbrowser
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 from urllib.request import Request, urlopen
 import os
 from datetime import datetime
@@ -49,6 +49,15 @@ REQUIRED_MODULES = [
     ("javalang", "javalang"),
 ]
 
+VERSION_FILE_PATH = AIO_DIR / "MISAR.versions.json"
+MODULE_VERSION_KEYS = {
+    "MiSAR Parser": ("misar.parser",),
+    "MiSAR Transformation Engine": ("misar.transofrmer", "misar.transformer"),
+    "MiSAR Graphical Model Generator": ("misar.visualiser",),
+}
+LAUNCHER_VERSION_KEYS = ("misar.launcher",)
+MISAR_VERSIONS = {}
+
 LOGGER = logging.getLogger("MiSAR-AIO")
 LOGGER.propagate = False
 
@@ -70,11 +79,18 @@ def parse_arguments():
         action="store_true",
         help="Enable debug logging to logs/MiSAR-AIO.log and the terminal.",
     )
+    parser.add_argument(
+        "--psm-path",
+        "--misar-psm-path",
+        default=None,
+        help="Optional PSM Ecore file to pass to the MiSAR Parser when debug mode is enabled.",
+    )
     return parser.parse_known_args()[0]
 
 
 ARGS = parse_arguments()
 DEBUG_MODE = ARGS.debug
+PARSER_SELECTED_PSM_PATH = Path(ARGS.psm_path).expanduser() if getattr(ARGS, "psm_path", None) else None
 
 
 def setup_logger():
@@ -303,6 +319,67 @@ def write_json_file(file_path, data):
         json.dump(data, json_file, indent=2)
 
     log_event("json_file_written", path=file_path, data=data)
+
+
+def read_version_json_file(file_path):
+    """Read MISAR.versions.json from the launcher root, or return empty data if absent."""
+    if not file_path.is_file():
+        return {}
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as json_file:
+            data = json.load(json_file)
+        return data if isinstance(data, dict) else {}
+    except Exception as error:
+        log_event("version_json_file_read_failed", path=file_path, error=str(error))
+        return {}
+
+
+def load_misar_versions():
+    """Read MiSAR versions from MISAR.versions.json, or return empty data if absent."""
+    version_keys = {key for keys in MODULE_VERSION_KEYS.values() for key in keys}
+    version_keys.update(LAUNCHER_VERSION_KEYS)
+
+    data = read_version_json_file(VERSION_FILE_PATH)
+    versions = {key: str(value) for key, value in data.items() if key in version_keys and value}
+
+    if versions:
+        log_event("misar_versions_loaded", path=VERSION_FILE_PATH, versions=versions)
+        return versions
+
+    log_event("misar_versions_unavailable", path=VERSION_FILE_PATH)
+    return {}
+
+
+def get_configured_version(version_keys):
+    """Return a configured version for the supplied keys, or an empty string when unavailable."""
+    for version_key in version_keys:
+        version = MISAR_VERSIONS.get(version_key)
+
+        if version:
+            return str(version)
+
+    return ""
+
+
+def get_module_version(module_name):
+    """Return a configured module version, or an empty string when unavailable."""
+    return get_configured_version(MODULE_VERSION_KEYS.get(module_name, ()))
+
+
+def get_launcher_version():
+    """Return the configured launcher version, or an empty string when unavailable."""
+    return get_configured_version(LAUNCHER_VERSION_KEYS)
+
+
+def format_version_text(version):
+    """Format a version value for display while allowing empty versions to stay hidden."""
+    version = str(version).strip() if version else ""
+
+    if not version:
+        return ""
+
+    return version if version.lower().startswith("v") else "v" + version
 
 
 def open_documentation():
@@ -835,41 +912,290 @@ def handle_gmg_uninstall():
 # MAIN
 # ===============================
 
+import tkinter.font as tkfont
+from tkinter import ttk
+
+PALETTE = {
+    "bg": "#f5f7fb",
+    "sidebar": "#101c36",
+    "sidebar_text": "#b8c2d6",
+    "sidebar_title": "#ffffff",
+    "panel": "#ffffff",
+    "panel_soft": "#f8fafc",
+    "border": "#dbe3ef",
+    "border_strong": "#cbd5e1",
+    "title": "#162037",
+    "text": "#334155",
+    "muted": "#64748b",
+    "input": "#f8fafc",
+    "accent": "#2563eb",
+    "accent_hover": "#1d4ed8",
+    "accent_pressed": "#1e40af",
+    "secondary": "#eef2f7",
+    "secondary_hover": "#e2e8f0",
+    "secondary_text": "#1e293b",
+    "success": "#16a34a",
+    "success_hover": "#15803d",
+    "danger": "#dc2626",
+    "danger_hover": "#b91c1c",
+    "disabled": "#d9e1ec",
+    "disabled_text": "#7b8797",
+    "status_bg": "#eef2f8",
+}
+
+CARD_RADIUS = 10
+CARD_SHADOW_OFFSET = 5
+WINDOW_WIDTH = 1100
+WINDOW_HEIGHT = 620
+
+
+def ui_font(size=11, weight="normal"):
+    try:
+        family = tkfont.nametofont("TkDefaultFont").cget("family")
+    except Exception:
+        family = "Helvetica"
+    return (family, size, weight) if weight != "normal" else (family, size)
+
+
+class RoundedButton(tkinter.Canvas):
+    def __init__(self, master, text, command=None, variant="primary", width=132):
+        super().__init__(master, width=width, height=42, highlightthickness=0, bd=0, cursor="hand2")
+        self.text = text
+        self.command = command
+        self.variant = variant
+        self.enabled = True
+        self.hovered = False
+        self.pressed = False
+        self.button_font = ui_font(11, "bold")
+        super().configure(bg=PALETTE["panel"])
+        self.bind("<Configure>", lambda _event: self._draw())
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
+        self.bind("<Return>", lambda _event: self.invoke())
+        self.bind("<space>", lambda _event: self.invoke())
+        self._draw()
+
+    def configure(self, cnf=None, **kwargs):
+        options = {}
+        if cnf:
+            options.update(cnf)
+        options.update(kwargs)
+
+        if "text" in options:
+            self.text = options.pop("text")
+        if "command" in options:
+            self.command = options.pop("command")
+        if "variant" in options:
+            self.variant = options.pop("variant")
+        if "state" in options:
+            state = str(options.pop("state"))
+            self.set_enabled(state not in {"disabled", str(tkinter.DISABLED)})
+        if "font" in options:
+            self.button_font = options.pop("font")
+        if options:
+            super().configure(**options)
+        self._draw()
+
+    def config(self, cnf=None, **kwargs):
+        self.configure(cnf, **kwargs)
+
+    def set_enabled(self, enabled):
+        self.enabled = enabled
+        super().configure(cursor="hand2" if enabled else "arrow")
+        self._draw()
+
+    def invoke(self):
+        if self.enabled and self.command is not None:
+            self.command()
+
+    def _colours(self):
+        if not self.enabled:
+            return PALETTE["disabled"], PALETTE["disabled_text"], PALETTE["disabled"]
+        if self.variant == "secondary":
+            bg = PALETTE["secondary_hover"] if self.hovered else PALETTE["secondary"]
+            return bg, PALETTE["secondary_text"], PALETTE["border_strong"]
+        if self.variant == "danger":
+            bg = PALETTE["danger_hover"] if self.hovered else PALETTE["danger"]
+            return bg, "#ffffff", bg
+        if self.variant == "success":
+            bg = PALETTE["success_hover"] if self.hovered else PALETTE["success"]
+            return bg, "#ffffff", bg
+        bg = PALETTE["accent_hover"] if self.hovered else PALETTE["accent"]
+        if self.pressed:
+            bg = PALETTE["accent_pressed"]
+        return bg, "#ffffff", bg
+
+    def _draw(self):
+        self.delete("all")
+        width = max(self.winfo_width(), 1)
+        height = max(self.winfo_height(), 1)
+        bg, fg, outline = self._colours()
+        if self.enabled:
+            self._rounded_rect(2, 4, width - 2, height - 1, 12, fill="#dfe6f1", outline="")
+        self._rounded_rect(1, 1, width - 3, height - 4, 12, fill=bg, outline=outline)
+        self.create_text((width - 2) / 2, (height - 3) / 2, text=self.text, fill=fg, font=self.button_font)
+
+    def _rounded_rect(self, x1, y1, x2, y2, radius, **kwargs):
+        points = [
+            x1 + radius, y1, x2 - radius, y1, x2, y1, x2, y1 + radius,
+            x2, y2 - radius, x2, y2, x2 - radius, y2, x1 + radius, y2,
+            x1, y2, x1, y2 - radius, x1, y1 + radius, x1, y1,
+        ]
+        self.create_polygon(points, smooth=True, splinesteps=18, **kwargs)
+
+    def _on_enter(self, _event):
+        self.hovered = True
+        self._draw()
+
+    def _on_leave(self, _event):
+        self.hovered = False
+        self.pressed = False
+        self._draw()
+
+    def _on_press(self, _event):
+        if self.enabled:
+            self.pressed = True
+            self._draw()
+
+    def _on_release(self, _event):
+        was_pressed = self.pressed
+        self.pressed = False
+        self._draw()
+        if was_pressed:
+            self.invoke()
+
+
+class BoxFrame(tkinter.Frame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, bg=PALETTE["bg"], **kwargs)
+        self.canvas = tkinter.Canvas(self, highlightthickness=0, bd=0, bg=PALETTE["bg"])
+        self.canvas.pack(fill="both", expand=True)
+        self.content = tkinter.Frame(self.canvas, bg=PALETTE["panel"], padx=22, pady=18)
+        self.window_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
+        self.content.bind("<Configure>", self._on_content_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+    def grid_columnconfigure(self, index, cnf=None, **kw):
+        return self.content.grid_columnconfigure(index, {} if cnf is None else cnf, **kw)
+
+    def grid_rowconfigure(self, index, cnf=None, **kw):
+        return self.content.grid_rowconfigure(index, {} if cnf is None else cnf, **kw)
+
+    def _on_content_configure(self, event):
+        height = event.height + CARD_SHADOW_OFFSET + 4
+        if self.canvas.winfo_height() != height:
+            self.canvas.configure(height=height)
+        self._draw()
+
+    def _on_canvas_configure(self, event):
+        width = max(event.width - CARD_SHADOW_OFFSET - 2, 120)
+        self.canvas.itemconfigure(self.window_id, width=width)
+        self._draw()
+
+    def _draw(self):
+        self.canvas.delete("card")
+        width = max(self.canvas.winfo_width(), 1)
+        height = max(self.canvas.winfo_height(), self.content.winfo_reqheight() + CARD_SHADOW_OFFSET + 4)
+        panel_width = max(width - CARD_SHADOW_OFFSET - 1, 1)
+        panel_height = max(height - CARD_SHADOW_OFFSET - 1, 1)
+        self._rounded_rect(3, 4, panel_width + 3, panel_height + 4, CARD_RADIUS, fill="#e8edf5", outline="", tags="card")
+        self._rounded_rect(1, 2, panel_width + 1, panel_height + 2, CARD_RADIUS, fill="#f1f4f9", outline="", tags="card")
+        self._rounded_rect(0, 0, panel_width, panel_height, CARD_RADIUS, fill=PALETTE["panel"], outline=PALETTE["border"], tags="card")
+        self.canvas.tag_lower("card")
+
+    def _rounded_rect(self, x1, y1, x2, y2, radius, **kwargs):
+        points = [
+            x1 + radius, y1, x2 - radius, y1, x2, y1, x2, y1 + radius,
+            x2, y2 - radius, x2, y2, x2 - radius, y2, x1 + radius, y2,
+            x1, y2, x1, y2 - radius, x1, y1 + radius, x1, y1,
+        ]
+        self.canvas.create_polygon(points, smooth=True, splinesteps=20, **kwargs)
+
 
 class ProgramOfChoice:
-    """Represent one selectable MiSAR module in the launcher UI."""
-
     def __init__(self, name, version, input_row, input_column, target_window, supports_uninstall=False):
-        """Create the module label, action button, and optional uninstall button."""
         self.name = name
-        self.version = version
+        self.version = str(version).strip() if version else ""
         self.input_row = input_row
         self.input_column = input_column
         self.uninstall_button = None
 
-        self.container = tkinter.Frame(target_window)
-        self.container.grid(row=input_row, column=input_column, pady=8)
+        parent = getattr(target_window, "modules_frame", target_window)
+        self.container = BoxFrame(parent)
+        self.container.grid(row=input_row, column=input_column, sticky="ew", pady=(0, 14))
+        self.container.content.grid_columnconfigure(1, weight=1)
 
-        self.module_name = tkinter.Label(self.container, text=name, font=("Arial", 20))
-        self.module_name.pack()
+        details = module_details(name)
+        self.icon = tkinter.Label(
+            self.container.content,
+            text=details["icon"],
+            width=3,
+            height=2,
+            font=ui_font(22, "bold"),
+            bg=PALETTE["panel_soft"],
+            fg=PALETTE["accent"],
+            relief="flat",
+        )
+        self.title_frame = tkinter.Frame(self.container.content, bg=PALETTE["panel"])
+        self.module_name = ttk.Label(self.title_frame, text=name, style="CardTitle.TLabel")
+        self.module_name.pack(side=tkinter.LEFT)
+        self.module_version = None
 
-        self.button_frame = tkinter.Frame(self.container)
-        self.button_frame.pack(pady=6)
+        if self.version:
+            version_text = format_version_text(self.version)
+            self.module_version = tkinter.Label(
+                self.title_frame,
+                text=version_text,
+                font=ui_font(9, "bold"),
+                bg=PALETTE["secondary"],
+                fg=PALETTE["muted"],
+                padx=8,
+                pady=3,
+            )
+            self.module_version.pack(side=tkinter.LEFT, padx=(10, 0))
 
-        self.launch_button = tkinter.Button(self.button_frame, text="Install", font=("Arial", 20), width=10)
-        self.launch_button.configure(command=lambda button=self: handle_module_button(button))
-        self.launch_button.pack(side=tkinter.LEFT, padx=8)
+        self.module_description = ttk.Label(
+            self.container.content,
+            text=details["description"],
+            style="MutedCard.TLabel",
+            wraplength=620,
+        )
+        self.status_badge = tkinter.Label(
+            self.container.content,
+            text="Checking",
+            font=ui_font(10, "bold"),
+            bg=PALETTE["secondary"],
+            fg=PALETTE["muted"],
+            padx=12,
+            pady=6,
+        )
+
+        self.button_frame = tkinter.Frame(self.container.content, bg=PALETTE["panel"])
+        self.launch_button = RoundedButton(self.button_frame, "Install", command=lambda button=self: handle_module_button(button), width=124)
+        self.launch_button.pack(side=tkinter.LEFT, padx=(0, 10))
 
         if supports_uninstall:
-            self.uninstall_button = tkinter.Button(
+            self.uninstall_button = RoundedButton(
                 self.button_frame,
-                text="Uninstall",
-                font=("Arial", 20),
-                width=10,
-                state=tkinter.DISABLED,
+                "Uninstall",
+                command=lambda button=self: handle_uninstall_button(button),
+                variant="secondary",
+                width=124,
             )
-            self.uninstall_button.configure(command=lambda button=self: handle_uninstall_button(button))
-            self.uninstall_button.pack(side=tkinter.LEFT, padx=8)
+            self.uninstall_button.pack(side=tkinter.LEFT)
+            self.uninstall_button.configure(state=tkinter.DISABLED)
+
+        self.icon.grid(row=0, column=0, rowspan=2, sticky="n", padx=(0, 18))
+        self.title_frame.grid(row=0, column=1, sticky="w")
+        self.module_description.grid(row=1, column=1, sticky="ew", pady=(5, 0))
+        self.status_badge.grid(row=0, column=2, sticky="e", padx=(18, 0))
+        self.button_frame.grid(row=1, column=2, sticky="e", padx=(18, 0), pady=(8, 0))
+
+        if name == "Need help or more information about this program?":
+            self.status_badge.grid_remove()
+            self.launch_button.configure(text="Help", variant="primary")
 
         log_event(
             "program_button_created",
@@ -880,9 +1206,218 @@ class ProgramOfChoice:
             supports_uninstall=supports_uninstall,
         )
 
+    def set_installed_state(self, installed):
+        label = "Installed" if installed else "Not installed"
+        bg = "#dcfce7" if installed else PALETTE["secondary"]
+        fg = PALETTE["success"] if installed else PALETTE["muted"]
+        self.status_badge.configure(text=label, bg=bg, fg=fg)
+
+
+def module_details(name):
+    details = {
+        "MiSAR Parser": {
+            "icon": "P",
+            "description": "Install or open the parser used to recover MiSAR PSM models from microservice artefacts.",
+        },
+        "MiSAR Graphical Model Generator": {
+            "icon": "G",
+            "description": "Install, update or open the graphical model generator JAR for visualising recovered models.",
+        },
+        "Need help or more information about this program?": {
+            "icon": "?",
+            "description": "Open the MiSAR help message and online documentation in your browser.",
+        },
+    }
+    return details.get(name, {"icon": "M", "description": "Select this MiSAR module to continue."})
+
+
+def set_status(message):
+    if main_window is not None and hasattr(main_window, "status_label"):
+        main_window.status_label.configure(text=message)
+
+
+def set_module_button_state(module, installed):
+    module.launch_button.configure(text="Launch" if installed else "Install")
+    if hasattr(module, "set_installed_state"):
+        module.set_installed_state(installed)
+    if module.uninstall_button is not None:
+        module.uninstall_button.configure(state=tkinter.NORMAL if installed else tkinter.DISABLED)
+
+
+
+def parser_psm_path_display():
+    if PARSER_SELECTED_PSM_PATH is None:
+        return str(PARSER_PSM_ECORE)
+    return str(PARSER_SELECTED_PSM_PATH)
+
+
+def set_entry_value(entry, value):
+    entry.configure(state="normal")
+    entry.delete(0, tkinter.END)
+    entry.insert(0, value)
+    entry.configure(state="readonly")
+
+
+def update_psm_path_entry():
+    if main_window is None or not hasattr(main_window, "debug_psm_entry"):
+        return
+    set_entry_value(main_window.debug_psm_entry, parser_psm_path_display())
+
+
+def update_debug_ui():
+    if main_window is None:
+        return
+
+    if hasattr(main_window, "debug_status_label"):
+        main_window.debug_status_label.configure(
+            text="Debug mode: ON" if DEBUG_MODE else "Debug mode: OFF",
+            bg="#dcfce7" if DEBUG_MODE else PALETTE["secondary"],
+            fg=PALETTE["success"] if DEBUG_MODE else PALETTE["muted"],
+        )
+
+    if hasattr(main_window, "debug_toggle_button"):
+        main_window.debug_toggle_button.configure(text="Turn off" if DEBUG_MODE else "Turn on")
+
+    if hasattr(main_window, "debug_panel"):
+        if DEBUG_MODE:
+            main_window.debug_panel.grid()
+        else:
+            main_window.debug_panel.grid_remove()
+
+    update_psm_path_entry()
+
+
+def toggle_debug_mode():
+    global DEBUG_MODE
+
+    if not DEBUG_MODE:
+        accepted = messagebox.askyesno(
+            "Enable Debug Mode",
+            "Debug mode writes diagnostic logs to a local logs folder on this computer.\n\n"
+            "It does not send anything to MiSAR, Brunel University London, GitHub, or anyone else automatically.\n\n"
+            "Enable debug mode for this session?",
+        )
+        if not accepted:
+            return
+        DEBUG_MODE = True
+        setup_logger()
+        log_event("debug_mode_enabled_from_ui", log_file=LOG_FILE_PATH)
+        set_status("Debug mode enabled.")
+    else:
+        log_event("debug_mode_disabled_from_ui")
+        DEBUG_MODE = False
+        setup_logger()
+        set_status("Debug mode disabled.")
+
+    update_debug_ui()
+
+
+def browse_parser_psm_path():
+    global PARSER_SELECTED_PSM_PATH
+
+    initial_dir = PARSER_PSM_ECORE.parent if PARSER_PSM_ECORE.parent.exists() else USER_HOME_DIR
+    selected_file = filedialog.askopenfilename(
+        title="Select parser PSM Ecore file",
+        initialdir=str(initial_dir),
+        filetypes=(
+            ("Ecore files", "*.ecore"),
+            ("All files", "*.*"),
+        ),
+    )
+    if not selected_file:
+        return
+
+    selected_path = Path(selected_file).expanduser()
+    if not selected_path.is_file():
+        messagebox.showerror("Invalid PSM Path", "Please select an existing PSM Ecore file.")
+        return
+
+    PARSER_SELECTED_PSM_PATH = selected_path
+    update_psm_path_entry()
+    set_status("Parser PSM path selected.")
+    log_event("parser_psm_path_selected", psm_path=selected_path)
+
+
+def reset_parser_psm_path():
+    global PARSER_SELECTED_PSM_PATH
+    PARSER_SELECTED_PSM_PATH = None
+    update_psm_path_entry()
+    set_status("Parser PSM path reset to the installed default.")
+    log_event("parser_psm_path_reset", psm_path=PARSER_PSM_ECORE)
+
+
+def build_parser_launch_command():
+    command = [sys.executable, "-u", str(PARSER_GUI_PATH)]
+
+    if DEBUG_MODE:
+        selected_path = Path(PARSER_SELECTED_PSM_PATH or PARSER_PSM_ECORE).expanduser()
+        if not selected_path.is_file():
+            messagebox.showerror(
+                "Missing PSM Path",
+                "The selected PSM Ecore file no longer exists:\n\n" + str(selected_path),
+            )
+            return None
+        command.extend(["--psm-path", str(selected_path)])
+
+    return command
+
+
+def handle_keyboard_shortcut(event):
+    widget_class = getattr(event.widget, "winfo_class", lambda: "")()
+    if widget_class in {"Entry", "Text", "TEntry"}:
+        return None
+
+    key = getattr(event, "char", "")
+    if not key:
+        return None
+
+    key = key.lower()
+    if key == "p":
+        handle_parser_button()
+        return "break"
+    if key == "g":
+        handle_gmg_button()
+        return "break"
+    if key == "?":
+        handle_help_button()
+        return "break"
+    return None
+
+
+def active_monitor_bounds(root):
+    pointer_x = root.winfo_pointerx()
+    pointer_y = root.winfo_pointery()
+
+    try:
+        from screeninfo import get_monitors
+
+        for monitor in get_monitors():
+            if monitor.x <= pointer_x < monitor.x + monitor.width and monitor.y <= pointer_y < monitor.y + monitor.height:
+                return monitor.x, monitor.y, monitor.width, monitor.height
+    except Exception:
+        pass
+
+    return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
+
+
+def centre_and_focus_window(root, width=WINDOW_WIDTH, height=WINDOW_HEIGHT):
+    root.update_idletasks()
+    monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
+    x = monitor_x + max((monitor_width - width) // 2, 0)
+    y = monitor_y + max((monitor_height - height) // 2, 0)
+    root.geometry(f"{width}x{height}+{x}+{y}")
+    root.deiconify()
+    root.lift()
+    root.focus_force()
+
+    try:
+        root.attributes("-topmost", True)
+        root.after(450, lambda: root.attributes("-topmost", False))
+    except tkinter.TclError:
+        pass
+
 
 def handle_parser_button():
-    """Install or launch the MiSAR Parser depending on the local installation state."""
     if not PARSER_PSM_ECORE.is_file():
         install_parser_choice = messagebox.askquestion(
             "Parser Installer",
@@ -904,6 +1439,7 @@ def handle_parser_button():
             return
 
         messagebox.showinfo("Installation commencing!", "The Parser will now be installed.")
+        set_status("Installing MiSAR Parser...")
 
         if install_parser():
             messagebox.showinfo(
@@ -912,6 +1448,7 @@ def handle_parser_button():
                 + str(MISAR_DIR),
             )
             refresh_launch_buttons()
+            set_status("MiSAR Parser installed successfully.")
             return
 
         uninstall_path(Path("MiSAR") / "Parser")
@@ -923,19 +1460,26 @@ def handle_parser_button():
                 + str(PARSER_DIR),
             )
             refresh_launch_buttons()
+            set_status("MiSAR Parser installed successfully.")
         else:
             messagebox.showerror("Failure!", "The Parser installation has failed.")
+            set_status("Parser installation failed.")
 
         return
 
     if check_required_modules():
-        log_event("parser_launch_started", path=PARSER_GUI_PATH)
-        run_logged_subprocess([sys.executable, "-u", str(PARSER_GUI_PATH)],"MiSAR Parser GUI",cwd=PARSER_GUI_PATH.parent)
+        command = build_parser_launch_command()
+        if command is None:
+            set_status("Parser launch cancelled because the selected PSM file is missing.")
+            return
+
+        set_status("Launching MiSAR Parser...")
+        log_event("parser_launch_started", path=PARSER_GUI_PATH, command=command)
+        run_logged_subprocess(command, "MiSAR Parser GUI", cwd=PARSER_GUI_PATH.parent)
         log_event("parser_launch_completed", path=PARSER_GUI_PATH)
 
 
 def handle_transformation_engine_button():
-    """Handle the placeholder Transformation Engine selection."""
     if check_required_modules():
         log_event("transformation_engine_selected")
     else:
@@ -946,7 +1490,6 @@ def handle_transformation_engine_button():
 
 
 def handle_gmg_button():
-    """Install, update, or launch the Graphical Model Generator JAR."""
     if not GMG_JAR_PATH.is_file():
         install_gmg = messagebox.askquestion(
             "Graphical Model Generator Installer",
@@ -964,6 +1507,8 @@ def handle_gmg_button():
             )
             return
 
+        set_status("Installing MiSAR Graphical Model Generator...")
+
         if install_or_update_gmg():
             messagebox.showinfo(
                 "Success!",
@@ -971,21 +1516,24 @@ def handle_gmg_button():
                 + str(GMG_JAR_PATH),
             )
             refresh_launch_buttons()
+            set_status("Graphical Model Generator installed successfully.")
         else:
             messagebox.showerror("Failure!", "The Graphical Model Generator installation has failed.")
+            set_status("Graphical Model Generator installation failed.")
 
         return
 
     if check_internet():
+        set_status("Checking Graphical Model Generator updates...")
         install_or_update_gmg()
 
+    set_status("Launching MiSAR Graphical Model Generator...")
     log_event("gmg_launch_started", jar_path=GMG_JAR_PATH)
-    run_logged_subprocess(["java", "-jar", str(GMG_JAR_PATH)],"MiSAR Graphical Model Generator",cwd=GMG_JAR_PATH.parent)
+    run_logged_subprocess(["java", "-jar", str(GMG_JAR_PATH)], "MiSAR Graphical Model Generator", cwd=GMG_JAR_PATH.parent)
     log_event("gmg_launch_completed", jar_path=GMG_JAR_PATH)
 
 
 def handle_help_button():
-    """Show MiSAR help information and optionally open the online documentation."""
     log_event("help_button_clicked")
 
     messagebox.showinfo(
@@ -1004,11 +1552,11 @@ def handle_help_button():
     log_event("documentation_prompt_response", response=open_documentation_choice)
 
     if open_documentation_choice == "yes":
+        set_status("Opening MiSAR documentation...")
         open_documentation()
 
 
 def handle_module_button(module):
-    """Route a launcher button click to the correct module handler."""
     log_event("button_clicked", button_name=module.name)
 
     if module.name == "MiSAR Parser":
@@ -1022,14 +1570,12 @@ def handle_module_button(module):
 
 
 def window_quit():
-    """Close the Tkinter window and record the shutdown event."""
     log_event("window_quit_requested")
     main_window.quit()
     main_window.destroy()
 
 
 def refresh_launch_buttons():
-    """Set launcher buttons to match each module's installed/uninstalled state."""
     log_event("launch_button_refresh_started")
 
     parser_installed = is_parser_installed()
@@ -1037,6 +1583,7 @@ def refresh_launch_buttons():
 
     set_module_button_state(the_parser, parser_installed)
     set_module_button_state(the_graphical_model_generator, gmg_installed)
+    set_status("Ready")
 
     log_event(
         "launch_button_refresh_completed",
@@ -1044,29 +1591,165 @@ def refresh_launch_buttons():
         gmg_installed=gmg_installed,
     )
 
+
+def configure_styles(root):
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except tkinter.TclError:
+        pass
+    for font_name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
+        try:
+            tkfont.nametofont(font_name).configure(size=11)
+        except Exception:
+            pass
+    style.configure("Root.TFrame", background=PALETTE["bg"])
+    style.configure("Header.TFrame", background=PALETTE["bg"])
+    style.configure("AppTitle.TLabel", background=PALETTE["bg"], foreground=PALETTE["title"], font=ui_font(24, "bold"))
+    style.configure("SectionTitle.TLabel", background=PALETTE["bg"], foreground=PALETTE["title"], font=ui_font(14, "bold"))
+    style.configure("CardTitle.TLabel", background=PALETTE["panel"], foreground=PALETTE["title"], font=ui_font(15, "bold"))
+    style.configure("MutedRoot.TLabel", background=PALETTE["bg"], foreground=PALETTE["muted"], font=ui_font(11))
+    style.configure("MutedCard.TLabel", background=PALETTE["panel"], foreground=PALETTE["muted"], font=ui_font(11))
+
+
 def initialise_ui():
-    """Create and return the MiSAR AIO Tkinter main window."""
     log_event("ui_initialisation_started")
 
     root = tkinter.Tk()
-    root.title("MicroService Architecture Recovery")
-    root.grid_columnconfigure(0, weight=1)
+    root.withdraw()
+    launcher_version = get_launcher_version()
+    launcher_version_text = format_version_text(launcher_version)
+    root.title("MicroService Architecture Recovery" + (" " + launcher_version_text if launcher_version_text else ""))
+    root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+    root.minsize(900, 540)
+    root.configure(bg=PALETTE["bg"])
+    configure_styles(root)
 
-    welcome = tkinter.Label(
-        root,
-        text="Hello and welcome to the MiSAR AIO!\nPlease select a program you would like to use from the list below:",
-        font=("Arial", 20),
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_columnconfigure(1, weight=1)
+
+    sidebar = tkinter.Frame(root, width=96, bg=PALETTE["sidebar"])
+    sidebar.grid(row=0, column=0, sticky="ns")
+    sidebar.grid_propagate(False)
+
+    tkinter.Label(sidebar, text="MiSAR", font=ui_font(14, "bold"), bg=PALETTE["sidebar"], fg=PALETTE["sidebar_title"]).pack(pady=(24, 4))
+    tkinter.Label(sidebar, text="AIO", font=ui_font(11), bg=PALETTE["sidebar"], fg=PALETTE["sidebar_text"]).pack()
+    tkinter.Frame(sidebar, height=1, bg="#243454").pack(fill="x", padx=18, pady=20)
+    sidebar_footer_text = "AIO" + ("\n" + launcher_version_text if launcher_version_text else "")
+    root.sidebar_footer_label = tkinter.Label(
+        sidebar,
+        text=sidebar_footer_text,
+        font=ui_font(10, "bold"),
         justify="center",
+        bg=PALETTE["sidebar"],
+        fg=PALETTE["sidebar_text"],
     )
-    welcome.grid(row=0, column=0, pady=(12, 8))
+    root.sidebar_footer_label.pack(side="bottom", pady=18)
+
+    main = ttk.Frame(root, style="Root.TFrame")
+    main.grid(row=0, column=1, sticky="nsew")
+    main.grid_rowconfigure(1, weight=1)
+    main.grid_columnconfigure(0, weight=1)
+
+    header = ttk.Frame(main, padding=(28, 24, 28, 8), style="Header.TFrame")
+    header.grid(row=0, column=0, sticky="ew")
+    header.grid_columnconfigure(0, weight=1)
+
+    app_title = "MiSAR All-in-One launcher" + (" " + launcher_version_text if launcher_version_text else "")
+    ttk.Label(header, text=app_title, style="AppTitle.TLabel").grid(row=0, column=0, sticky="w")
+    ttk.Label(
+        header,
+        text="Install, update and launch the MiSAR Parser and Graphical Model Generator from one guided dashboard.",
+        style="MutedRoot.TLabel",
+        wraplength=760,
+    ).grid(row=1, column=0, sticky="w", pady=(6, 0))
+    ttk.Label(
+        header,
+        text="Tip: keyboard shortcuts are available - P for Parser, G for Graphical Model Generator, ? for Help.",
+        style="MutedRoot.TLabel",
+        wraplength=760,
+    ).grid(row=2, column=0, sticky="w", pady=(4, 0))
+
+    root.debug_header = tkinter.Frame(header, bg=PALETTE["bg"])
+    root.debug_header.grid(row=0, column=1, rowspan=3, sticky="ne", padx=(18, 0))
+    root.debug_status_label = tkinter.Label(
+        root.debug_header,
+        text="Debug mode: OFF",
+        font=ui_font(10, "bold"),
+        bg=PALETTE["secondary"],
+        fg=PALETTE["muted"],
+        padx=12,
+        pady=6,
+    )
+    root.debug_status_label.pack(anchor="e", pady=(0, 8))
+    root.debug_toggle_button = RoundedButton(root.debug_header, "Turn on", command=toggle_debug_mode, variant="secondary", width=104)
+    root.debug_toggle_button.configure(bg=PALETTE["bg"])
+    root.debug_toggle_button.pack(anchor="e")
+
+    body = ttk.Frame(main, padding=(28, 12, 28, 18), style="Root.TFrame")
+    body.grid(row=1, column=0, sticky="nsew")
+    body.grid_columnconfigure(0, weight=1)
+
+    root.debug_panel = BoxFrame(body)
+    root.debug_panel.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+    root.debug_panel.content.grid_columnconfigure(0, weight=1)
+    tkinter.Label(
+        root.debug_panel.content,
+        text="Debug parser options",
+        font=ui_font(12, "bold"),
+        bg=PALETTE["panel"],
+        fg=PALETTE["title"],
+    ).grid(row=0, column=0, sticky="w", columnspan=3)
+    tkinter.Label(
+        root.debug_panel.content,
+        text="Choose the PSM Ecore file passed to the parser with --psm-path. Leave it as default unless you are testing parser configuration.",
+        font=ui_font(10),
+        bg=PALETTE["panel"],
+        fg=PALETTE["muted"],
+        wraplength=760,
+    ).grid(row=1, column=0, sticky="w", columnspan=3, pady=(4, 12))
+    root.debug_psm_entry = tkinter.Entry(
+        root.debug_panel.content,
+        relief="flat",
+        font=ui_font(10),
+        readonlybackground=PALETTE["input"],
+        fg=PALETTE["text"],
+        bg=PALETTE["input"],
+        highlightthickness=1,
+        highlightbackground=PALETTE["border"],
+        highlightcolor=PALETTE["accent"],
+    )
+    root.debug_psm_entry.grid(row=2, column=0, sticky="ew", ipady=8, padx=(0, 10))
+    root.debug_psm_entry.configure(state="readonly")
+    root.debug_browse_button = RoundedButton(root.debug_panel.content, "Browse", command=browse_parser_psm_path, width=104)
+    root.debug_browse_button.grid(row=2, column=1, sticky="e", padx=(0, 8))
+    root.debug_reset_button = RoundedButton(root.debug_panel.content, "Reset", command=reset_parser_psm_path, variant="secondary", width=96)
+    root.debug_reset_button.grid(row=2, column=2, sticky="e")
+
+    ttk.Label(body, text="Available modules", style="SectionTitle.TLabel").grid(row=1, column=0, sticky="w", pady=(0, 10))
+    root.modules_frame = ttk.Frame(body, style="Root.TFrame")
+    root.modules_frame.grid(row=2, column=0, sticky="nsew")
+    root.modules_frame.grid_columnconfigure(0, weight=1)
+
+    update_debug_ui()
+    # Keyboard shortcuts are available if preferred: P for Parser, G for Graphical Model Generator, ? for Help.
+    root.bind_all("<KeyPress>", handle_keyboard_shortcut)
+
+    root.status_bar = tkinter.Frame(root, height=42, bg=PALETTE["status_bg"])
+    root.status_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
+    root.status_label = tkinter.Label(root.status_bar, text="Ready", anchor="w", font=ui_font(11), bg=PALETTE["status_bg"], fg=PALETTE["text"])
+    root.status_label.pack(side="left", padx=20)
+    root.footer_label = tkinter.Label(root.status_bar, text="Brunel University London", anchor="e", font=ui_font(11), bg=PALETTE["status_bg"], fg=PALETTE["muted"])
+    root.footer_label.pack(side="right", padx=20)
 
     log_event("ui_initialisation_completed")
     return root
 
 
 def run_application():
-    """Initialise the MiSAR AIO UI, schedule update checks, and start Tkinter."""
-    global main_window, the_parser, the_graphical_model_generator, the_help_button
+    global main_window, the_parser, the_graphical_model_generator, the_help_button, MISAR_VERSIONS
+
+    MISAR_VERSIONS = load_misar_versions()
 
     log_event(
         "application_startup",
@@ -1079,13 +1762,16 @@ def run_application():
 
     main_window = initialise_ui()
 
-    the_parser = ProgramOfChoice("MiSAR Parser", "V1.0", 1, 0, main_window, supports_uninstall=True)
+    the_parser = ProgramOfChoice("MiSAR Parser", get_module_version("MiSAR Parser"), 1, 0, main_window, supports_uninstall=True)
     the_graphical_model_generator = ProgramOfChoice(
-        "MiSAR Graphical Model Generator","V1.0",5,0, main_window, supports_uninstall=True,)
-    the_help_button = ProgramOfChoice("Need help or more information about this program?", "V1.0", 7, 0, main_window)
-    the_help_button.launch_button.configure(text="Help", font=("Arial", 20))
+        "MiSAR Graphical Model Generator", get_module_version("MiSAR Graphical Model Generator"), 2, 0, main_window, supports_uninstall=True,
+    )
+    the_help_button = ProgramOfChoice("Need help or more information about this program?", "", 3, 0, main_window)
+    the_help_button.launch_button.configure(text="Help", font=ui_font(11, "bold"))
 
     refresh_launch_buttons()
+    update_debug_ui()
+    main_window.after(80, lambda: centre_and_focus_window(main_window))
 
     main_window.after(500, automatic_update_check)
     main_window.protocol("WM_DELETE_WINDOW", window_quit)
