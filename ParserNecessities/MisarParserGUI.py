@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import stat
+import threading
 import tkinter as tk
 import tkinter.font as tkfont
 from pathlib import Path
@@ -147,6 +148,42 @@ def notify_setup_required() -> None:
         "Complete setup first",
         "Please first add the project name, project build directory, and output directory.",
     )
+
+class EntrySnapshot:
+    def __init__(self, value: str):
+        self.value = value
+
+    def get(self) -> str:
+        return self.value
+
+
+class ListboxSnapshot:
+    def __init__(self, values: Iterable[str]):
+        self.values = tuple(values)
+
+    def size(self) -> int:
+        return len(self.values)
+
+    def get(self, start=0, end=None):
+        if end is None:
+            if not self.values:
+                return ""
+            return self.values[self._index(start)]
+
+        start_index = self._index(start)
+        end_index = len(self.values) - 1 if str(end) == "end" else self._index(end)
+        if end_index < start_index:
+            return tuple()
+        return self.values[start_index:end_index + 1]
+
+    def _index(self, value) -> int:
+        if str(value) == "end":
+            return max(len(self.values) - 1, 0)
+        try:
+            index = int(value)
+        except Exception:
+            return 0
+        return min(max(index, 0), max(len(self.values) - 1, 0))
 
 
 class RoundedButton(tk.Canvas):
@@ -581,6 +618,7 @@ class MisarParserApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.automatic_importer_prompted_for: Optional[str] = None
+        self.model_creation_running = False
 
         self.title(title_with_version(APP_NAME, APP_VERSION))
         self.geometry("1500x920")
@@ -748,12 +786,31 @@ class MisarParserApp(tk.Tk):
         self.create_box.grid(row=3, column=0, columnspan=12, sticky="ew", pady=(0, 4))
         parent = self.create_box.content
         parent.grid_columnconfigure(0, weight=1)
+        parent.grid_columnconfigure(1, weight=0)
         self.create_title = ttk.Label(parent, text="Create model", style="FieldTitle.TLabel")
         self.create_title.grid(row=0, column=0, sticky="w")
         self.readiness_label = ttk.Label(parent, text="Complete the required fields to continue.", style="MutedCard.TLabel")
         self.readiness_label.grid(row=1, column=0, sticky="w", pady=(4, 0))
         self.create_button = RoundedButton(parent, "Create PSM Model", command=self.create_model, variant="success", width=180)
         self.create_button.grid(row=0, column=1, rowspan=2, sticky="e", padx=(18, 0))
+
+        self.progress_frame = tk.Frame(parent, bg=PALETTE["panel"])
+        self.progress_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        self.progress_frame.grid_columnconfigure(1, weight=1)
+        self.progress_title_label = ttk.Label(self.progress_frame, text="Progress", style="MutedCard.TLabel")
+        self.progress_title_label.grid(row=0, column=0, sticky="w")
+        self.progress_message_label = ttk.Label(self.progress_frame, text="Waiting to start.", style="MutedCard.TLabel")
+        self.progress_message_label.grid(row=0, column=1, sticky="w", padx=(12, 0))
+        self.progress_percent_label = ttk.Label(self.progress_frame, text="0%", style="MutedCard.TLabel")
+        self.progress_percent_label.grid(row=0, column=2, sticky="e", padx=(12, 0))
+        self.progress_bar = ttk.Progressbar(
+            self.progress_frame,
+            mode="determinate",
+            maximum=100,
+            value=0,
+            style="Green.Horizontal.TProgressbar",
+        )
+        self.progress_bar.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6, 0))
 
     def project_dialog_initial_dir(self) -> str:
         selected_project_dir = self.project_dir.get() if hasattr(self, "project_dir") else ""
@@ -989,6 +1046,11 @@ class MisarParserApp(tk.Tk):
             return
 
         self.update_file_controls_state()
+        if self.model_creation_running:
+            self.create_button.set_enabled(False)
+            self.readiness_label.configure(text="Creating the PSM model. Please wait.")
+            return
+
         errors = self.validate(show_errors=False)
         ready = not errors and create_psm_instance is not None
         self.create_button.set_enabled(ready)
@@ -1014,31 +1076,61 @@ class MisarParserApp(tk.Tk):
             self.set_status("Parser backend unavailable.")
             return
 
+        self.model_creation_running = True
         self.create_button.set_enabled(False)
+        self.update_file_controls_state()
         self.set_status("Creating PSM model...")
-        self.after(50, self._run_create_model)
+        self.set_progress(0, "Starting model generation...")
+        parser_inputs = self.snapshot_parser_inputs()
 
-    def _run_create_model(self) -> None:
+        worker = threading.Thread(target=self._run_create_model_worker, args=(parser_inputs,), daemon=True)
+        worker.start()
+
+    def snapshot_parser_inputs(self):
+        return (
+            EntrySnapshot(self.project_name.entry.get().strip()),
+            EntrySnapshot(self.project_dir.get()),
+            None,
+            ListboxSnapshot(self.docker_compose.values()),
+            ListboxSnapshot(self.app_build.values()),
+            ListboxSnapshot(self.module_build_dir.values()),
+            ListboxSnapshot(self.module_build.values()),
+            ListboxSnapshot(self.app_config_dir.values()),
+            EntrySnapshot(self.output_dir.get()),
+        )
+
+    def set_progress(self, value: int, message: str) -> None:
+        value = max(0, min(int(value), 100))
+        self.progress_bar.configure(value=value)
+        self.progress_percent_label.configure(text=f"{value}%")
+        self.progress_message_label.configure(text=message)
+
+    def _progress_callback(self, value: int, message: str) -> None:
+        self.after(0, lambda value=value, message=message: self.set_progress(value, message))
+
+    def _run_create_model_worker(self, parser_inputs) -> None:
         try:
-            create_psm_instance(
-                self.project_name.entry,
-                self.project_dir.entry,
-                None,
-                self.docker_compose.listbox,
-                self.app_build.listbox,
-                self.module_build_dir.listbox,
-                self.module_build.listbox,
-                self.app_config_dir.listbox,
-                self.output_dir.entry,
-            )
+            output_path = create_psm_instance(*parser_inputs, progress_callback=self._progress_callback)
+            self.after(0, lambda: self.finish_create_model(None, output_path))
         except Exception as exc:
-            messagebox.showerror("Operation failed", str(exc) or "An unexpected error occurred.")
+            self.after(0, lambda error=exc: self.finish_create_model(error, None))
+
+    def finish_create_model(self, error, output_path) -> None:
+        self.model_creation_running = False
+
+        if error is not None:
+            self.set_progress(0, "Model generation failed.")
+            messagebox.showerror("Operation failed", str(error) or "An unexpected error occurred.")
             self.set_status("Operation failed.")
         else:
-            messagebox.showinfo("PSM model created", "The MiSAR PSM model was created successfully.")
+            self.set_progress(100, "Model generation complete.")
+            success_message = "The MiSAR PSM model was created successfully."
+            if output_path:
+                success_message += "\n\nSaved at:\n" + str(output_path)
+            messagebox.showinfo("PSM model created", success_message)
             self.set_status("PSM model created successfully.")
-        finally:
-            self.update_create_state()
+
+        self.update_create_state()
 
     def set_status(self, message: str) -> None:
         self.status_label.configure(text=message)
@@ -1056,6 +1148,14 @@ class MisarParserApp(tk.Tk):
         self.style.configure("Error.TLabel", background=palette["panel"], foreground=palette["danger"], font=ui_font(10))
         self.style.configure("Vertical.TScrollbar", background=palette["secondary"], troughcolor=palette["bg"], bordercolor=palette["bg"], arrowcolor=palette["muted"])
         self.style.configure("Horizontal.TScrollbar", background=palette["secondary"], troughcolor=palette["bg"], bordercolor=palette["bg"], arrowcolor=palette["muted"])
+        self.style.configure(
+            "Green.Horizontal.TProgressbar",
+            background=palette["success"],
+            troughcolor=palette["secondary"],
+            bordercolor=palette["border"],
+            lightcolor=palette["success"],
+            darkcolor=palette["success"],
+        )
 
         self.project_name.apply_theme(palette)
         for picker in [self.project_dir, self.output_dir]:
@@ -1064,6 +1164,8 @@ class MisarParserApp(tk.Tk):
             picker.apply_theme(palette)
         self.create_box.apply_theme(palette)
         self.create_button.apply_theme(palette)
+        if hasattr(self, "progress_frame"):
+            self.progress_frame.configure(bg=palette["panel"])
 
     def on_close(self) -> None:
         self.quit()
