@@ -1529,7 +1529,7 @@ def handle_gmg_button():
 
     set_status("Launching MiSAR Graphical Model Generator...")
     log_event("gmg_launch_started", jar_path=GMG_JAR_PATH)
-    run_logged_subprocess(["java", "-jar", str(GMG_JAR_PATH)], "MiSAR Graphical Model Generator", cwd=GMG_JAR_PATH.parent)
+    run_logged_subprocess(["java", "-jar", str(GMG_JAR_PATH), "--version", MISAR_VERSIONS['misar.visualiser']], "MiSAR Graphical Model Generator", cwd=GMG_JAR_PATH.parent)
     log_event("gmg_launch_completed", jar_path=GMG_JAR_PATH)
 
 
