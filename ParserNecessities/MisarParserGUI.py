@@ -58,6 +58,7 @@ PROJECT_ROOT_DIR = PARSER_UI_DIR.parent
 MISAR_DIR = USER_HOME_DIR / "MiSAR"
 PARSER_DIR = MISAR_DIR / "Parser"
 VERSION_FILE_PATH = PROJECT_ROOT_DIR / "MISAR.versions.json"
+SESSION_FILE_PATH = PARSER_DIR / "MisarParserGUI.last_session.json"
 VERSION_KEYS = {"parser": ("misar.parser",)}
 
 
@@ -405,6 +406,7 @@ class MultiPicker:
         parent = self.box.content
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_columnconfigure(1, weight=0)
+        parent.grid_columnconfigure(2, weight=0)
         parent.grid_rowconfigure(2, weight=1)
 
         self.label = ttk.Label(parent, text=label, style="FieldTitle.TLabel")
@@ -619,6 +621,9 @@ class MisarParserApp(tk.Tk):
         super().__init__()
         self.automatic_importer_prompted_for: Optional[str] = None
         self.model_creation_running = False
+        self.session_save_job = None
+        self.restoring_session = False
+        self.session_completed_successfully = False
 
         self.title(title_with_version(APP_NAME, APP_VERSION))
         self.geometry("1500x920")
@@ -630,7 +635,9 @@ class MisarParserApp(tk.Tk):
         self._build_layout()
         self.apply_theme()
         self.update_create_state()
+        self.refresh_clear_session_button_visibility()
         self.after(80, lambda: centre_and_focus_window(self))
+        self.after(900, self.ask_to_restore_previous_session)
 
         print("MiSAR parser startup PSM selection = {}".format(describe_psm_selection()))
 
@@ -703,7 +710,7 @@ class MisarParserApp(tk.Tk):
         self.footer_label.pack(side="right", padx=20)
 
     def _build_setup_section(self) -> None:
-        self.project_name = ProjectNameBox(self.content, self.update_create_state)
+        self.project_name = ProjectNameBox(self.content, self.handle_project_name_changed)
         self.project_name.grid(0, 0, 4, padx=(0, 10), pady=(0, 12))
 
         self.project_dir = PathPicker(
@@ -787,15 +794,18 @@ class MisarParserApp(tk.Tk):
         parent = self.create_box.content
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_columnconfigure(1, weight=0)
+        parent.grid_columnconfigure(2, weight=0)
         self.create_title = ttk.Label(parent, text="Create model", style="FieldTitle.TLabel")
         self.create_title.grid(row=0, column=0, sticky="w")
         self.readiness_label = ttk.Label(parent, text="Complete the required fields to continue.", style="MutedCard.TLabel")
         self.readiness_label.grid(row=1, column=0, sticky="w", pady=(4, 0))
+        self.clear_session_button = RoundedButton(parent, "Clear saved session", command=self.clear_saved_session, variant="secondary", width=168)
+        self.clear_session_button.grid(row=0, column=1, rowspan=2, sticky="e", padx=(18, 0))
         self.create_button = RoundedButton(parent, "Create PSM Model", command=self.create_model, variant="success", width=180)
-        self.create_button.grid(row=0, column=1, rowspan=2, sticky="e", padx=(18, 0))
+        self.create_button.grid(row=0, column=2, rowspan=2, sticky="e", padx=(12, 0))
 
         self.progress_frame = tk.Frame(parent, bg=PALETTE["panel"])
-        self.progress_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        self.progress_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(12, 0))
         self.progress_frame.grid_columnconfigure(1, weight=1)
         self.progress_title_label = ttk.Label(self.progress_frame, text="Progress", style="MutedCard.TLabel")
         self.progress_title_label.grid(row=0, column=0, sticky="w")
@@ -811,6 +821,212 @@ class MisarParserApp(tk.Tk):
             style="Green.Horizontal.TProgressbar",
         )
         self.progress_bar.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+
+    def handle_project_name_changed(self) -> None:
+        self.update_create_state()
+        self.schedule_session_save()
+
+    def refresh_clear_session_button_visibility(self) -> None:
+        if not hasattr(self, "clear_session_button"):
+            return
+
+        saved_session = self.read_saved_session()
+        if self.session_state_has_values(saved_session):
+            self.clear_session_button.grid()
+        else:
+            self.clear_session_button.grid_remove()
+
+    def session_values_from_picker(self, picker: MultiPicker) -> List[str]:
+        return [strip_language_badge(value) for value in picker.values() if strip_language_badge(value)]
+
+    def collect_session_state(self) -> dict:
+        return {
+            "project_name": self.project_name.entry.get().strip(),
+            "project_dir": self.project_dir.get(),
+            "output_dir": self.output_dir.get(),
+            "docker_compose_files": self.session_values_from_picker(self.docker_compose),
+            "app_build_files": self.session_values_from_picker(self.app_build),
+            "module_build_dirs": self.session_values_from_picker(self.module_build_dir),
+            "module_build_files": self.session_values_from_picker(self.module_build),
+            "app_config_dirs": self.session_values_from_picker(self.app_config_dir),
+        }
+
+    def session_state_has_values(self, state: dict) -> bool:
+        if not isinstance(state, dict):
+            return False
+
+        for value in state.values():
+            if isinstance(value, list):
+                if any(strip_language_badge(item) for item in value):
+                    return True
+            elif isinstance(value, str) and value.strip():
+                return True
+
+        return False
+
+    def schedule_session_save(self) -> None:
+        if self.restoring_session or self.model_creation_running:
+            return
+        if self.session_save_job is not None:
+            self.after_cancel(self.session_save_job)
+        self.session_save_job = self.after(350, self.save_session)
+
+    def save_session(self) -> None:
+        if self.restoring_session or self.model_creation_running:
+            return
+        self.session_save_job = None
+        try:
+            state = self.collect_session_state()
+            if not self.session_state_has_values(state):
+                SESSION_FILE_PATH.unlink(missing_ok=True)
+                self.refresh_clear_session_button_visibility()
+                return
+            SESSION_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            SESSION_FILE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+            self.session_completed_successfully = False
+            self.refresh_clear_session_button_visibility()
+        except Exception:
+            pass
+
+    def read_saved_session(self) -> dict:
+        try:
+            if not SESSION_FILE_PATH.is_file():
+                return {}
+            data = json.loads(SESSION_FILE_PATH.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def ask_modal_yes_no(self, title: str, message: str) -> bool:
+        try:
+            self.deiconify()
+            self.lift()
+            self.focus_force()
+            self.attributes("-topmost", True)
+            self.update_idletasks()
+            return messagebox.askyesno(title, message, parent=self)
+        finally:
+            try:
+                self.after(250, lambda: self.attributes("-topmost", False))
+            except tk.TclError:
+                pass
+
+    def ask_to_restore_previous_session(self) -> None:
+        data = self.read_saved_session()
+        if not self.session_state_has_values(data):
+            self.refresh_clear_session_button_visibility()
+            return
+
+        restore_session = self.ask_modal_yes_no(
+            "Restore previous session",
+            "A saved parser session was found. Would you like to restore the previous paths and inputs?",
+        )
+        if restore_session:
+            self.restore_session(data)
+        else:
+            self.set_status("Previous saved session was not restored.")
+        self.refresh_clear_session_button_visibility()
+
+    def restore_session_list(self, picker: MultiPicker, values, path_kind: str, formatter=None) -> tuple[int, int]:
+        restored = 0
+        skipped = 0
+        if not isinstance(values, list):
+            return restored, skipped
+
+        valid_values = []
+        for value in values:
+            text = strip_language_badge(value)
+            if not text:
+                continue
+            path = Path(text).expanduser()
+            exists = path.is_file() if path_kind == "file" else path.is_dir()
+            if exists:
+                valid_values.append(str(path))
+            else:
+                skipped += 1
+
+        picker.listbox.delete(0, tk.END)
+        restored += picker.add_items(valid_values, formatter=formatter)
+        return restored, skipped
+
+    def restore_session(self, data: dict) -> None:
+        if not data:
+            return
+
+        restored = 0
+        skipped = 0
+        self.restoring_session = True
+
+        try:
+            project_name = str(data.get("project_name", "")).strip()
+            if project_name:
+                self.project_name.entry.delete(0, tk.END)
+                self.project_name.entry.insert(0, project_name)
+                restored += 1
+
+            project_dir = str(data.get("project_dir", "")).strip()
+            if project_dir:
+                path = Path(project_dir).expanduser()
+                if path.is_dir():
+                    self.project_dir.set_path(str(path))
+                    restored += 1
+                else:
+                    skipped += 1
+
+            output_dir = str(data.get("output_dir", "")).strip()
+            if output_dir:
+                path = Path(output_dir).expanduser()
+                if path.is_dir():
+                    self.output_dir.set_path(str(path))
+                    restored += 1
+                else:
+                    skipped += 1
+
+            for picker, key, path_kind, formatter in [
+                (self.docker_compose, "docker_compose_files", "file", None),
+                (self.app_build, "app_build_files", "file", None),
+                (self.module_build_dir, "module_build_dirs", "directory", format_module_display_path),
+                (self.module_build, "module_build_files", "file", None),
+                (self.app_config_dir, "app_config_dirs", "directory", None),
+            ]:
+                restored_count, skipped_count = self.restore_session_list(picker, data.get(key, []), path_kind, formatter)
+                restored += restored_count
+                skipped += skipped_count
+        finally:
+            self.restoring_session = False
+
+        self.update_create_state()
+        if restored and skipped:
+            self.set_status("Previous session restored. Some saved paths were skipped because they no longer exist.")
+        elif restored:
+            self.set_status("Previous session restored.")
+        else:
+            self.set_status("Saved session found, but no valid paths could be restored.")
+
+    def clear_saved_session(self) -> None:
+        if self.session_save_job is not None:
+            self.after_cancel(self.session_save_job)
+            self.session_save_job = None
+
+        self.restoring_session = True
+        try:
+            SESSION_FILE_PATH.unlink(missing_ok=True)
+        finally:
+            self.restoring_session = False
+
+        self.refresh_clear_session_button_visibility()
+        self.set_status("Saved session cleared.")
+
+    def delete_saved_session_after_success(self) -> None:
+        if self.session_save_job is not None:
+            self.after_cancel(self.session_save_job)
+            self.session_save_job = None
+        try:
+            SESSION_FILE_PATH.unlink(missing_ok=True)
+        except Exception:
+            pass
+        self.session_completed_successfully = True
+        self.refresh_clear_session_button_visibility()
 
     def project_dialog_initial_dir(self) -> str:
         selected_project_dir = self.project_dir.get() if hasattr(self, "project_dir") else ""
@@ -845,6 +1061,7 @@ class MisarParserApp(tk.Tk):
         if self.docker_compose.size() > 0:
             self.offer_auto_importer(directory)
         self.update_create_state()
+        self.save_session()
 
     def select_output_directory(self) -> None:
         directory = filedialog.askdirectory(title="Select output directory", initialdir=self.project_dialog_initial_dir())
@@ -854,6 +1071,7 @@ class MisarParserApp(tk.Tk):
         self.output_dir.set_error("")
         self.set_status("Output directory selected.")
         self.update_create_state()
+        self.save_session()
 
     def add_docker_compose_files(self) -> None:
         files = filedialog.askopenfilenames(
@@ -870,6 +1088,7 @@ class MisarParserApp(tk.Tk):
             self.set_status(f"Added {added} Docker Compose file{'s' if added != 1 else ''}.")
             if self.project_dir.get():
                 self.offer_auto_importer(self.project_dir.get())
+            self.save_session()
         self.update_create_state()
 
     def add_app_build_files(self) -> None:
@@ -877,6 +1096,7 @@ class MisarParserApp(tk.Tk):
         added = self.app_build.add_items(files)
         if added:
             self.set_status(f"Added {added} application dependency file{'s' if added != 1 else ''}.")
+            self.save_session()
         self.update_create_state()
 
     def add_module_build_files(self) -> None:
@@ -884,6 +1104,7 @@ class MisarParserApp(tk.Tk):
         added = self.module_build.add_items(files)
         if added:
             self.set_status(f"Added {added} module dependency file{'s' if added != 1 else ''}.")
+            self.save_session()
         self.update_create_state()
 
     def add_module_directory(self) -> None:
@@ -895,6 +1116,7 @@ class MisarParserApp(tk.Tk):
             self.module_build_dir.set_error("")
             self.set_status("Microservice build directory added.")
             self.offer_dependency_scan(directory, self.module_build.listbox)
+            self.save_session()
         self.update_create_state()
 
     def add_config_directory(self) -> None:
@@ -904,6 +1126,7 @@ class MisarParserApp(tk.Tk):
         added = self.app_config_dir.add_items([directory])
         if added:
             self.set_status("Configuration directory added.")
+            self.save_session()
         self.update_create_state()
 
     def delete_items(self, picker: MultiPicker) -> None:
@@ -914,6 +1137,8 @@ class MisarParserApp(tk.Tk):
         else:
             self.set_status("Select an item before removing it.")
 
+        if removed_count:
+            self.save_session()
         self.update_create_state()
 
     def offer_auto_importer(self, input_directory: str) -> None:
@@ -934,6 +1159,7 @@ class MisarParserApp(tk.Tk):
                 f"{added_app_files} app dependency file(s) and {added_module_files} module dependency file(s)."
             )
             self.update_create_state()
+            self.save_session()
 
     def auto_import(self, input_directory: str) -> tuple[int, int, int]:
         if yaml is None:
@@ -985,6 +1211,7 @@ class MisarParserApp(tk.Tk):
             added = self.add_dependency_files_for_directory(Path(directory), target_listbox)
             if added:
                 self.set_status(f"Added {added} dependency file{'s' if added != 1 else ''}.")
+                self.save_session()
 
     def add_dependency_files_for_directory(self, input_directory: Path, target_listbox: tk.Listbox) -> int:
         added = 0
@@ -1124,11 +1351,14 @@ class MisarParserApp(tk.Tk):
             self.set_status("Operation failed.")
         else:
             self.set_progress(100, "Model generation complete.")
+            self.delete_saved_session_after_success()
             success_message = "The MiSAR PSM model was created successfully."
             if output_path:
-                success_message += "\n\nSaved at:\n" + str(output_path)
+                output_path = Path(output_path)
+                success_message += "\n\nCreated in folder:\n" + str(output_path.parent)
+                success_message += "\n\nFile:\n" + str(output_path)
             messagebox.showinfo("PSM model created", success_message)
-            self.set_status("PSM model created successfully.")
+            self.set_status("PSM model created successfully. Saved session deleted.")
 
         self.update_create_state()
 
@@ -1163,11 +1393,14 @@ class MisarParserApp(tk.Tk):
         for picker in [self.docker_compose, self.module_build_dir, self.app_build, self.module_build, self.app_config_dir]:
             picker.apply_theme(palette)
         self.create_box.apply_theme(palette)
+        self.clear_session_button.apply_theme(palette)
         self.create_button.apply_theme(palette)
         if hasattr(self, "progress_frame"):
             self.progress_frame.configure(bg=palette["panel"])
 
     def on_close(self) -> None:
+        if not self.session_completed_successfully:
+            self.save_session()
         self.quit()
         self.destroy()
 
