@@ -102,7 +102,7 @@ DEPENDENCY_BUILD_FILES = [
 FORBIDDEN_PROJECT_CHARS = set('<>:/\\|?*"')
 
 PALETTE = {
-    "bg": "#f5f7fb",
+    "bg": "#eef2f7",
     "sidebar": "#101c36",
     "sidebar_text": "#b8c2d6",
     "sidebar_title": "#ffffff",
@@ -795,7 +795,7 @@ class MisarParserApp(tk.Tk):
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_columnconfigure(1, weight=0)
         parent.grid_columnconfigure(2, weight=0)
-        self.create_title = ttk.Label(parent, text="Create model", style="FieldTitle.TLabel")
+        self.create_title = ttk.Label(parent, text="Create PSM", style="FieldTitle.TLabel")
         self.create_title.grid(row=0, column=0, sticky="w")
         self.readiness_label = ttk.Label(parent, text="Complete the required fields to continue.", style="MutedCard.TLabel")
         self.readiness_label.grid(row=1, column=0, sticky="w", pady=(4, 0))
