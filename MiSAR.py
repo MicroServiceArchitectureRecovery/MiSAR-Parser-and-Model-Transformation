@@ -63,6 +63,7 @@ LOGGER.propagate = False
 
 main_window = None
 the_parser = None
+the_transformation_engine = None
 the_graphical_model_generator = None
 the_help_button = None
 
@@ -916,7 +917,7 @@ import tkinter.font as tkfont
 from tkinter import ttk
 
 PALETTE = {
-    "bg": "#f5f7fb",
+    "bg": "#eef2f7",
     "sidebar": "#101c36",
     "sidebar_text": "#b8c2d6",
     "sidebar_title": "#ffffff",
@@ -926,7 +927,7 @@ PALETTE = {
     "border_strong": "#cbd5e1",
     "title": "#162037",
     "text": "#334155",
-    "muted": "#64748b",
+    "muted": "#111827",
     "input": "#f8fafc",
     "accent": "#2563eb",
     "accent_hover": "#1d4ed8",
@@ -946,7 +947,7 @@ PALETTE = {
 CARD_RADIUS = 10
 CARD_SHADOW_OFFSET = 5
 WINDOW_WIDTH = 1100
-WINDOW_HEIGHT = 620
+WINDOW_HEIGHT = 750
 
 
 def ui_font(size=11, weight="normal"):
@@ -1148,7 +1149,7 @@ class ProgramOfChoice:
             self.module_version = tkinter.Label(
                 self.title_frame,
                 text=version_text,
-                font=ui_font(9, "bold"),
+                font=ui_font(10, "bold"),
                 bg=PALETTE["secondary"],
                 fg=PALETTE["muted"],
                 padx=8,
@@ -1165,7 +1166,7 @@ class ProgramOfChoice:
         self.status_badge = tkinter.Label(
             self.container.content,
             text="Checking",
-            font=ui_font(10, "bold"),
+            font=ui_font(11, "bold"),
             bg=PALETTE["secondary"],
             fg=PALETTE["muted"],
             padx=12,
@@ -1174,7 +1175,11 @@ class ProgramOfChoice:
 
         self.button_frame = tkinter.Frame(self.container.content, bg=PALETTE["panel"])
         self.launch_button = RoundedButton(self.button_frame, "Install", command=lambda button=self: handle_module_button(button), width=124)
-        self.launch_button.pack(side=tkinter.LEFT, padx=(0, 10))
+
+        if supports_uninstall:
+            self.launch_button.pack(side=tkinter.LEFT, padx=(0, 10))
+        else:
+            self.launch_button.pack(side=tkinter.RIGHT)
 
         if supports_uninstall:
             self.uninstall_button = RoundedButton(
@@ -1219,6 +1224,10 @@ def module_details(name):
             "icon": "P",
             "description": "Install or open the parser used to recover MiSAR PSM models from microservice artefacts.",
         },
+        "MiSAR Transformation Engine": {
+            "icon": "E",
+            "description": "Open Eclipse for MiSAR Transformation Engine work. If Eclipse is not installed, MiSAR will notify you.",
+        },
         "MiSAR Graphical Model Generator": {
             "icon": "G",
             "description": "Install, update or open the graphical model generator JAR for visualising recovered models.",
@@ -1243,6 +1252,29 @@ def set_module_button_state(module, installed):
     if module.uninstall_button is not None:
         module.uninstall_button.configure(state=tkinter.NORMAL if installed else tkinter.DISABLED)
 
+
+
+
+def set_transformation_engine_button_state():
+    """Update the Transformation Engine card state based only on Eclipse availability."""
+    if the_transformation_engine is None:
+        return
+
+    eclipse_executable = find_eclipse_executable()
+    the_transformation_engine.launch_button.configure(text="Open Eclipse", state=tkinter.NORMAL)
+
+    if eclipse_executable is not None:
+        the_transformation_engine.status_badge.configure(
+            text="Eclipse ready",
+            bg="#dcfce7",
+            fg=PALETTE["success"],
+        )
+    else:
+        the_transformation_engine.status_badge.configure(
+            text="Eclipse missing",
+            bg=PALETTE["secondary"],
+            fg=PALETTE["muted"],
+        )
 
 
 def parser_psm_path_display():
@@ -1346,6 +1378,155 @@ def reset_parser_psm_path():
     log_event("parser_psm_path_reset", psm_path=PARSER_PSM_ECORE)
 
 
+
+def append_existing_eclipse_candidate(candidates, candidate):
+    """Append one Eclipse executable candidate if it exists and is not already listed."""
+    if not candidate:
+        return
+
+    candidate_path = Path(candidate).expanduser()
+
+    if candidate_path.is_file() and candidate_path not in candidates:
+        candidates.append(candidate_path)
+
+
+def append_globbed_eclipse_candidates(candidates, base_dir, pattern):
+    """Append Eclipse executable candidates discovered by globbing a base directory."""
+    base_path = Path(base_dir).expanduser()
+
+    if not base_path.exists():
+        return
+
+    for candidate in base_path.glob(pattern):
+        append_existing_eclipse_candidate(candidates, candidate)
+
+
+def get_eclipse_candidates():
+    """Return likely Eclipse executable paths for macOS, Windows and Linux."""
+    candidates = []
+
+    for executable_name in ("eclipse", "eclipse.exe"):
+        append_existing_eclipse_candidate(candidates, shutil.which(executable_name))
+
+    if sys.platform == "darwin":
+        mac_bases = (
+            Path("/Applications"),
+            USER_HOME_DIR / "Applications",
+            USER_HOME_DIR / "eclipse",
+            USER_HOME_DIR / "Eclipse",
+        )
+
+        for base_dir in mac_bases:
+            append_globbed_eclipse_candidates(candidates, base_dir, "Eclipse*.app/Contents/Eclipse/eclipse")
+            append_globbed_eclipse_candidates(candidates, base_dir, "*Eclipse*.app/Contents/Eclipse/eclipse")
+            append_globbed_eclipse_candidates(candidates, base_dir, "Eclipse.app/Contents/Eclipse/eclipse")
+            append_globbed_eclipse_candidates(candidates, base_dir, "Eclipse.app/Contents/MacOS/eclipse")
+            append_globbed_eclipse_candidates(candidates, base_dir, "*/Eclipse.app/Contents/Eclipse/eclipse")
+            append_globbed_eclipse_candidates(candidates, base_dir, "*/Eclipse.app/Contents/MacOS/eclipse")
+
+    elif sys.platform.startswith("win"):
+        windows_bases = (
+            os.environ.get("LOCALAPPDATA"),
+            os.environ.get("ProgramFiles"),
+            os.environ.get("ProgramFiles(x86)"),
+            USER_HOME_DIR / "eclipse",
+            USER_HOME_DIR / "Eclipse",
+            Path("C:/eclipse"),
+        )
+
+        for base_dir in windows_bases:
+            if not base_dir:
+                continue
+
+            append_existing_eclipse_candidate(candidates, Path(base_dir) / "eclipse.exe")
+            append_globbed_eclipse_candidates(candidates, base_dir, "Eclipse*/eclipse.exe")
+            append_globbed_eclipse_candidates(candidates, base_dir, "Eclipse Foundation/*/eclipse.exe")
+            append_globbed_eclipse_candidates(candidates, base_dir, "Programs/Eclipse*/eclipse.exe")
+            append_globbed_eclipse_candidates(candidates, base_dir, "*/eclipse.exe")
+
+    else:
+        for candidate in (
+            "/usr/bin/eclipse",
+            "/usr/local/bin/eclipse",
+            "/snap/bin/eclipse",
+            "/opt/eclipse/eclipse",
+        ):
+            append_existing_eclipse_candidate(candidates, candidate)
+
+        append_globbed_eclipse_candidates(candidates, Path("/opt"), "eclipse*/eclipse")
+        append_globbed_eclipse_candidates(candidates, USER_HOME_DIR / "eclipse", "*/eclipse")
+        append_globbed_eclipse_candidates(candidates, USER_HOME_DIR / "Eclipse", "*/eclipse")
+        append_globbed_eclipse_candidates(candidates, USER_HOME_DIR / ".local", "share/eclipse*/eclipse")
+
+    return candidates
+
+
+def get_macos_eclipse_app_bundle(eclipse_executable):
+    """Return the containing Eclipse .app bundle for a macOS Eclipse executable."""
+    if sys.platform != "darwin":
+        return None
+
+    current_path = Path(eclipse_executable).expanduser()
+
+    for parent in (current_path, *current_path.parents):
+        if parent.suffix == ".app" and parent.is_dir():
+            return parent
+
+    return None
+
+
+def build_eclipse_launch_command(eclipse_executable):
+    """Build a platform-safe command that only opens Eclipse."""
+    if sys.platform == "darwin":
+        app_bundle = get_macos_eclipse_app_bundle(eclipse_executable)
+
+        if app_bundle is not None:
+            return ["open", str(app_bundle)]
+
+    return [str(eclipse_executable)]
+
+
+def find_eclipse_executable():
+    """Return the first usable Eclipse executable, or None if Eclipse is not found."""
+    candidates = get_eclipse_candidates()
+    return candidates[0] if candidates else None
+
+
+def open_eclipse_transformation_workspace():
+    """Open Eclipse if it is installed; otherwise show a clear notification."""
+    eclipse_executable = find_eclipse_executable()
+
+    if eclipse_executable is None:
+        messagebox.showwarning(
+            "Eclipse Not Installed",
+            "Eclipse could not be found on this system.\n\n"
+            "Please install Eclipse manually, then reopen MiSAR and try again.",
+        )
+        log_event("eclipse_executable_not_found")
+        set_status("Eclipse is not installed.")
+        return False
+
+    command = build_eclipse_launch_command(eclipse_executable)
+
+    try:
+        set_status("Opening Eclipse...")
+        launch_logged_subprocess(command, "Eclipse", cwd=USER_HOME_DIR)
+        log_event("eclipse_launch_requested", executable=eclipse_executable, command=command)
+        set_status("Eclipse launch requested.")
+        return True
+    except Exception as error:
+        log_exception("eclipse_launch_failed", error, executable=eclipse_executable, command=command)
+        messagebox.showerror(
+            "Eclipse Launch Failed",
+            "I found Eclipse, but could not open it.\n\n"
+            "Eclipse path:\n"
+            + str(eclipse_executable)
+            + "\n\nPlease open Eclipse manually.",
+        )
+        set_status("Eclipse launch failed.")
+        return False
+
+
 def build_parser_launch_command():
     command = [sys.executable, "-u", str(PARSER_GUI_PATH)]
 
@@ -1374,6 +1555,9 @@ def handle_keyboard_shortcut(event):
     key = key.lower()
     if key == "p":
         handle_parser_button()
+        return "break"
+    if key == "e":
+        handle_transformation_engine_button()
         return "break"
     if key == "g":
         handle_gmg_button()
@@ -1480,13 +1664,7 @@ def handle_parser_button():
 
 
 def handle_transformation_engine_button():
-    if check_required_modules():
-        log_event("transformation_engine_selected")
-    else:
-        messagebox.showerror(
-            "Error!",
-            "The installation has failed!\nIf 'No' was selected, please select yes and try again.\n Otherwise, check your internet connection.",
-        )
+    open_eclipse_transformation_workspace()
 
 
 def handle_gmg_button():
@@ -1582,6 +1760,7 @@ def refresh_launch_buttons():
     gmg_installed = is_gmg_installed()
 
     set_module_button_state(the_parser, parser_installed)
+    set_transformation_engine_button_state()
     set_module_button_state(the_graphical_model_generator, gmg_installed)
     set_status("Ready")
 
@@ -1608,8 +1787,8 @@ def configure_styles(root):
     style.configure("AppTitle.TLabel", background=PALETTE["bg"], foreground=PALETTE["title"], font=ui_font(24, "bold"))
     style.configure("SectionTitle.TLabel", background=PALETTE["bg"], foreground=PALETTE["title"], font=ui_font(14, "bold"))
     style.configure("CardTitle.TLabel", background=PALETTE["panel"], foreground=PALETTE["title"], font=ui_font(15, "bold"))
-    style.configure("MutedRoot.TLabel", background=PALETTE["bg"], foreground=PALETTE["muted"], font=ui_font(11))
-    style.configure("MutedCard.TLabel", background=PALETTE["panel"], foreground=PALETTE["muted"], font=ui_font(11))
+    style.configure("MutedRoot.TLabel", background=PALETTE["bg"], foreground=PALETTE["muted"], font=ui_font(12))
+    style.configure("MutedCard.TLabel", background=PALETTE["panel"], foreground=PALETTE["muted"], font=ui_font(12))
 
 
 def initialise_ui():
@@ -1621,7 +1800,7 @@ def initialise_ui():
     launcher_version_text = format_version_text(launcher_version)
     root.title("MicroService Architecture Recovery" + (" " + launcher_version_text if launcher_version_text else ""))
     root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
-    root.minsize(900, 540)
+    root.minsize(900, 650)
     root.configure(bg=PALETTE["bg"])
     configure_styles(root)
 
@@ -1659,13 +1838,13 @@ def initialise_ui():
     ttk.Label(header, text=app_title, style="AppTitle.TLabel").grid(row=0, column=0, sticky="w")
     ttk.Label(
         header,
-        text="Install, update and launch the MiSAR Parser and Graphical Model Generator from one guided dashboard.",
+        text="Install, update and launch the MiSAR Parser, Transformation Engine and Graphical Model Generator from one guided dashboard.",
         style="MutedRoot.TLabel",
         wraplength=760,
     ).grid(row=1, column=0, sticky="w", pady=(6, 0))
     ttk.Label(
         header,
-        text="Tip: keyboard shortcuts are available - P for Parser, G for Graphical Model Generator, ? for Help.",
+        text="Tip: keyboard shortcuts are available - P for Parser, E for Eclipse, G for Graphical Model Generator, ? for Help.",
         style="MutedRoot.TLabel",
         wraplength=760,
     ).grid(row=2, column=0, sticky="w", pady=(4, 0))
@@ -1703,7 +1882,7 @@ def initialise_ui():
     tkinter.Label(
         root.debug_panel.content,
         text="Choose the PSM Ecore file passed to the parser with --psm-path. Leave it as default unless you are testing parser configuration.",
-        font=ui_font(10),
+        font=ui_font(11),
         bg=PALETTE["panel"],
         fg=PALETTE["muted"],
         wraplength=760,
@@ -1732,7 +1911,7 @@ def initialise_ui():
     root.modules_frame.grid_columnconfigure(0, weight=1)
 
     update_debug_ui()
-    # Keyboard shortcuts are available if preferred: P for Parser, G for Graphical Model Generator, ? for Help.
+    # Keyboard shortcuts are available if preferred: P for Parser, E for Eclipse, G for Graphical Model Generator, ? for Help.
     root.bind_all("<KeyPress>", handle_keyboard_shortcut)
 
     root.status_bar = tkinter.Frame(root, height=42, bg=PALETTE["status_bg"])
@@ -1747,7 +1926,7 @@ def initialise_ui():
 
 
 def run_application():
-    global main_window, the_parser, the_graphical_model_generator, the_help_button, MISAR_VERSIONS
+    global main_window, the_parser, the_transformation_engine, the_graphical_model_generator, the_help_button, MISAR_VERSIONS
 
     MISAR_VERSIONS = load_misar_versions()
 
@@ -1763,10 +1942,26 @@ def run_application():
     main_window = initialise_ui()
 
     the_parser = ProgramOfChoice("MiSAR Parser", get_module_version("MiSAR Parser"), 1, 0, main_window, supports_uninstall=True)
-    the_graphical_model_generator = ProgramOfChoice(
-        "MiSAR Graphical Model Generator", get_module_version("MiSAR Graphical Model Generator"), 2, 0, main_window, supports_uninstall=True,
+
+    the_transformation_engine = ProgramOfChoice(
+        "MiSAR Transformation Engine",
+        get_module_version("MiSAR Transformation Engine"),
+        2,
+        0,
+        main_window,
     )
-    the_help_button = ProgramOfChoice("Need help or more information about this program?", "", 3, 0, main_window)
+    the_transformation_engine.launch_button.configure(text="Open Eclipse", font=ui_font(11, "bold"))
+
+    the_graphical_model_generator = ProgramOfChoice(
+        "MiSAR Graphical Model Generator",
+        get_module_version("MiSAR Graphical Model Generator"),
+        3,
+        0,
+        main_window,
+        supports_uninstall=True,
+    )
+
+    the_help_button = ProgramOfChoice("Need help or more information about this program?", "", 4, 0, main_window)
     the_help_button.launch_button.configure(text="Help", font=ui_font(11, "bold"))
 
     refresh_launch_buttons()
