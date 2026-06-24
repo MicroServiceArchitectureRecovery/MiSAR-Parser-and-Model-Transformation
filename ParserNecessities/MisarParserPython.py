@@ -1023,7 +1023,7 @@ def detect_python_project(module_dir: str | Path, module_build_file: str = "") -
     if framework != "PYTHON":
         score += 4
         evidence.append(framework.lower())
-    language = "python" if score >= 2 else "unknown"
+    language = "python" if score >= 2 else "generic"
     return PythonProjectDetection(language=language, framework=framework, score=score, evidence=evidence)
 
 
@@ -1135,11 +1135,11 @@ def add_python_configuration_properties(metamodel: Any, module_name: str, module
         properties.append({"filename": module_dir, "property": "python.configuration", "value": "NOT_AVAILABLE", "profile": "COMPILE"})
     for property_data in properties:
         configuration_property = metamodel.ConfigurationProperty()
-        configuration_property.ParentProjectName = module_name
-        configuration_property.ArtifactFileName = property_data["filename"]
-        configuration_property.FullyQualifiedPropertyName = property_data["property"]
-        configuration_property.PropertyValue = property_data["value"]
-        configuration_property.ConfigurationProfile = property_data["profile"]
+        set_xmi_text_attribute(configuration_property, "ParentProjectName", module_name, "NOT_AVAILABLE")
+        set_xmi_text_attribute(configuration_property, "ArtifactFileName", property_data["filename"], "NOT_AVAILABLE")
+        set_xmi_text_attribute(configuration_property, "FullyQualifiedPropertyName", property_data["property"], "NOT_AVAILABLE")
+        set_xmi_text_attribute(configuration_property, "PropertyValue", property_data["value"], "NOT_AVAILABLE")
+        set_xmi_text_attribute(configuration_property, "ConfigurationProfile", property_data["profile"], "COMPILE")
         module_project.properties.append(configuration_property)
 
 
@@ -1217,18 +1217,54 @@ def parse_python_assignment_config(config_file: str | Path) -> list[dict[str, st
     return properties
 
 
+XML_FORBIDDEN_CHARACTER_PATTERN = re.compile(
+    "[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]"
+)
+
+
+def to_xmi_safe_text(value: Any, fallback: str = "") -> str:
+    """Return text that is safe to store in XML/XMI attributes.
+
+    UTF-8/non-ASCII text is preserved. Characters forbidden by XML 1.0 are
+    removed so the XMI writer cannot produce a model that later fails to load.
+    Standard XML entities such as &, < and > are intentionally left as text
+    because the XMI/XML serializer is responsible for escaping them once.
+    """
+    if value is None:
+        return fallback
+
+    text = str(value)
+    if not text:
+        return fallback
+
+    text = XML_FORBIDDEN_CHARACTER_PATTERN.sub(" ", text)
+    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", " ", text)
+    text = text.replace("\ufffe", " ").replace("\uffff", " ")
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text if text else fallback
+
+
+def set_xmi_text_attribute(element: Any, attribute_name: str, value: Any, fallback: str = "") -> None:
+    setattr(element, attribute_name, to_xmi_safe_text(value, fallback))
+
+
+def append_xmi_text(target: Any, value: Any, fallback: str = "") -> None:
+    target.append(to_xmi_safe_text(value, fallback))
+
+
 def create_python_module_element(metamodel: Any, module_name: str, module_data: PythonModuleData) -> Any:
     module_element = metamodel.PythonSourceModule()
     set_python_element_fields(module_element, module_name, module_data.filename, module_data.module_name, "COMPILE", 0)
-    module_element.ModuleName = module_data.module_name
-    module_element.PackageName = module_data.package_name
-    module_element.FrameworkName = module_data.framework
+    set_xmi_text_attribute(module_element, "ModuleName", module_data.module_name, "NOT_AVAILABLE")
+    set_xmi_text_attribute(module_element, "PackageName", module_data.package_name)
+    set_xmi_text_attribute(module_element, "FrameworkName", module_data.framework, "PYTHON")
     for import_data in module_data.imports:
         import_element = metamodel.PythonImport()
         set_python_element_fields(import_element, module_name, module_data.filename, import_data.module_name, "COMPILE", 0)
-        import_element.ModuleName = import_data.module_name
-        import_element.ImportedName = import_data.imported_name
-        import_element.Alias = import_data.alias
+        set_xmi_text_attribute(import_element, "ModuleName", import_data.module_name, "NOT_AVAILABLE")
+        set_xmi_text_attribute(import_element, "ImportedName", import_data.imported_name)
+        set_xmi_text_attribute(import_element, "Alias", import_data.alias)
         module_element.imports.append(import_element)
     for function_data in module_data.functions:
         module_element.functions.append(create_python_function_element(metamodel, module_name, module_data.filename, function_data))
@@ -1241,7 +1277,7 @@ def create_python_class_element(metamodel: Any, module_name: str, filename: str,
     class_element = metamodel.PythonClass()
     set_python_element_fields(class_element, module_name, filename, class_data.name, "COMPILE", class_data.line_number)
     for base in class_data.bases:
-        class_element.BaseClasses.append(base)
+        append_xmi_text(class_element.BaseClasses, base, "NOT_AVAILABLE")
     for decorator_data in class_data.decorators:
         class_element.decorators.append(create_python_decorator_element(metamodel, module_name, filename, decorator_data))
     for method_data in class_data.methods:
@@ -1253,26 +1289,26 @@ def create_python_function_element(metamodel: Any, module_name: str, filename: s
     function_element = metamodel.PythonFunction()
     set_python_element_fields(function_element, module_name, filename, function_data.name, "COMPILE", function_data.line_number)
     function_element.IsAsync = function_data.is_async
-    function_element.RoutePath = function_data.route_path
-    function_element.HttpMethod = function_data.http_method or "NOT_AVAILABLE"
-    function_element.ReturnTypeHint = function_data.return_type
+    set_xmi_text_attribute(function_element, "RoutePath", function_data.route_path)
+    set_xmi_text_attribute(function_element, "HttpMethod", function_data.http_method or "NOT_AVAILABLE", "NOT_AVAILABLE")
+    set_xmi_text_attribute(function_element, "ReturnTypeHint", function_data.return_type, "NOT_AVAILABLE")
     for parameter_data in function_data.parameters:
         parameter_element = metamodel.PythonFunctionParameter()
         set_python_element_fields(parameter_element, module_name, filename, parameter_data.name, "COMPILE", 0)
-        parameter_element.ParameterName = parameter_data.name
+        set_xmi_text_attribute(parameter_element, "ParameterName", parameter_data.name, "NOT_AVAILABLE")
         parameter_element.ParameterOrder = parameter_data.order
-        parameter_element.TypeHint = parameter_data.type_hint
-        parameter_element.DefaultValue = parameter_data.default_value
+        set_xmi_text_attribute(parameter_element, "TypeHint", parameter_data.type_hint, "NOT_AVAILABLE")
+        set_xmi_text_attribute(parameter_element, "DefaultValue", parameter_data.default_value, "NOT_AVAILABLE")
         function_element.parameters.append(parameter_element)
     for decorator_data in function_data.decorators:
         function_element.decorators.append(create_python_decorator_element(metamodel, module_name, filename, decorator_data))
     for call_data in function_data.calls:
         call_element = metamodel.PythonCall()
         set_python_element_fields(call_element, module_name, filename, call_data.target_name, "COMPILE", 0)
-        call_element.TargetName = call_data.target_name
-        call_element.RootCallingFunction = function_data.name
-        call_element.CallType = call_data.call_type
-        call_element.EndpointURL = call_data.endpoint_url
+        set_xmi_text_attribute(call_element, "TargetName", call_data.target_name, "NOT_AVAILABLE")
+        set_xmi_text_attribute(call_element, "RootCallingFunction", function_data.name, "NOT_AVAILABLE")
+        set_xmi_text_attribute(call_element, "CallType", call_data.call_type, "FUNCTION_CALL")
+        set_xmi_text_attribute(call_element, "EndpointURL", call_data.endpoint_url)
         function_element.invokes.append(call_element)
     return function_element
 
@@ -1280,21 +1316,21 @@ def create_python_function_element(metamodel: Any, module_name: str, filename: s
 def create_python_decorator_element(metamodel: Any, module_name: str, filename: str, decorator_data: PythonDecoratorData) -> Any:
     decorator_element = metamodel.PythonDecorator()
     set_python_element_fields(decorator_element, module_name, filename, decorator_data.name, "COMPILE", 0)
-    decorator_element.DecoratorName = decorator_data.name
-    decorator_element.RoutePath = decorator_data.route_path
-    decorator_element.HttpMethod = decorator_data.http_method or "NOT_AVAILABLE"
+    set_xmi_text_attribute(decorator_element, "DecoratorName", decorator_data.name, "NOT_AVAILABLE")
+    set_xmi_text_attribute(decorator_element, "RoutePath", decorator_data.route_path)
+    set_xmi_text_attribute(decorator_element, "HttpMethod", decorator_data.http_method or "NOT_AVAILABLE", "NOT_AVAILABLE")
     for parameter_name, parameter_value in decorator_data.parameters.items():
         parameter_element = metamodel.PythonDecoratorParameter()
         set_python_element_fields(parameter_element, module_name, filename, parameter_name, "COMPILE", 0)
-        parameter_element.ParameterName = parameter_name
-        parameter_element.ParameterValue = parameter_value
+        set_xmi_text_attribute(parameter_element, "ParameterName", parameter_name, "NOT_AVAILABLE")
+        set_xmi_text_attribute(parameter_element, "ParameterValue", parameter_value, "NOT_AVAILABLE")
         decorator_element.parameters.append(parameter_element)
     return decorator_element
 
 
 def set_python_element_fields(element: Any, parent_project_name: str, artifact_file_name: str, identifier: str, profile: str, line_number: int) -> None:
-    element.ParentProjectName = parent_project_name
-    element.ArtifactFileName = artifact_file_name
-    element.ElementIdentifier = identifier
-    element.ElementProfile = profile
-    element.LineNumber = line_number
+    set_xmi_text_attribute(element, "ParentProjectName", parent_project_name, "NOT_AVAILABLE")
+    set_xmi_text_attribute(element, "ArtifactFileName", artifact_file_name, "NOT_AVAILABLE")
+    set_xmi_text_attribute(element, "ElementIdentifier", identifier, "NOT_AVAILABLE")
+    set_xmi_text_attribute(element, "ElementProfile", profile, "COMPILE")
+    element.LineNumber = int(line_number or 0)

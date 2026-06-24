@@ -447,7 +447,7 @@ def detect_misar_module_language(module_build_dir, module_build_file=''):
         return 'java'
     if has_language(scopes, 'python'):
         return 'python'
-    return 'unknown'
+    return 'generic'
 
 
 def create_dependency_library_element(metamodel, module_name, library):
@@ -476,8 +476,8 @@ def create_python_project_element(metamodel, python_framework):
 
 def get_python_framework_for_module(module_build_dir, module_build_file):
     scopes = detect_language_scopes(module_build_dir)
-    framework = primary_framework(scopes, 'python', 'UNKNOWN')
-    if framework != 'UNKNOWN':
+    framework = primary_framework(scopes, 'python', 'GENERIC')
+    if framework != 'GENERIC':
         return framework
     return detect_python_framework(strip_language_badge(module_build_dir), module_build_file)
 
@@ -730,7 +730,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             if has_language(language_scopes, 'python'):
                 module_languages.append('python')
             if not module_languages:
-                module_languages.append('unknown')
+                module_languages.append('generic')
 
             if is_java_build_file(java_build_file):
                 pom_xml = xml_to_dict(java_build_file)
@@ -750,7 +750,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             multi_module_project['modules'][module_name]['java_elements'] = []
             multi_module_project['modules'][module_name]['python_elements'] = []
             multi_module_project['modules'][module_name]['language'] = 'mixed' if len(
-                [language for language in module_languages if language != 'unknown']) > 1 else module_languages[0]
+                [language for language in module_languages if language != 'generic']) > 1 else module_languages[0]
             multi_module_project['modules'][module_name]['languages'] = module_languages
             multi_module_project['modules'][module_name]['language_scopes'] = language_scopes
             multi_module_project['modules'][module_name]['framework'] = format_language_summary(language_scopes)
@@ -773,7 +773,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             module_libraries = []
             spring_boot_app = True
             spring_web_flux_app = False
-            python_framework = 'UNKNOWN'
+            python_framework = 'PYTHON'
 
             if has_java_module:
                 java_libraries = get_library_list([], java_build_file or module_build_file, app_root_dir)
