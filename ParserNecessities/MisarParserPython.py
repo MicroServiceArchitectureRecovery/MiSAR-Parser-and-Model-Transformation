@@ -514,7 +514,7 @@ def extract_django_include_target(node: ast.AST) -> str:
     if get_callable_name(node.func).split(".")[-1] != "include" or not node.args:
         return ""
     first_arg = node.args[0]
-    if not isinstance(first_arg, (ast.Constant, ast.Str)):
+    if not isinstance(first_arg, ast.Constant):
         return ""
     target = literal_to_string(first_arg)
     if target.endswith(".urls"):
@@ -742,8 +742,6 @@ def evaluate_python_expression(node: ast.AST | None, constants: dict[str, str], 
         return ""
     if isinstance(node, ast.Constant):
         return "" if node.value is None else str(node.value)
-    if isinstance(node, ast.Str):
-        return node.s
     if isinstance(node, ast.Name):
         return constants.get(node.id, "{" + node.id + "}")
     if isinstance(node, ast.Attribute):
@@ -753,8 +751,6 @@ def evaluate_python_expression(node: ast.AST | None, constants: dict[str, str], 
         for value in node.values:
             if isinstance(value, ast.Constant):
                 parts.append(str(value.value))
-            elif isinstance(value, ast.Str):
-                parts.append(value.s)
             elif isinstance(value, ast.FormattedValue):
                 expression = expression_to_string(value.value)
                 parts.append(constants.get(expression, "{" + expression + "}"))
@@ -981,8 +977,6 @@ def literal_to_string(node: ast.AST | None) -> str:
         return ""
     if isinstance(node, ast.Constant):
         return "" if node.value is None else str(node.value)
-    if isinstance(node, ast.Str):
-        return node.s
     return expression_to_string(node)
 
 
