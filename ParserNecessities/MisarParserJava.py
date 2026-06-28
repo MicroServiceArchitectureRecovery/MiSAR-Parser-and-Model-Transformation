@@ -403,7 +403,7 @@ def java_main_parser(metamodel, module_name, module_project, multi_module_projec
         if '/src/test/' not in java_file:
             print('java_file = {}'.format(os.path.basename(java_file)))
             try:
-                with open(java_file) as file:
+                with open(java_file, encoding='utf-8') as file:
                     tree = javalang.parse.parse(file.read())
                     java_element = metamodel.JavaUserDefinedType()
                     imports = []
