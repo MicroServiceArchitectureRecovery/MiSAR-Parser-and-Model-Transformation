@@ -62,7 +62,7 @@ def yaml_to_dict(filename):
 
 def xml_to_dict(filename):
     xml_dict = {}
-    with open(filename, encoding='utf-8') as file:
+    with open(filename, 'rb') as file:
         xml_dict = xmltodict.parse(file.read())
     return xml_dict
 
