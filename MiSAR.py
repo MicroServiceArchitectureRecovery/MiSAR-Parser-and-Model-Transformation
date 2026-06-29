@@ -24,10 +24,12 @@ USER_HOME_DIR = Path.home()
 AIO_DIR = Path(__file__).resolve().parent
 
 MISAR_DIR = USER_HOME_DIR / "MiSAR"
-PARSER_DIR = MISAR_DIR / "Parser"
-PARSER_PSM_ECORE = PARSER_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore"
-PARSER_GUI_PATH = PARSER_DIR / "ParserNecessities" / "MisarParserGUI.py"
-PARSER_METADATA_PATH = PARSER_DIR / "MiSAR.parser.release.json"
+INSTALLED_PARSER_DIR = MISAR_DIR / "Parser"
+REPOSITORY_PARSER_DIR = AIO_DIR
+ACTIVE_PARSER_DIR = INSTALLED_PARSER_DIR
+PARSER_PSM_ECORE = ACTIVE_PARSER_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore"
+PARSER_GUI_PATH = ACTIVE_PARSER_DIR / "ParserNecessities" / "MisarParserGUI.py"
+PARSER_METADATA_PATH = ACTIVE_PARSER_DIR / "MiSAR.parser.release.json"
 PARSER_REPOSITORY_API_URL = "https://api.github.com/repos/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation"
 PARSER_REPOSITORY_CLONE_URL = "https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation.git"
 
@@ -86,12 +88,31 @@ def parse_arguments():
         default=None,
         help="Optional PSM Ecore file to pass to the MiSAR Parser when debug mode is enabled.",
     )
+    parser.add_argument(
+        "--use-repository-parser",
+        action="store_true",
+        help="Use parser and transformation files from this repository instead of the installed stable runtime.",
+    )
     return parser.parse_known_args()[0]
 
 
 ARGS = parse_arguments()
 DEBUG_MODE = ARGS.debug
+USE_REPOSITORY_PARSER = bool(getattr(ARGS, "use_repository_parser", False))
 PARSER_SELECTED_PSM_PATH = Path(ARGS.psm_path).expanduser() if getattr(ARGS, "psm_path", None) else None
+
+
+def configure_parser_runtime_paths():
+    """Point parser paths at either the installed runtime or this repository checkout."""
+    global ACTIVE_PARSER_DIR, PARSER_PSM_ECORE, PARSER_GUI_PATH, PARSER_METADATA_PATH
+
+    ACTIVE_PARSER_DIR = REPOSITORY_PARSER_DIR if USE_REPOSITORY_PARSER else INSTALLED_PARSER_DIR
+    PARSER_PSM_ECORE = ACTIVE_PARSER_DIR / "TransformationEngineNecessities" / "source" / "PSM.ecore"
+    PARSER_GUI_PATH = ACTIVE_PARSER_DIR / "ParserNecessities" / "MisarParserGUI.py"
+    PARSER_METADATA_PATH = ACTIVE_PARSER_DIR / "MiSAR.parser.release.json"
+
+
+configure_parser_runtime_paths()
 
 
 def setup_logger():
@@ -500,6 +521,10 @@ def launch_logged_subprocess(command, process_name, cwd=None):
 
 def install_parser():
     """Install the MiSAR parser and persist repository metadata when available."""
+    if USE_REPOSITORY_PARSER:
+        log_event("parser_install_skipped", reason="use_repository_parser", path=ACTIVE_PARSER_DIR)
+        return is_parser_installed()
+
     repository_metadata = None
 
     try:
@@ -526,7 +551,7 @@ def clone_parser_repository(parser_location, repository_metadata=None):
         ).is_file() and (parser_path / "ParserNecessities" / "MisarParserGUI.py").is_file()
 
         if parser_ready:
-            if repository_metadata is not None and parser_path == PARSER_DIR:
+            if repository_metadata is not None and parser_path == INSTALLED_PARSER_DIR:
                 write_parser_metadata(repository_metadata)
 
             log_event("parser_install_success", path=parser_path)
@@ -734,6 +759,10 @@ def automatic_update_check():
     """Check for parser updates after the UI starts, without interrupting offline users."""
     log_event("automatic_update_check_started")
 
+    if USE_REPOSITORY_PARSER:
+        log_event("automatic_update_check_skipped", reason="use_repository_parser", path=ACTIVE_PARSER_DIR)
+        return
+
     if not check_internet():
         log_event("automatic_update_check_skipped", reason="no_internet")
         return
@@ -762,7 +791,7 @@ def automatic_update_check():
         if not check_required_modules():
             return
 
-        if PARSER_DIR.exists():
+        if INSTALLED_PARSER_DIR.exists():
             uninstall_path(Path("MiSAR") / "Parser")
 
         if clone_parser_repository(Path("MiSAR") / "Parser", repository_metadata):
@@ -846,6 +875,16 @@ def handle_uninstall_button(module):
 
 def handle_parser_uninstall():
     """Uninstall the MiSAR Parser from the user MiSAR directory."""
+    if USE_REPOSITORY_PARSER:
+        messagebox.showinfo(
+            "Repository Parser Active",
+            "The --use-repository-parser flag is active, so MiSAR is using the parser files from:\n\n"
+            + str(REPOSITORY_PARSER_DIR)
+            + "\n\nRepository files are not removed from the launcher.",
+        )
+        log_event("parser_uninstall_skipped", reason="use_repository_parser", path=REPOSITORY_PARSER_DIR)
+        return
+
     if not is_parser_installed():
         refresh_launch_buttons()
         return
@@ -853,10 +892,10 @@ def handle_parser_uninstall():
     uninstall_choice = messagebox.askquestion(
         "Uninstall MiSAR Parser",
         "This will remove the installed MiSAR Parser from:\n\n"
-        + str(PARSER_DIR)
+        + str(INSTALLED_PARSER_DIR)
         + "\n\nDo you want to continue?",
     )
-    log_event("parser_uninstall_prompt_response", response=uninstall_choice, path=PARSER_DIR)
+    log_event("parser_uninstall_prompt_response", response=uninstall_choice, path=INSTALLED_PARSER_DIR)
 
     if uninstall_choice != "yes":
         return
@@ -866,7 +905,7 @@ def handle_parser_uninstall():
         messagebox.showinfo("Success!", "The MiSAR Parser has been uninstalled.")
         refresh_launch_buttons()
     except Exception as error:
-        log_exception("parser_uninstall_failed", error, path=PARSER_DIR)
+        log_exception("parser_uninstall_failed", error, path=INSTALLED_PARSER_DIR)
         messagebox.showerror(
             "Uninstall Failed",
             "The MiSAR Parser could not be uninstalled.\n\nError code:\n" + str(error),
@@ -1603,6 +1642,17 @@ def centre_and_focus_window(root, width=WINDOW_WIDTH, height=WINDOW_HEIGHT):
 
 def handle_parser_button():
     if not PARSER_PSM_ECORE.is_file():
+        if USE_REPOSITORY_PARSER:
+            messagebox.showerror(
+                "Repository Parser Missing",
+                "The --use-repository-parser flag is active, but the required parser files were not found in:\n\n"
+                + str(REPOSITORY_PARSER_DIR)
+                + "\n\nPlease run MiSAR.py from the root of the parser repository.",
+            )
+            log_event("repository_parser_missing", path=REPOSITORY_PARSER_DIR, psm_ecore=PARSER_PSM_ECORE)
+            set_status("Repository parser files are missing.")
+            return
+
         install_parser_choice = messagebox.askquestion(
             "Parser Installer",
             "To use the MiSAR Parser, you must first install it.\nWould you like to install it now?",
@@ -1641,7 +1691,7 @@ def handle_parser_button():
             messagebox.showinfo(
                 "Success!",
                 "The operation completed successfully!\nThe Parser has been installed! It has been saved at: "
-                + str(PARSER_DIR),
+                + str(INSTALLED_PARSER_DIR),
             )
             refresh_launch_buttons()
             set_status("MiSAR Parser installed successfully.")
@@ -1760,6 +1810,25 @@ def refresh_launch_buttons():
     gmg_installed = is_gmg_installed()
 
     set_module_button_state(the_parser, parser_installed)
+
+    if USE_REPOSITORY_PARSER and the_parser is not None:
+        the_parser.launch_button.configure(text="Launch" if parser_installed else "Unavailable")
+        if the_parser.uninstall_button is not None:
+            the_parser.uninstall_button.configure(state=tkinter.DISABLED)
+        if hasattr(the_parser, "status_badge"):
+            if parser_installed:
+                the_parser.status_badge.configure(
+                    text="Repository runtime",
+                    bg="#dcfce7",
+                    fg=PALETTE["success"],
+                )
+            else:
+                the_parser.status_badge.configure(
+                    text="Repository missing",
+                    bg=PALETTE["secondary"],
+                    fg=PALETTE["muted"],
+                )
+
     set_transformation_engine_button_state()
     set_module_button_state(the_graphical_model_generator, gmg_installed)
     set_status("Ready")
@@ -1768,6 +1837,8 @@ def refresh_launch_buttons():
         "launch_button_refresh_completed",
         parser_installed=parser_installed,
         gmg_installed=gmg_installed,
+        use_repository_parser=USE_REPOSITORY_PARSER,
+        active_parser_dir=ACTIVE_PARSER_DIR,
     )
 
 
@@ -1933,9 +2004,12 @@ def run_application():
     log_event(
         "application_startup",
         debug_enabled=DEBUG_MODE,
+        use_repository_parser=USE_REPOSITORY_PARSER,
         log_file=LOG_FILE_PATH if DEBUG_MODE else None,
         aio_dir=AIO_DIR,
-        parser_dir=PARSER_DIR,
+        installed_parser_dir=INSTALLED_PARSER_DIR,
+        repository_parser_dir=REPOSITORY_PARSER_DIR,
+        active_parser_dir=ACTIVE_PARSER_DIR,
         gmg_jar_path=GMG_JAR_PATH,
     )
 
@@ -1968,7 +2042,8 @@ def run_application():
     update_debug_ui()
     main_window.after(80, lambda: centre_and_focus_window(main_window))
 
-    main_window.after(500, automatic_update_check)
+    if not USE_REPOSITORY_PARSER:
+        main_window.after(500, automatic_update_check)
     main_window.protocol("WM_DELETE_WINDOW", window_quit)
 
     log_event("tkinter_mainloop_started")
