@@ -51,6 +51,27 @@ except Exception:
         return path
 
 
+try:
+    from MisarParserValidation import (
+        format_docker_compose_user_messages,
+        format_docker_compose_validation_messages,
+        log_docker_compose_validation_results,
+        validate_docker_compose_files,
+    )
+except Exception:
+    def validate_docker_compose_files(file_paths, log=False):
+        return []
+
+    def format_docker_compose_validation_messages(results):
+        return [], []
+
+    def format_docker_compose_user_messages(results):
+        return [], []
+
+    def log_docker_compose_validation_results(results):
+        return None
+
+
 APP_NAME = "MiSAR Parser"
 USER_HOME_DIR = Path.home()
 PARSER_UI_DIR = Path(__file__).resolve().parent
@@ -1082,13 +1103,39 @@ class MisarParserApp(tk.Tk):
                 ("All files", "*.*"),
             ),
         )
-        added = self.docker_compose.add_items(files)
+        if not files:
+            return
+
+        validation_results = validate_docker_compose_files(tuple(files), log=True)
+        docker_errors, docker_warnings = format_docker_compose_user_messages(validation_results)
+        valid_files = [result.file_path for result in validation_results if result.is_valid]
+
+        if docker_errors:
+            self.docker_compose.set_error("One or more selected Docker Compose files are invalid.")
+            messagebox.showerror(
+                "Invalid Docker Compose file",
+                "The following Docker Compose file(s) could not be added:\n\n"
+                + "\n".join(f"- {error}" for error in docker_errors),
+            )
+
+        if docker_warnings:
+            messagebox.showwarning(
+                "Docker Compose warnings",
+                "The selected Docker Compose file(s) can still be used, but MiSAR found warning(s):\n\n"
+                + "\n".join(f"- {warning}" for warning in docker_warnings[:12])
+                + ("\n..." if len(docker_warnings) > 12 else ""),
+            )
+
+        added = self.docker_compose.add_items(valid_files)
         if added:
             self.docker_compose.set_error("")
             self.set_status(f"Added {added} Docker Compose file{'s' if added != 1 else ''}.")
             if self.project_dir.get():
                 self.offer_auto_importer(self.project_dir.get())
             self.save_session()
+        elif not docker_errors:
+            self.set_status("No new Docker Compose files were added.")
+
         self.update_create_state()
 
     def add_app_build_files(self) -> None:
@@ -1230,6 +1277,15 @@ class MisarParserApp(tk.Tk):
         with open(filename, encoding="utf-8") as file:
             return yaml.load(file, Loader=yaml.FullLoader) or {}
 
+    def validate_selected_docker_compose_files(self, show_errors: bool = False) -> tuple[list[str], list[str]]:
+        docker_compose_files = [
+            strip_language_badge(file_path)
+            for file_path in self.docker_compose.values()
+            if strip_language_badge(file_path)
+        ]
+        validation_results = validate_docker_compose_files(docker_compose_files, log=show_errors)
+        return format_docker_compose_user_messages(validation_results)
+
     def validate(self, show_errors: bool = False) -> List[str]:
         errors = []
         project_name = self.project_name.entry.get().strip()
@@ -1257,6 +1313,14 @@ class MisarParserApp(tk.Tk):
             errors.append("Docker Compose files are missing.")
             if show_errors:
                 self.docker_compose.set_error("Add at least one Docker Compose file.")
+        else:
+            docker_errors, docker_warnings = self.validate_selected_docker_compose_files(show_errors=show_errors)
+            errors.extend(docker_errors)
+            if show_errors and docker_errors:
+                self.docker_compose.set_error("Fix or remove invalid Docker Compose file(s).")
+            elif show_errors and docker_warnings:
+                print("misar_validation_warning = Docker Compose warnings found; continuing with supported fields.")
+                self.set_status("Docker Compose warnings found; continuing with supported fields.")
         if self.module_build_dir.size() == 0:
             errors.append("Microservice project build directories are missing.")
             if show_errors:

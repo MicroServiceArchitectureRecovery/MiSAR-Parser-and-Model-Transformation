@@ -37,6 +37,12 @@ from MisarParserConfig import resolve_psm_ecore_path, describe_psm_selection
 from MisarParserPython import *
 from MisarParserLanguage import detect_language_scopes, has_language, primary_framework, format_language_summary, \
     strip_language_badge
+from MisarParserValidation import (
+    format_docker_compose_user_messages,
+    format_docker_compose_validation_messages,
+    log_docker_compose_validation_results,
+    validate_docker_compose_files,
+)
 import sys
 from pathlib import Path
 
@@ -576,6 +582,24 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
 
         psm_instance_file_name = multi_module_project_name + "-PSM" + '.xmi'
         psm_instance_file = output_dir + "/" + psm_instance_file_name
+
+        report_progress(10, "Validating Docker Compose files...")
+        docker_validation_results = validate_docker_compose_files(docker_compose_files, log=True)
+        docker_validation_errors, docker_validation_warnings = format_docker_compose_validation_messages(docker_validation_results)
+        docker_user_errors, _docker_user_warnings = format_docker_compose_user_messages(docker_validation_results)
+
+        if docker_validation_errors:
+            raise RuntimeError(
+                "Invalid Docker Compose file(s):\n"
+                + "\n".join("- " + error for error in docker_user_errors)
+            )
+
+        if docker_validation_warnings:
+            print(
+                "misar_validation_warning = Docker Compose validation completed with {} warning(s); continuing with supported fields.".format(
+                    len(docker_validation_warnings)
+                )
+            )
 
         report_progress(12, "Loading PSM metamodel...")
         # load metamodel from XMI file
