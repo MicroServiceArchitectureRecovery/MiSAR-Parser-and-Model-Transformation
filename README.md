@@ -101,7 +101,7 @@ Contributions are welcome:
 ## 👨‍💻 Authors
 
 © 2020-2026 Dr Nour Ali, Brunel University London. All rights reserved.
-MiSAR is made openly available for research and evaluation purposes. The intellectual property and copyright of this tool and its associated research remain with Dr Nour Ali and Brunel University London. If you use MiSAR in your work, please cite the relevant publications.
+MiSAR is made openly available for research and evaluation purposes. The intellectual property and copyright of this tool and its associated research remain with Dr Nour Ali and Brunel University London. 
 -   Contributors – Nuha Alshuqayran and students
 
 
