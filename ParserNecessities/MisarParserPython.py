@@ -173,6 +173,67 @@ def read_text_file(file_path: str | Path) -> str:
         return ""
 
 
+def parse_python_source(source: str, file_path: str | Path = "", parser_context: str = "python") -> ast.AST | None:
+    """Parse Python source and emit consistent MiSAR parser diagnostics on failure."""
+    filename = str(file_path or "<unknown>")
+    try:
+        return ast.parse(source, filename=filename)
+    except SyntaxError as error:
+        line_number = getattr(error, "lineno", 0) or 0
+        offset = getattr(error, "offset", 0) or 0
+        message = getattr(error, "msg", str(error))
+        print(
+            "python_parse_error = {}:{}:{} {} [{}]".format(
+                filename, line_number, offset, message, parser_context
+            )
+        )
+        return None
+    except ValueError as error:
+        print("python_parse_error = {} {} [{}]".format(filename, str(error), parser_context))
+        return None
+
+
+def constant_to_string(node: ast.AST | None, none_value: str = "") -> str:
+    """Return a stable string representation for ast.Constant values."""
+    if not isinstance(node, ast.Constant):
+        return ""
+    return none_value if node.value is None else str(node.value)
+
+
+def is_string_literal(node: ast.AST | None) -> bool:
+    # Python 3.14 removed the legacy string literal AST node, so string checks must use ast.Constant.
+    return isinstance(node, ast.Constant) and isinstance(node.value, str)
+
+
+def string_literal_to_string(node: ast.AST | None) -> str:
+    if is_string_literal(node):
+        return str(node.value)
+    return ""
+
+
+def is_runtime_ast_type(node: ast.AST | None, type_name: str) -> bool:
+    runtime_type = getattr(ast, type_name, None)
+    return runtime_type is not None and isinstance(node, runtime_type)
+
+
+def evaluate_interpolated_string_values(values: Iterable[ast.AST], constants: dict[str, str], context: PythonAnalysisContext) -> str:
+    parts: list[str] = []
+    for value in values:
+        if isinstance(value, ast.Constant):
+            parts.append(constant_to_string(value))
+        elif isinstance(value, ast.FormattedValue) or is_runtime_ast_type(value, "Interpolation"):
+            expression_node = getattr(value, "value", None)
+            expression = expression_to_string(expression_node)
+            if expression:
+                parts.append(constants.get(expression, "{" + expression + "}"))
+        elif is_runtime_ast_type(value, "TemplateStr"):
+            # Python 3.14 added template-string AST nodes; keep this guarded for Python 3.11-3.13.
+            parts.append(evaluate_interpolated_string_values(getattr(value, "values", []), constants, context))
+        else:
+            parts.append(expression_to_string(value))
+    return "".join(parts)
+
+
 def is_python_dependency_file(file_path: str | Path) -> bool:
     return Path(file_path).name in PYTHON_DEPENDENCY_FILES
 
@@ -301,9 +362,8 @@ def parse_setup_cfg(file_path: str | Path) -> list[PythonDependency]:
 def parse_setup_py(file_path: str | Path) -> list[PythonDependency]:
     dependencies: list[PythonDependency] = []
     source = read_text_file(file_path)
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
+    tree = parse_python_source(source, file_path, "setup.py dependency analysis")
+    if tree is None:
         return dependencies
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and get_callable_name(node.func).endswith("setup"):
@@ -427,9 +487,8 @@ def build_django_metadata(module_dir: str | Path, python_files: list[str]) -> Dj
     url_files: list[tuple[str, ast.AST]] = []
     for python_file in python_files:
         source = read_text_file(python_file)
-        try:
-            tree = ast.parse(source)
-        except SyntaxError:
+        tree = parse_python_source(source, python_file, "django metadata analysis")
+        if tree is None:
             continue
         module_path = path_to_module_name(python_file, module_dir)
         collect_django_view_metadata(tree, metadata)
@@ -514,9 +573,10 @@ def extract_django_include_target(node: ast.AST) -> str:
     if get_callable_name(node.func).split(".")[-1] != "include" or not node.args:
         return ""
     first_arg = node.args[0]
-    if not isinstance(first_arg, (ast.Constant, ast.Str)):
+    # Python 3.14 removed the legacy string literal AST node, so include() targets must be checked as Constant strings.
+    if not is_string_literal(first_arg):
         return ""
-    target = literal_to_string(first_arg)
+    target = string_literal_to_string(first_arg)
     if target.endswith(".urls"):
         return target
     return ""
@@ -535,9 +595,8 @@ def parse_python_file(file_path: str | Path, module_dir: str | Path, framework_h
     source = read_text_file(file_path)
     if not source.strip():
         return None
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
+    tree = parse_python_source(source, file_path, "python module analysis")
+    if tree is None:
         return None
     module_path = path_to_module_name(file_path, module_dir)
     if context is None:
@@ -741,24 +800,18 @@ def evaluate_python_expression(node: ast.AST | None, constants: dict[str, str], 
     if node is None:
         return ""
     if isinstance(node, ast.Constant):
-        return "" if node.value is None else str(node.value)
-    if isinstance(node, ast.Str):
-        return node.s
+        # Python 3.14 removed the legacy literal AST classes, so Constant is the supported literal path.
+        return constant_to_string(node)
     if isinstance(node, ast.Name):
         return constants.get(node.id, "{" + node.id + "}")
     if isinstance(node, ast.Attribute):
         return constants.get(expression_to_string(node), "{" + expression_to_string(node) + "}")
     if isinstance(node, ast.JoinedStr):
-        parts: list[str] = []
-        for value in node.values:
-            if isinstance(value, ast.Constant):
-                parts.append(str(value.value))
-            elif isinstance(value, ast.Str):
-                parts.append(value.s)
-            elif isinstance(value, ast.FormattedValue):
-                expression = expression_to_string(value.value)
-                parts.append(constants.get(expression, "{" + expression + "}"))
-        return "".join(parts)
+        # Python 3.14 removed the legacy string-literal branch; f-string text now flows through Constant.
+        return evaluate_interpolated_string_values(node.values, constants, context)
+    if is_runtime_ast_type(node, "TemplateStr"):
+        # Python 3.14 added template-string AST nodes; this guard keeps Python 3.11-3.13 compatible.
+        return evaluate_interpolated_string_values(getattr(node, "values", []), constants, context)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
         return evaluate_python_expression(node.left, constants, context) + evaluate_python_expression(node.right, constants, context)
     if isinstance(node, ast.Call):
@@ -980,9 +1033,11 @@ def literal_to_string(node: ast.AST | None) -> str:
     if node is None:
         return ""
     if isinstance(node, ast.Constant):
-        return "" if node.value is None else str(node.value)
-    if isinstance(node, ast.Str):
-        return node.s
+        # Python 3.14 removed the legacy literal AST classes, so Constant is the supported literal path.
+        return constant_to_string(node)
+    if is_runtime_ast_type(node, "TemplateStr"):
+        # Python 3.14 added template-string AST nodes; keep this guarded for Python 3.11-3.13.
+        return evaluate_interpolated_string_values(getattr(node, "values", []), {}, PythonAnalysisContext(module_name="", module_dir=""))
     return expression_to_string(node)
 
 
@@ -1046,9 +1101,8 @@ def collect_import_names(python_files: list[str]) -> set[str]:
     imported_names: set[str] = set()
     for python_file in python_files:
         source = read_text_file(python_file)
-        try:
-            tree = ast.parse(source)
-        except SyntaxError:
+        tree = parse_python_source(source, python_file, "python import discovery")
+        if tree is None:
             continue
         for import_data in extract_imports(tree):
             if import_data.module_name:
@@ -1205,9 +1259,8 @@ def flatten_mapping(data: Any, prefix: str = "") -> dict[str, Any]:
 def parse_python_assignment_config(config_file: str | Path) -> list[dict[str, str]]:
     properties: list[dict[str, str]] = []
     source = read_text_file(config_file)
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
+    tree = parse_python_source(source, config_file, "python assignment configuration analysis")
+    if tree is None:
         return properties
     for node in tree.body:
         if isinstance(node, ast.Assign):
