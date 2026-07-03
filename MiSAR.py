@@ -38,6 +38,7 @@ GMG_ASSET_NAME = "MiSAR.jar"
 GMG_JAR_DIR = USER_HOME_DIR / "MISAR" / "GMG"
 GMG_JAR_PATH = GMG_JAR_DIR / GMG_ASSET_NAME
 GMG_METADATA_PATH = GMG_JAR_DIR / "MiSAR.release.json"
+GMG_VERSION_KEY = "misar.visualiser"
 
 MISAR_DOCUMENTATION_URL = "https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/"
 LOG_DIR = AIO_DIR / "logs"
@@ -404,6 +405,57 @@ def format_version_text(version):
     return version if version.lower().startswith("v") else "v" + version
 
 
+def write_misar_version(version_key, version):
+    """Update one entry inside MISAR.versions.json and the in-memory version cache."""
+    global MISAR_VERSIONS
+
+    version = str(version).strip() if version else ""
+
+    if not version:
+        log_event("misar_version_update_skipped", key=version_key, reason="empty_version")
+        return False
+
+    version_data = read_version_json_file(VERSION_FILE_PATH)
+    if not version_data and MISAR_VERSIONS:
+        version_data = dict(MISAR_VERSIONS)
+    previous_version = version_data.get(version_key)
+
+    if previous_version == version and MISAR_VERSIONS.get(version_key) == version:
+        log_event("misar_version_update_skipped", key=version_key, reason="already_current", version=version)
+        return False
+
+    version_data[version_key] = version
+    write_json_file(VERSION_FILE_PATH, version_data)
+    MISAR_VERSIONS[version_key] = version
+
+    log_event(
+        "misar_version_updated",
+        path=VERSION_FILE_PATH,
+        key=version_key,
+        previous_version=previous_version,
+        version=version,
+    )
+    return True
+
+
+def sync_gmg_visualiser_version_from_asset(asset):
+    """Persist the latest GMG release tag_name into MISAR.versions.json."""
+    tag_name = str(asset.get("tag_name") or "").strip()
+
+    if not tag_name:
+        log_event("gmg_version_sync_skipped", reason="missing_tag_name", asset=asset)
+        return False
+
+    try:
+        updated = write_misar_version(GMG_VERSION_KEY, tag_name)
+        refresh_gmg_version_display()
+        log_event("gmg_version_sync_completed", updated=updated, tag_name=tag_name)
+        return updated
+    except Exception as error:
+        log_exception("gmg_version_sync_failed", error, tag_name=tag_name, path=VERSION_FILE_PATH)
+        return False
+
+
 def open_documentation():
     """Open the MiSAR online documentation in the user's default browser."""
     log_event("documentation_open_requested", url=MISAR_DOCUMENTATION_URL)
@@ -572,11 +624,13 @@ def install_or_update_gmg():
         asset = get_latest_gmg_jar_asset()
 
         if not should_download_gmg_jar(asset):
+            sync_gmg_visualiser_version_from_asset(asset)
             log_event("gmg_jar_already_current", jar_path=GMG_JAR_PATH)
             return True
 
         download_gmg_jar(asset)
         write_gmg_metadata(asset)
+        sync_gmg_visualiser_version_from_asset(asset)
 
         installed = GMG_JAR_PATH.is_file()
         log_event("gmg_install_or_update_completed", installed=installed, jar_path=GMG_JAR_PATH)
@@ -617,6 +671,7 @@ def get_latest_gmg_jar_asset():
                 "digest": asset.get("digest"),
                 "updated_at": asset.get("updated_at"),
                 "size": asset.get("size"),
+                "tag_name": release_data.get("tag_name"),
             }
             log_event("gmg_release_asset_selected", asset=selected_asset)
             return selected_asset
@@ -1292,6 +1347,42 @@ def set_module_button_state(module, installed):
         module.uninstall_button.configure(state=tkinter.NORMAL if installed else tkinter.DISABLED)
 
 
+def set_module_version_badge(module, version):
+    """Refresh a module version badge after a runtime version sync."""
+    if module is None:
+        return
+
+    version_text = format_version_text(version)
+    module.version = str(version).strip() if version else ""
+
+    if not version_text:
+        return
+
+    if getattr(module, "module_version", None) is not None:
+        module.module_version.configure(text=version_text)
+        return
+
+    if hasattr(module, "title_frame"):
+        module.module_version = tkinter.Label(
+            module.title_frame,
+            text=version_text,
+            font=ui_font(10, "bold"),
+            bg=PALETTE["secondary"],
+            fg=PALETTE["muted"],
+            padx=8,
+            pady=3,
+        )
+        module.module_version.pack(side=tkinter.LEFT, padx=(10, 0))
+
+
+def refresh_gmg_version_display():
+    """Refresh the visible GMG version badge when the latest release tag is persisted."""
+    set_module_version_badge(
+        the_graphical_model_generator,
+        get_module_version("MiSAR Graphical Model Generator"),
+    )
+
+
 
 
 def set_transformation_engine_button_state():
@@ -1582,6 +1673,17 @@ def build_parser_launch_command():
     return command
 
 
+def build_gmg_launch_command():
+    """Build the GMG launch command using the current visualiser version when available."""
+    command = ["java", "-jar", str(GMG_JAR_PATH)]
+    visualiser_version = get_module_version("MiSAR Graphical Model Generator")
+
+    if visualiser_version:
+        command.extend(["--version", visualiser_version])
+
+    return command
+
+
 def handle_keyboard_shortcut(event):
     widget_class = getattr(event.widget, "winfo_class", lambda: "")()
     if widget_class in {"Entry", "Text", "TEntry"}:
@@ -1756,8 +1858,9 @@ def handle_gmg_button():
         install_or_update_gmg()
 
     set_status("Launching MiSAR Graphical Model Generator...")
-    log_event("gmg_launch_started", jar_path=GMG_JAR_PATH)
-    run_logged_subprocess(["java", "-jar", str(GMG_JAR_PATH), "--version", MISAR_VERSIONS['misar.visualiser']], "MiSAR Graphical Model Generator", cwd=GMG_JAR_PATH.parent)
+    gmg_command = build_gmg_launch_command()
+    log_event("gmg_launch_started", jar_path=GMG_JAR_PATH, command=gmg_command)
+    run_logged_subprocess(gmg_command, "MiSAR Graphical Model Generator", cwd=GMG_JAR_PATH.parent)
     log_event("gmg_launch_completed", jar_path=GMG_JAR_PATH)
 
 
