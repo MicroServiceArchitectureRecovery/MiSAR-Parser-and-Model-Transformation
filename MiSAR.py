@@ -54,6 +54,9 @@ REQUIRED_MODULES = [
 
 VERSION_FILE_PATH = AIO_DIR / "MISAR.versions.json"
 CONFIG_FILE_PATH = AIO_DIR / "MISAR.configs.json"
+IMAGE_DIR = AIO_DIR / "img"
+MISAR_LOGO_PATH = IMAGE_DIR / "MainLogo.png"
+BRUNEL_LOGO_PATH = IMAGE_DIR / "brunel_Logo.png"
 AUTO_UPDATE_CONFIG_KEY = "updates.auto_check"
 LOCAL_RUNTIME_CONFIG_KEY = "runtime.use_repository_parser"
 MODULE_VERSION_KEYS = {
@@ -1372,6 +1375,86 @@ def ui_font(size=11, weight="normal"):
     return (family, scaled_size, weight) if weight != "normal" else (family, scaled_size)
 
 
+def calculate_image_subsample_factor(width, height, max_width=None, max_height=None):
+    """Return an integer PhotoImage subsample factor for the requested bounds."""
+    factor = 1
+
+    if max_width and width > max_width:
+        factor = max(factor, (width + max_width - 1) // max_width)
+
+    if max_height and height > max_height:
+        factor = max(factor, (height + max_height - 1) // max_height)
+
+    return max(int(factor), 1)
+
+
+def load_ui_image(root, image_key, image_path, max_width=None, max_height=None):
+    """Load and retain a Tkinter PhotoImage, returning None if the asset is absent."""
+    image_path = Path(image_path)
+
+    if not image_path.is_file():
+        log_event("ui_image_missing", key=image_key, path=image_path)
+        return None
+
+    try:
+        image = tkinter.PhotoImage(file=str(image_path))
+        factor = calculate_image_subsample_factor(
+            image.width(),
+            image.height(),
+            max_width=max_width,
+            max_height=max_height,
+        )
+
+        if factor > 1:
+            image = image.subsample(factor, factor)
+
+        if not hasattr(root, "misar_ui_images"):
+            root.misar_ui_images = {}
+
+        root.misar_ui_images[image_key] = image
+        log_event("ui_image_loaded", key=image_key, path=image_path, width=image.width(), height=image.height())
+        return image
+    except Exception as error:
+        log_event("ui_image_load_failed", key=image_key, path=image_path, error=str(error))
+        return None
+
+
+def set_window_icon(root):
+    """Use the MiSAR logo as the Tkinter window icon when the PNG asset is available."""
+    icon_image = load_ui_image(root, "window_icon", MISAR_LOGO_PATH, max_width=64, max_height=64)
+
+    if icon_image is None:
+        return False
+
+    try:
+        root.iconphoto(True, icon_image)
+        log_event("window_icon_set", path=MISAR_LOGO_PATH)
+        return True
+    except Exception as error:
+        log_event("window_icon_set_failed", path=MISAR_LOGO_PATH, error=str(error))
+        return False
+
+
+def add_sidebar_logo(sidebar, root, image_key, image_path, fallback_text, max_width, max_height, pady):
+    """Add one sidebar logo with a text fallback."""
+    image = load_ui_image(root, image_key, image_path, max_width=max_width, max_height=max_height)
+
+    if image is not None:
+        tkinter.Label(sidebar, image=image, bg=PALETTE["sidebar"]).pack(pady=pady)
+        return True
+
+    tkinter.Label(
+        sidebar,
+        text=fallback_text,
+        font=ui_font(11, "bold"),
+        bg=PALETTE["sidebar"],
+        fg=PALETTE["sidebar_title"],
+        wraplength=ui_size(76),
+        justify="center",
+    ).pack(pady=pady)
+    return False
+
+
 class RoundedButton(tkinter.Canvas):
     def __init__(self, master, text, command=None, variant="primary", width=132):
         super().__init__(master, width=ui_size(width), height=ui_size(42), highlightthickness=0, bd=0, cursor="hand2")
@@ -2641,6 +2724,8 @@ def initialise_ui():
 
     root = tkinter.Tk()
     root.withdraw()
+    root.misar_ui_images = {}
+    set_window_icon(root)
     launcher_version = get_launcher_version()
     launcher_version_text = format_version_text(launcher_version)
     root.title("MicroService Architecture Recovery" + (" " + launcher_version_text if launcher_version_text else ""))
@@ -2656,9 +2741,27 @@ def initialise_ui():
     sidebar.grid(row=0, column=0, sticky="ns")
     sidebar.grid_propagate(False)
 
-    tkinter.Label(sidebar, text="MiSAR", font=ui_font(13, "bold"), bg=PALETTE["sidebar"], fg=PALETTE["sidebar_title"]).pack(pady=ui_pad((20, 3)))
-    tkinter.Label(sidebar, text="AIO", font=ui_font(11), bg=PALETTE["sidebar"], fg=PALETTE["sidebar_text"]).pack()
-    tkinter.Frame(sidebar, height=1, bg="#243454").pack(fill="x", padx=ui_size(16), pady=ui_size(16))
+    add_sidebar_logo(
+        sidebar,
+        root,
+        "sidebar_brunel_logo",
+        BRUNEL_LOGO_PATH,
+        "Brunel",
+        max_width=ui_size(68),
+        max_height=ui_size(34),
+        pady=ui_pad((16, 4)),
+    )
+    add_sidebar_logo(
+        sidebar,
+        root,
+        "sidebar_misar_logo",
+        MISAR_LOGO_PATH,
+        "MiSAR",
+        max_width=ui_size(62),
+        max_height=ui_size(46),
+        pady=ui_pad((4, 3)),
+    )
+    tkinter.Frame(sidebar, height=1, bg="#243454").pack(fill="x", padx=ui_size(16), pady=ui_size(14))
     sidebar_footer_text = "AIO" + ("\n" + launcher_version_text if launcher_version_text else "")
     root.sidebar_footer_label = tkinter.Label(
         sidebar,
