@@ -54,6 +54,8 @@ REQUIRED_MODULES = [
 
 VERSION_FILE_PATH = AIO_DIR / "MISAR.versions.json"
 CONFIG_FILE_PATH = AIO_DIR / "MISAR.configs.json"
+AUTO_UPDATE_CONFIG_KEY = "updates.auto_check"
+LOCAL_RUNTIME_CONFIG_KEY = "runtime.use_repository_parser"
 MODULE_VERSION_KEYS = {
     "MiSAR Parser": ("misar.parser",),
     "MiSAR Transformation Engine": ("misar.transofrmer", "misar.transformer"),
@@ -75,6 +77,47 @@ the_help_button = None
 # ===============================
 # HELPER FUNCTIONS
 # ===============================
+
+
+def config_value_as_bool(value, default=False):
+    """Convert config values from JSON/string form into a boolean."""
+    if isinstance(value, bool):
+        return value
+
+    if value is None:
+        return default
+
+    text_value = str(value).strip().lower()
+
+    if text_value in {"1", "true", "yes", "y", "on", "enabled"}:
+        return True
+
+    if text_value in {"0", "false", "no", "n", "off", "disabled"}:
+        return False
+
+    return default
+
+
+def read_bootstrap_configs():
+    """Read minimal startup config before the logger/UI helpers are available."""
+    if not CONFIG_FILE_PATH.is_file():
+        return {}
+
+    try:
+        with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as json_file:
+            data = json.load(json_file)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def resolve_use_repository_parser(cli_enabled=False, configs=None):
+    """Return True when the repository parser runtime should be used."""
+    if cli_enabled:
+        return True
+
+    configs = configs or {}
+    return config_value_as_bool(configs.get(LOCAL_RUNTIME_CONFIG_KEY), False)
 
 
 def parse_arguments():
@@ -100,8 +143,12 @@ def parse_arguments():
 
 
 ARGS = parse_arguments()
+BOOTSTRAP_CONFIGS = read_bootstrap_configs()
 DEBUG_MODE = ARGS.debug
-USE_REPOSITORY_PARSER = bool(getattr(ARGS, "use_repository_parser", False))
+USE_REPOSITORY_PARSER = resolve_use_repository_parser(
+    bool(getattr(ARGS, "use_repository_parser", False)),
+    BOOTSTRAP_CONFIGS,
+)
 PARSER_SELECTED_PSM_PATH = Path(ARGS.psm_path).expanduser() if getattr(ARGS, "psm_path", None) else None
 
 
@@ -407,7 +454,7 @@ def write_misar_config(config_key, config_value):
     """Update one launcher config entry and persist it to MISAR.configs.json."""
     global MISAR_CONFIGS
 
-    config_value = str(config_value).strip() if config_value else ""
+    config_value = str(config_value).strip() if config_value is not None else ""
     config_data = read_config_json_file(CONFIG_FILE_PATH)
     if not config_data and MISAR_CONFIGS:
         config_data = dict(MISAR_CONFIGS)
@@ -422,6 +469,21 @@ def write_misar_config(config_key, config_value):
     write_json_file(CONFIG_FILE_PATH, config_data)
     log_event("misar_config_updated", path=CONFIG_FILE_PATH, key=config_key, value=config_value)
     return True
+
+
+def get_misar_config_bool(config_key, default=False):
+    """Read one boolean launcher config from MISAR.configs.json data."""
+    return config_value_as_bool(MISAR_CONFIGS.get(config_key), default)
+
+
+def is_auto_update_enabled():
+    """Return True when startup parser update checks are enabled."""
+    return get_misar_config_bool(AUTO_UPDATE_CONFIG_KEY, True)
+
+
+def bool_to_config_value(value):
+    """Serialise a boolean setting for MISAR.configs.json."""
+    return "true" if bool(value) else "false"
 
 
 def get_configured_version(version_keys):
@@ -590,9 +652,9 @@ def launch_logged_subprocess(command, process_name, cwd=None):
     log_event("subprocess_launch_started", process_name=process_name, command=command, cwd=cwd)
 
     if not DEBUG_MODE:
-        subprocess.Popen(command, cwd=cwd)
-        log_event("subprocess_launch_completed", process_name=process_name)
-        return
+        process = subprocess.Popen(command, cwd=cwd)
+        log_event("subprocess_launch_completed", process_name=process_name, pid=process.pid)
+        return process
 
     environment = os.environ.copy()
     environment["PYTHONUNBUFFERED"] = "1"
@@ -615,6 +677,61 @@ def launch_logged_subprocess(command, process_name, cwd=None):
     output_thread.start()
 
     log_event("subprocess_launch_completed", process_name=process_name, pid=process.pid)
+    return process
+
+
+def run_on_ui_thread(callback, *args, **kwargs):
+    """Schedule a callback on the Tkinter UI thread when the main window exists."""
+    if main_window is not None and hasattr(main_window, "after"):
+        main_window.after(0, lambda: callback(*args, **kwargs))
+    else:
+        callback(*args, **kwargs)
+
+
+def show_info_on_ui_thread(title, message):
+    run_on_ui_thread(messagebox.showinfo, title, message)
+
+
+def show_error_on_ui_thread(title, message):
+    run_on_ui_thread(messagebox.showerror, title, message)
+
+
+def ask_question_on_ui_thread(title, message, default="no"):
+    """Ask a Tkinter question from worker code and wait for the UI-thread response."""
+    if main_window is None or not hasattr(main_window, "after"):
+        return messagebox.askquestion(title, message)
+
+    response_holder = {"response": default}
+    completed = threading.Event()
+
+    def ask():
+        try:
+            response_holder["response"] = messagebox.askquestion(title, message)
+        finally:
+            completed.set()
+
+    main_window.after(0, ask)
+    completed.wait()
+    return response_holder["response"]
+
+
+def ask_yesno_on_ui_thread(title, message, default=False):
+    """Ask a Tkinter yes/no question from worker code and wait for the UI-thread response."""
+    if main_window is None or not hasattr(main_window, "after"):
+        return messagebox.askyesno(title, message)
+
+    response_holder = {"response": default}
+    completed = threading.Event()
+
+    def ask():
+        try:
+            response_holder["response"] = messagebox.askyesno(title, message)
+        finally:
+            completed.set()
+
+    main_window.after(0, ask)
+    completed.wait()
+    return response_holder["response"]
 
 # ===============================
 # INSTALLERS
@@ -860,9 +977,40 @@ def is_parser_update_available(repository_metadata):
     return update_available
 
 
+def install_parser_update_from_metadata(repository_metadata):
+    """Install an available parser update using repository metadata already fetched."""
+    update_available = ask_question_on_ui_thread(
+        "Parser Update Available",
+        "An update is available for the MiSAR Parser and Transformation Engine.\n"
+        "Would you like to install it now?",
+    )
+    log_event("parser_update_prompt_response", response=update_available)
+
+    if update_available != "yes":
+        return False
+
+    if not check_required_modules():
+        return False
+
+    if INSTALLED_PARSER_DIR.exists():
+        uninstall_path(Path("MiSAR") / "Parser")
+
+    if clone_parser_repository(Path("MiSAR") / "Parser", repository_metadata):
+        show_info_on_ui_thread("Success!", "The parser update completed successfully.")
+        run_on_ui_thread(refresh_launch_buttons)
+        return True
+
+    show_error_on_ui_thread("Failure!", "The parser update has failed.")
+    return False
+
+
 def automatic_update_check():
     """Check for parser updates after the UI starts, without interrupting offline users."""
     log_event("automatic_update_check_started")
+
+    if not is_auto_update_enabled():
+        log_event("automatic_update_check_skipped", reason="auto_update_disabled")
+        return
 
     if USE_REPOSITORY_PARSER:
         log_event("automatic_update_check_skipped", reason="use_repository_parser", path=ACTIVE_PARSER_DIR)
@@ -883,33 +1031,87 @@ def automatic_update_check():
             log_event("automatic_update_check_completed", update_available=False)
             return
 
-        update_available = messagebox.askquestion(
-            "Parser Update Available",
-            "An update is available for the MiSAR Parser and Transformation Engine.\n"
-            "Would you like to install it now?",
-        )
-        log_event("parser_update_prompt_response", response=update_available)
-
-        if update_available != "yes":
-            return
-
-        if not check_required_modules():
-            return
-
-        if INSTALLED_PARSER_DIR.exists():
-            uninstall_path(Path("MiSAR") / "Parser")
-
-        if clone_parser_repository(Path("MiSAR") / "Parser", repository_metadata):
-            messagebox.showinfo("Success!", "The parser update completed successfully.")
-            refresh_launch_buttons()
-        else:
-            messagebox.showerror("Failure!", "The parser update has failed.")
+        install_parser_update_from_metadata(repository_metadata)
     except Exception as error:
         log_exception("automatic_update_check_failed", error)
-        messagebox.showerror(
+        show_error_on_ui_thread(
             "Update Check Failed",
             "MiSAR could not check for parser updates.\n\nError code:\n" + str(error),
         )
+
+
+def manual_update_check():
+    """Run the parser update check when the user explicitly asks for it."""
+    log_event("manual_update_check_started")
+
+    if USE_REPOSITORY_PARSER:
+        show_info_on_ui_thread(
+            "Repository Runtime Active",
+            "MiSAR is currently using the repository parser runtime.\n\n"
+            "Automatic parser updates are skipped in this mode.",
+        )
+        log_event("manual_update_check_skipped", reason="use_repository_parser", path=ACTIVE_PARSER_DIR)
+        return False
+
+    if not check_internet():
+        show_error_on_ui_thread(
+            "No Internet Connection",
+            "An internet connection is required to check for MiSAR updates.",
+        )
+        log_event("manual_update_check_skipped", reason="no_internet")
+        return False
+
+    if not is_parser_installed():
+        install_parser_choice = ask_question_on_ui_thread(
+            "Parser Not Installed",
+            "The MiSAR Parser is not installed yet.\nWould you like to install it now?",
+        )
+        log_event("manual_update_install_prompt_response", response=install_parser_choice)
+
+        if install_parser_choice == "yes":
+            if check_required_modules() and install_parser():
+                show_info_on_ui_thread("Success!", "The parser installation completed successfully.")
+                run_on_ui_thread(refresh_launch_buttons)
+                return True
+            show_error_on_ui_thread("Failure!", "The parser installation has failed.")
+
+        return False
+
+    try:
+        repository_metadata = get_parser_repository_metadata()
+
+        if not is_parser_update_available(repository_metadata):
+            show_info_on_ui_thread("MiSAR Updates", "You are up to date.")
+            log_event("manual_update_check_completed", update_available=False)
+            return False
+
+        log_event("manual_update_check_completed", update_available=True)
+        return install_parser_update_from_metadata(repository_metadata)
+    except Exception as error:
+        log_exception("manual_update_check_failed", error)
+        show_error_on_ui_thread(
+            "Update Check Failed",
+            "MiSAR could not check for updates.\n\nError code:\n" + str(error),
+        )
+        return False
+
+
+def run_update_check_in_background(manual=False):
+    """Run update checks in a worker thread so Tkinter does not freeze."""
+    set_status("Checking MiSAR updates..." if manual else "Checking parser updates...")
+    target = manual_update_check if manual else automatic_update_check
+
+    def worker():
+        try:
+            target()
+        finally:
+            run_on_ui_thread(set_status, "Ready")
+
+    update_thread = threading.Thread(target=worker, daemon=True)
+    update_thread.start()
+    log_event("update_check_background_started", manual=manual, thread_name=update_thread.name)
+    return update_thread
+
 
 def run_logged_subprocess(command, process_name, cwd=None):
     """Run a child process and stream its stdout/stderr into the AIO debug logger."""
@@ -1095,18 +1297,84 @@ WINDOW_HEIGHT = 850
 WINDOW_MIN_HEIGHT = 650
 WINDOW_VERTICAL_MARGIN = 72
 
+# Windows VM/display scaling can make the Tkinter UI look about 1.5x larger
+# than macOS. Keep macOS/Linux unchanged by default, but allow users to override
+# the launcher density from Display Settings. The setting is persisted in
+# MISAR.configs.json so more UI options can be added later.
+WINDOWS_COMPACT_DENSITY = sys.platform.startswith("win")
+DEFAULT_UI_DENSITY = 0.88 if WINDOWS_COMPACT_DENSITY else 1.0
+UI_DENSITY = DEFAULT_UI_DENSITY
+UI_DENSITY_CONFIG_KEY = "ui.density"
+UI_DENSITY_OPTIONS = {
+    "auto": ("Auto", None),
+    "compact": ("Smaller", 0.88),
+    "normal": ("Default", 1.0),
+    "comfortable": ("Larger", 1.08),
+    "large": ("Largest", 1.18),
+}
+
+
+def normalise_ui_density_choice(choice):
+    """Return a supported UI density choice key."""
+    choice = str(choice or "auto").strip().lower()
+    return choice if choice in UI_DENSITY_OPTIONS else "auto"
+
+
+def get_ui_density_choice():
+    """Return the configured UI density choice from MISAR.configs.json."""
+    return normalise_ui_density_choice(MISAR_CONFIGS.get(UI_DENSITY_CONFIG_KEY, "auto"))
+
+
+def resolve_ui_density(choice=None):
+    """Resolve the configured UI density choice to a numeric multiplier."""
+    choice = normalise_ui_density_choice(choice if choice is not None else get_ui_density_choice())
+    _label, configured_density = UI_DENSITY_OPTIONS[choice]
+    return DEFAULT_UI_DENSITY if configured_density is None else configured_density
+
+
+def apply_configured_ui_density():
+    """Refresh the in-memory UI density from MISAR.configs.json."""
+    global UI_DENSITY
+    UI_DENSITY = resolve_ui_density()
+    log_event("ui_density_configured", choice=get_ui_density_choice(), density=UI_DENSITY)
+    return UI_DENSITY
+
+
+def ui_density_display_text(choice=None):
+    """Return a user-facing label for a UI density choice."""
+    choice = normalise_ui_density_choice(choice if choice is not None else get_ui_density_choice())
+    label, _density = UI_DENSITY_OPTIONS[choice]
+    return label
+
+
+def ui_size(value, minimum=1):
+    """Scale layout values for platform-specific UI density."""
+    return max(int(round(value * UI_DENSITY)), minimum)
+
+
+def ui_pad(values):
+    """Scale Tkinter padding tuples/lists while preserving tuple shape."""
+    if isinstance(values, tuple):
+        return tuple(ui_pad(value) for value in values)
+    if isinstance(values, list):
+        return [ui_pad(value) for value in values]
+    if isinstance(values, int):
+        return ui_size(values, 0)
+    return values
+
 
 def ui_font(size=11, weight="normal"):
     try:
         family = tkfont.nametofont("TkDefaultFont").cget("family")
     except Exception:
         family = "Helvetica"
-    return (family, size, weight) if weight != "normal" else (family, size)
+    scaled_size = ui_size(size, 8)
+    return (family, scaled_size, weight) if weight != "normal" else (family, scaled_size)
 
 
 class RoundedButton(tkinter.Canvas):
     def __init__(self, master, text, command=None, variant="primary", width=132):
-        super().__init__(master, width=width, height=42, highlightthickness=0, bd=0, cursor="hand2")
+        super().__init__(master, width=ui_size(width), height=ui_size(42), highlightthickness=0, bd=0, cursor="hand2")
         self.text = text
         self.command = command
         self.variant = variant
@@ -1219,7 +1487,7 @@ class BoxFrame(tkinter.Frame):
         super().__init__(master, bg=PALETTE["bg"], **kwargs)
         self.canvas = tkinter.Canvas(self, highlightthickness=0, bd=0, bg=PALETTE["bg"])
         self.canvas.pack(fill="both", expand=True)
-        self.content = tkinter.Frame(self.canvas, bg=PALETTE["panel"], padx=22, pady=18)
+        self.content = tkinter.Frame(self.canvas, bg=PALETTE["panel"], padx=ui_size(18), pady=ui_size(14))
         self.window_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
         self.content.bind("<Configure>", self._on_content_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
@@ -1271,16 +1539,16 @@ class ProgramOfChoice:
 
         parent = getattr(target_window, "modules_frame", target_window)
         self.container = BoxFrame(parent)
-        self.container.grid(row=input_row, column=input_column, sticky="ew", pady=(0, 14))
+        self.container.grid(row=input_row, column=input_column, sticky="ew", pady=ui_pad((0, 10)))
         self.container.content.grid_columnconfigure(1, weight=1)
 
         details = module_details(name)
         self.icon = tkinter.Label(
             self.container.content,
             text=details["icon"],
-            width=3,
-            height=2,
-            font=ui_font(22, "bold"),
+            width=ui_size(3),
+            height=ui_size(2),
+            font=ui_font(20, "bold"),
             bg=PALETTE["panel_soft"],
             fg=PALETTE["accent"],
             relief="flat",
@@ -1298,8 +1566,8 @@ class ProgramOfChoice:
                 font=ui_font(10, "bold"),
                 bg=PALETTE["secondary"],
                 fg=PALETTE["muted"],
-                padx=8,
-                pady=3,
+                padx=ui_size(7),
+                pady=ui_size(2),
             )
             self.module_version.pack(side=tkinter.LEFT, padx=(10, 0))
 
@@ -1315,15 +1583,15 @@ class ProgramOfChoice:
             font=ui_font(11, "bold"),
             bg=PALETTE["secondary"],
             fg=PALETTE["muted"],
-            padx=12,
-            pady=6,
+            padx=ui_size(10),
+            pady=ui_size(5),
         )
 
         self.button_frame = tkinter.Frame(self.container.content, bg=PALETTE["panel"])
-        self.launch_button = RoundedButton(self.button_frame, "Install", command=lambda button=self: handle_module_button(button), width=124)
+        self.launch_button = RoundedButton(self.button_frame, "Install", command=lambda button=self: handle_module_button(button), width=118)
 
         if supports_uninstall:
-            self.launch_button.pack(side=tkinter.LEFT, padx=(0, 10))
+            self.launch_button.pack(side=tkinter.LEFT, padx=ui_pad((0, 8)))
         else:
             self.launch_button.pack(side=tkinter.RIGHT)
 
@@ -1333,16 +1601,16 @@ class ProgramOfChoice:
                 "Uninstall",
                 command=lambda button=self: handle_uninstall_button(button),
                 variant="secondary",
-                width=124,
+                width=118,
             )
             self.uninstall_button.pack(side=tkinter.LEFT)
             self.uninstall_button.configure(state=tkinter.DISABLED)
 
-        self.icon.grid(row=0, column=0, rowspan=2, sticky="n", padx=(0, 18))
+        self.icon.grid(row=0, column=0, rowspan=2, sticky="n", padx=ui_pad((0, 14)))
         self.title_frame.grid(row=0, column=1, sticky="w")
-        self.module_description.grid(row=1, column=1, sticky="ew", pady=(5, 0))
-        self.status_badge.grid(row=0, column=2, sticky="e", padx=(18, 0))
-        self.button_frame.grid(row=1, column=2, sticky="e", padx=(18, 0), pady=(8, 0))
+        self.module_description.grid(row=1, column=1, sticky="ew", pady=ui_pad((4, 0)))
+        self.status_badge.grid(row=0, column=2, sticky="e", padx=ui_pad((14, 0)))
+        self.button_frame.grid(row=1, column=2, sticky="e", padx=ui_pad((14, 0)), pady=ui_pad((6, 0)))
 
         if name == "Need help or more information about this program?":
             self.status_badge.grid_remove()
@@ -1421,8 +1689,8 @@ def set_module_version_badge(module, version):
             font=ui_font(10, "bold"),
             bg=PALETTE["secondary"],
             fg=PALETTE["muted"],
-            padx=8,
-            pady=3,
+            padx=ui_size(7),
+            pady=ui_size(2),
         )
         module.module_version.pack(side=tkinter.LEFT, padx=(10, 0))
 
@@ -1562,6 +1830,176 @@ def reset_parser_psm_path():
     update_psm_path_entry()
     set_status("Parser PSM path reset to the installed default.")
     log_event("parser_psm_path_reset", psm_path=PARSER_PSM_ECORE)
+
+
+
+def restart_launcher():
+    """Restart the launcher so display-density changes are applied consistently."""
+    log_event("launcher_restart_requested")
+
+    try:
+        if main_window is not None:
+            main_window.destroy()
+
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    except Exception as error:
+        log_exception("launcher_restart_failed", error)
+        messagebox.showinfo(
+            "Restart MiSAR",
+            "Display settings were saved. Please close and reopen MiSAR to apply them fully.",
+        )
+
+
+def open_launcher_settings():
+    """Open launcher settings for display, runtime and update preferences."""
+    if main_window is None:
+        return
+
+    settings_window = tkinter.Toplevel(main_window)
+    settings_window.title("MiSAR Settings")
+    settings_window.transient(main_window)
+    settings_window.resizable(False, False)
+    settings_window.configure(bg=PALETTE["panel"])
+    settings_window.grab_set()
+
+    tkinter.Label(
+        settings_window,
+        text="MiSAR Settings",
+        font=ui_font(14, "bold"),
+        bg=PALETTE["panel"],
+        fg=PALETTE["title"],
+    ).grid(row=0, column=0, columnspan=2, sticky="w", padx=18, pady=(16, 4))
+
+    tkinter.Label(
+        settings_window,
+        text="Configure launcher display, local runtime and update behaviour. These settings are saved locally.",
+        font=ui_font(11),
+        bg=PALETTE["panel"],
+        fg=PALETTE["muted"],
+        wraplength=420,
+        justify="left",
+    ).grid(row=1, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 14))
+
+    tkinter.Label(
+        settings_window,
+        text="Launcher density",
+        font=ui_font(11, "bold"),
+        bg=PALETTE["panel"],
+        fg=PALETTE["text"],
+    ).grid(row=2, column=0, sticky="w", padx=18, pady=(0, 10))
+
+    label_to_key = {label: key for key, (label, _density) in UI_DENSITY_OPTIONS.items()}
+    current_label = ui_density_display_text()
+    density_var = tkinter.StringVar(value=current_label)
+    density_selector = ttk.Combobox(
+        settings_window,
+        textvariable=density_var,
+        values=[label for label, _density in UI_DENSITY_OPTIONS.values()],
+        state="readonly",
+        width=22,
+    )
+    density_selector.grid(row=2, column=1, sticky="ew", padx=18, pady=(0, 10))
+
+    tkinter.Label(
+        settings_window,
+        text=(
+            "Auto keeps the platform default: smaller on Windows and default on macOS/Linux. "
+            "Other choices are saved to MISAR.configs.json."
+        ),
+        font=ui_font(10),
+        bg=PALETTE["panel"],
+        fg=PALETTE["muted"],
+        wraplength=420,
+        justify="left",
+    ).grid(row=3, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 12))
+
+    local_runtime_var = tkinter.BooleanVar(value=USE_REPOSITORY_PARSER)
+    local_runtime_check = tkinter.Checkbutton(
+        settings_window,
+        text="Run repository parser locally",
+        variable=local_runtime_var,
+        bg=PALETTE["panel"],
+        fg=PALETTE["text"],
+        activebackground=PALETTE["panel"],
+        font=ui_font(11),
+    )
+    local_runtime_check.grid(row=4, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 6))
+
+    auto_update_var = tkinter.BooleanVar(value=is_auto_update_enabled())
+    auto_update_check = tkinter.Checkbutton(
+        settings_window,
+        text="Automatically check parser updates on startup",
+        variable=auto_update_var,
+        bg=PALETTE["panel"],
+        fg=PALETTE["text"],
+        activebackground=PALETTE["panel"],
+        font=ui_font(11),
+    )
+    auto_update_check.grid(row=5, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 10))
+
+    update_button_frame = tkinter.Frame(settings_window, bg=PALETTE["panel"])
+    update_button_frame.grid(row=6, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 16))
+    check_updates_button = RoundedButton(
+        update_button_frame,
+        "Check Updates",
+        command=lambda: run_update_check_in_background(manual=True),
+        variant="secondary",
+        width=128,
+    )
+    check_updates_button.pack(side=tkinter.LEFT)
+
+    button_frame = tkinter.Frame(settings_window, bg=PALETTE["panel"])
+    button_frame.grid(row=7, column=0, columnspan=2, sticky="e", padx=18, pady=(0, 16))
+
+    def save_launcher_settings():
+        selected_key = label_to_key.get(density_var.get(), "auto")
+        old_density_choice = get_ui_density_choice()
+        old_local_runtime = USE_REPOSITORY_PARSER
+
+        write_misar_config(UI_DENSITY_CONFIG_KEY, selected_key)
+        write_misar_config(LOCAL_RUNTIME_CONFIG_KEY, bool_to_config_value(local_runtime_var.get()))
+        write_misar_config(AUTO_UPDATE_CONFIG_KEY, bool_to_config_value(auto_update_var.get()))
+        apply_configured_ui_density()
+
+        restart_required = (
+            selected_key != old_density_choice
+            or bool(local_runtime_var.get()) != old_local_runtime
+        )
+
+        log_event(
+            "launcher_settings_saved",
+            ui_density_choice=selected_key,
+            density=UI_DENSITY,
+            use_repository_parser=local_runtime_var.get(),
+            auto_update_enabled=auto_update_var.get(),
+            restart_required=restart_required,
+        )
+        settings_window.destroy()
+
+        if restart_required:
+            restart_now = messagebox.askyesno(
+                "Apply MiSAR Settings",
+                "Settings were saved. Restart MiSAR now to apply the runtime/layout changes cleanly?",
+            )
+
+            if restart_now:
+                restart_launcher()
+            else:
+                set_status("Settings saved. Restart MiSAR to apply all changes.")
+            return
+
+        set_status("Settings saved.")
+
+    save_button = RoundedButton(button_frame, "Apply", command=save_launcher_settings, width=96)
+    save_button.pack(side=tkinter.RIGHT, padx=(8, 0))
+
+    cancel_button = RoundedButton(button_frame, "Cancel", command=settings_window.destroy, variant="secondary", width=96)
+    cancel_button.pack(side=tkinter.RIGHT)
+
+    settings_window.update_idletasks()
+    x = main_window.winfo_x() + max((main_window.winfo_width() - settings_window.winfo_reqwidth()) // 2, 0)
+    y = main_window.winfo_y() + max((main_window.winfo_height() - settings_window.winfo_reqheight()) // 2, 0)
+    settings_window.geometry(f"+{x}+{y}")
 
 
 
@@ -2043,8 +2481,9 @@ def handle_parser_button():
 
         set_status("Launching MiSAR Parser...")
         log_event("parser_launch_started", path=PARSER_GUI_PATH, command=command)
-        run_logged_subprocess(command, "MiSAR Parser GUI", cwd=PARSER_GUI_PATH.parent)
-        log_event("parser_launch_completed", path=PARSER_GUI_PATH)
+        launch_logged_subprocess(command, "MiSAR Parser GUI", cwd=PARSER_GUI_PATH.parent)
+        log_event("parser_launch_requested", path=PARSER_GUI_PATH)
+        set_status("MiSAR Parser launch requested.")
 
 
 def handle_transformation_engine_button():
@@ -2185,16 +2624,16 @@ def configure_styles(root):
         pass
     for font_name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
         try:
-            tkfont.nametofont(font_name).configure(size=11)
+            tkfont.nametofont(font_name).configure(size=ui_size(11, 8))
         except Exception:
             pass
     style.configure("Root.TFrame", background=PALETTE["bg"])
     style.configure("Header.TFrame", background=PALETTE["bg"])
-    style.configure("AppTitle.TLabel", background=PALETTE["bg"], foreground=PALETTE["title"], font=ui_font(24, "bold"))
-    style.configure("SectionTitle.TLabel", background=PALETTE["bg"], foreground=PALETTE["title"], font=ui_font(14, "bold"))
-    style.configure("CardTitle.TLabel", background=PALETTE["panel"], foreground=PALETTE["title"], font=ui_font(15, "bold"))
-    style.configure("MutedRoot.TLabel", background=PALETTE["bg"], foreground=PALETTE["muted"], font=ui_font(12))
-    style.configure("MutedCard.TLabel", background=PALETTE["panel"], foreground=PALETTE["muted"], font=ui_font(12))
+    style.configure("AppTitle.TLabel", background=PALETTE["bg"], foreground=PALETTE["title"], font=ui_font(22, "bold"))
+    style.configure("SectionTitle.TLabel", background=PALETTE["bg"], foreground=PALETTE["title"], font=ui_font(13, "bold"))
+    style.configure("CardTitle.TLabel", background=PALETTE["panel"], foreground=PALETTE["title"], font=ui_font(14, "bold"))
+    style.configure("MutedRoot.TLabel", background=PALETTE["bg"], foreground=PALETTE["muted"], font=ui_font(11))
+    style.configure("MutedCard.TLabel", background=PALETTE["panel"], foreground=PALETTE["muted"], font=ui_font(11))
 
 
 def initialise_ui():
@@ -2213,13 +2652,13 @@ def initialise_ui():
     root.grid_rowconfigure(0, weight=1)
     root.grid_columnconfigure(1, weight=1)
 
-    sidebar = tkinter.Frame(root, width=96, bg=PALETTE["sidebar"])
+    sidebar = tkinter.Frame(root, width=ui_size(88), bg=PALETTE["sidebar"])
     sidebar.grid(row=0, column=0, sticky="ns")
     sidebar.grid_propagate(False)
 
-    tkinter.Label(sidebar, text="MiSAR", font=ui_font(14, "bold"), bg=PALETTE["sidebar"], fg=PALETTE["sidebar_title"]).pack(pady=(24, 4))
+    tkinter.Label(sidebar, text="MiSAR", font=ui_font(13, "bold"), bg=PALETTE["sidebar"], fg=PALETTE["sidebar_title"]).pack(pady=ui_pad((20, 3)))
     tkinter.Label(sidebar, text="AIO", font=ui_font(11), bg=PALETTE["sidebar"], fg=PALETTE["sidebar_text"]).pack()
-    tkinter.Frame(sidebar, height=1, bg="#243454").pack(fill="x", padx=18, pady=20)
+    tkinter.Frame(sidebar, height=1, bg="#243454").pack(fill="x", padx=ui_size(16), pady=ui_size(16))
     sidebar_footer_text = "AIO" + ("\n" + launcher_version_text if launcher_version_text else "")
     root.sidebar_footer_label = tkinter.Label(
         sidebar,
@@ -2229,14 +2668,14 @@ def initialise_ui():
         bg=PALETTE["sidebar"],
         fg=PALETTE["sidebar_text"],
     )
-    root.sidebar_footer_label.pack(side="bottom", pady=18)
+    root.sidebar_footer_label.pack(side="bottom", pady=ui_size(14))
 
     main = ttk.Frame(root, style="Root.TFrame")
     main.grid(row=0, column=1, sticky="nsew")
     main.grid_rowconfigure(1, weight=1)
     main.grid_columnconfigure(0, weight=1)
 
-    header = ttk.Frame(main, padding=(28, 24, 28, 8), style="Header.TFrame")
+    header = ttk.Frame(main, padding=ui_pad((24, 20, 24, 6)), style="Header.TFrame")
     header.grid(row=0, column=0, sticky="ew")
     header.grid_columnconfigure(0, weight=1)
 
@@ -2247,36 +2686,39 @@ def initialise_ui():
         text="Install, update and launch the MiSAR Parser, Transformation Engine and Graphical Model Generator from one guided dashboard.",
         style="MutedRoot.TLabel",
         wraplength=760,
-    ).grid(row=1, column=0, sticky="w", pady=(6, 0))
+    ).grid(row=1, column=0, sticky="w", pady=ui_pad((5, 0)))
     ttk.Label(
         header,
         text="Tip: keyboard shortcuts are available - P for Parser, E for Eclipse, G for Graphical Model Generator, ? for Help.",
         style="MutedRoot.TLabel",
         wraplength=760,
-    ).grid(row=2, column=0, sticky="w", pady=(4, 0))
+    ).grid(row=2, column=0, sticky="w", pady=ui_pad((3, 0)))
 
     root.debug_header = tkinter.Frame(header, bg=PALETTE["bg"])
-    root.debug_header.grid(row=0, column=1, rowspan=3, sticky="ne", padx=(18, 0))
+    root.debug_header.grid(row=0, column=1, rowspan=3, sticky="ne", padx=ui_pad((14, 0)))
     root.debug_status_label = tkinter.Label(
         root.debug_header,
         text="Debug mode: OFF",
         font=ui_font(10, "bold"),
         bg=PALETTE["secondary"],
         fg=PALETTE["muted"],
-        padx=12,
-        pady=6,
+        padx=ui_size(10),
+        pady=ui_size(5),
     )
-    root.debug_status_label.pack(anchor="e", pady=(0, 8))
-    root.debug_toggle_button = RoundedButton(root.debug_header, "Activate Debug", command=toggle_debug_mode, variant="secondary", width=142)
+    root.debug_status_label.pack(anchor="e", pady=ui_pad((0, 6)))
+    root.debug_toggle_button = RoundedButton(root.debug_header, "Activate Debug", command=toggle_debug_mode, variant="secondary", width=130)
     root.debug_toggle_button.configure(bg=PALETTE["bg"])
     root.debug_toggle_button.pack(anchor="e")
+    root.settings_button = RoundedButton(root.debug_header, "Settings", command=open_launcher_settings, variant="secondary", width=110)
+    root.settings_button.configure(bg=PALETTE["bg"])
+    root.settings_button.pack(anchor="e", pady=ui_pad((6, 0)))
 
-    body = ttk.Frame(main, padding=(28, 12, 28, 18), style="Root.TFrame")
+    body = ttk.Frame(main, padding=ui_pad((24, 10, 24, 14)), style="Root.TFrame")
     body.grid(row=1, column=0, sticky="nsew")
     body.grid_columnconfigure(0, weight=1)
 
     root.debug_panel = BoxFrame(body)
-    root.debug_panel.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+    root.debug_panel.grid(row=0, column=0, sticky="ew", pady=ui_pad((0, 10)))
     root.debug_panel.content.grid_columnconfigure(0, weight=1)
     tkinter.Label(
         root.debug_panel.content,
@@ -2304,14 +2746,14 @@ def initialise_ui():
         highlightbackground=PALETTE["border"],
         highlightcolor=PALETTE["accent"],
     )
-    root.debug_psm_entry.grid(row=2, column=0, sticky="ew", ipady=8, padx=(0, 10))
+    root.debug_psm_entry.grid(row=2, column=0, sticky="ew", ipady=ui_size(6), padx=ui_pad((0, 8)))
     root.debug_psm_entry.configure(state="readonly")
     root.debug_browse_button = RoundedButton(root.debug_panel.content, "Browse", command=browse_parser_psm_path, width=104)
-    root.debug_browse_button.grid(row=2, column=1, sticky="e", padx=(0, 8))
+    root.debug_browse_button.grid(row=2, column=1, sticky="e", padx=ui_pad((0, 6)))
     root.debug_reset_button = RoundedButton(root.debug_panel.content, "Reset", command=reset_parser_psm_path, variant="secondary", width=96)
     root.debug_reset_button.grid(row=2, column=2, sticky="e")
 
-    ttk.Label(body, text="Available modules", style="SectionTitle.TLabel").grid(row=1, column=0, sticky="w", pady=(0, 10))
+    ttk.Label(body, text="Available modules", style="SectionTitle.TLabel").grid(row=1, column=0, sticky="w", pady=ui_pad((0, 8)))
     root.modules_frame = ttk.Frame(body, style="Root.TFrame")
     root.modules_frame.grid(row=2, column=0, sticky="nsew")
     root.modules_frame.grid_columnconfigure(0, weight=1)
@@ -2323,19 +2765,25 @@ def initialise_ui():
     root.status_bar = tkinter.Frame(root, height=42, bg=PALETTE["status_bg"])
     root.status_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
     root.status_label = tkinter.Label(root.status_bar, text="Ready", anchor="w", font=ui_font(11), bg=PALETTE["status_bg"], fg=PALETTE["text"])
-    root.status_label.pack(side="left", padx=20)
+    root.status_label.pack(side="left", padx=ui_size(16))
     root.footer_label = tkinter.Label(root.status_bar, text="Brunel University London", anchor="e", font=ui_font(11), bg=PALETTE["status_bg"], fg=PALETTE["muted"])
-    root.footer_label.pack(side="right", padx=20)
+    root.footer_label.pack(side="right", padx=ui_size(16))
 
     log_event("ui_initialisation_completed")
     return root
 
 
 def run_application():
-    global main_window, the_parser, the_transformation_engine, the_graphical_model_generator, the_help_button, MISAR_VERSIONS, MISAR_CONFIGS
+    global main_window, the_parser, the_transformation_engine, the_graphical_model_generator, the_help_button, MISAR_VERSIONS, MISAR_CONFIGS, USE_REPOSITORY_PARSER
 
     MISAR_VERSIONS = load_misar_versions()
     MISAR_CONFIGS = load_misar_configs()
+    USE_REPOSITORY_PARSER = resolve_use_repository_parser(
+        bool(getattr(ARGS, "use_repository_parser", False)),
+        MISAR_CONFIGS,
+    )
+    configure_parser_runtime_paths()
+    apply_configured_ui_density()
 
     log_event(
         "application_startup",
@@ -2378,8 +2826,14 @@ def run_application():
     update_debug_ui()
     main_window.after(80, lambda: centre_and_focus_window(main_window))
 
-    if not USE_REPOSITORY_PARSER:
-        main_window.after(500, automatic_update_check)
+    if is_auto_update_enabled() and not USE_REPOSITORY_PARSER:
+        main_window.after(500, lambda: run_update_check_in_background(manual=False))
+    else:
+        log_event(
+            "startup_update_check_not_scheduled",
+            auto_update_enabled=is_auto_update_enabled(),
+            use_repository_parser=USE_REPOSITORY_PARSER,
+        )
     main_window.protocol("WM_DELETE_WINDOW", window_quit)
 
     log_event("tkinter_mainloop_started")
