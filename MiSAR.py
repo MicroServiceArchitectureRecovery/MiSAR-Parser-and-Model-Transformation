@@ -53,6 +53,7 @@ REQUIRED_MODULES = [
 ]
 
 VERSION_FILE_PATH = AIO_DIR / "MISAR.versions.json"
+CONFIG_FILE_PATH = AIO_DIR / "MISAR.configs.json"
 MODULE_VERSION_KEYS = {
     "MiSAR Parser": ("misar.parser",),
     "MiSAR Transformation Engine": ("misar.transofrmer", "misar.transformer"),
@@ -60,6 +61,7 @@ MODULE_VERSION_KEYS = {
 }
 LAUNCHER_VERSION_KEYS = ("misar.launcher",)
 MISAR_VERSIONS = {}
+MISAR_CONFIGS = {}
 
 LOGGER = logging.getLogger("MiSAR-AIO")
 LOGGER.propagate = False
@@ -372,6 +374,54 @@ def load_misar_versions():
 
     log_event("misar_versions_unavailable", path=VERSION_FILE_PATH)
     return {}
+
+
+def read_config_json_file(file_path):
+    """Read launcher user configuration from MISAR.configs.json."""
+    if not file_path.is_file():
+        log_event("config_json_file_missing", path=file_path)
+        return {}
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as json_file:
+            data = json.load(json_file)
+        return data if isinstance(data, dict) else {}
+    except Exception as error:
+        log_event("config_json_file_read_failed", path=file_path, error=str(error))
+        return {}
+
+
+def load_misar_configs():
+    """Read user-selected launcher paths/settings from MISAR.configs.json."""
+    configs = read_config_json_file(CONFIG_FILE_PATH)
+
+    if configs:
+        log_event("misar_configs_loaded", path=CONFIG_FILE_PATH, configs=configs)
+        return configs
+
+    log_event("misar_configs_unavailable", path=CONFIG_FILE_PATH)
+    return {}
+
+
+def write_misar_config(config_key, config_value):
+    """Update one launcher config entry and persist it to MISAR.configs.json."""
+    global MISAR_CONFIGS
+
+    config_value = str(config_value).strip() if config_value else ""
+    config_data = read_config_json_file(CONFIG_FILE_PATH)
+    if not config_data and MISAR_CONFIGS:
+        config_data = dict(MISAR_CONFIGS)
+
+    if config_value:
+        config_data[config_key] = config_value
+        MISAR_CONFIGS[config_key] = config_value
+    else:
+        config_data.pop(config_key, None)
+        MISAR_CONFIGS.pop(config_key, None)
+
+    write_json_file(CONFIG_FILE_PATH, config_data)
+    log_event("misar_config_updated", path=CONFIG_FILE_PATH, key=config_key, value=config_value)
+    return True
 
 
 def get_configured_version(version_keys):
@@ -1041,7 +1091,9 @@ PALETTE = {
 CARD_RADIUS = 10
 CARD_SHADOW_OFFSET = 5
 WINDOW_WIDTH = 1100
-WINDOW_HEIGHT = 750
+WINDOW_HEIGHT = 850
+WINDOW_MIN_HEIGHT = 650
+WINDOW_VERTICAL_MARGIN = 72
 
 
 def ui_font(size=11, weight="normal"):
@@ -1320,7 +1372,7 @@ def module_details(name):
         },
         "MiSAR Transformation Engine": {
             "icon": "E",
-            "description": "Open Eclipse for MiSAR Transformation Engine work. If Eclipse is not installed, MiSAR will notify you.",
+            "description": "Open Eclipse to import and run the Transformation Engine Necessities project.",
         },
         "MiSAR Graphical Model Generator": {
             "icon": "G",
@@ -1391,15 +1443,16 @@ def set_transformation_engine_button_state():
         return
 
     eclipse_executable = find_eclipse_executable()
-    the_transformation_engine.launch_button.configure(text="Open Eclipse", state=tkinter.NORMAL)
 
     if eclipse_executable is not None:
+        the_transformation_engine.launch_button.configure(text="Open Eclipse", state=tkinter.NORMAL)
         the_transformation_engine.status_badge.configure(
             text="Eclipse ready",
             bg="#dcfce7",
             fg=PALETTE["success"],
         )
     else:
+        the_transformation_engine.launch_button.configure(text="Choose Eclipse", state=tkinter.NORMAL)
         the_transformation_engine.status_badge.configure(
             text="Eclipse missing",
             bg=PALETTE["secondary"],
@@ -1432,13 +1485,13 @@ def update_debug_ui():
 
     if hasattr(main_window, "debug_status_label"):
         main_window.debug_status_label.configure(
-            text="Debug mode: ON" if DEBUG_MODE else "Debug mode: OFF",
+            text="Debug mode: Active" if DEBUG_MODE else "Debug mode: Inactive",
             bg="#dcfce7" if DEBUG_MODE else PALETTE["secondary"],
             fg=PALETTE["success"] if DEBUG_MODE else PALETTE["muted"],
         )
 
     if hasattr(main_window, "debug_toggle_button"):
-        main_window.debug_toggle_button.configure(text="Turn off" if DEBUG_MODE else "Turn on")
+        main_window.debug_toggle_button.configure(text="Deactivate Debug" if DEBUG_MODE else "Activate Debug")
 
     if hasattr(main_window, "debug_panel"):
         if DEBUG_MODE:
@@ -1447,6 +1500,9 @@ def update_debug_ui():
             main_window.debug_panel.grid_remove()
 
     update_psm_path_entry()
+
+    if hasattr(main_window, "after"):
+        main_window.after(40, lambda: resize_window_to_visible_content(main_window, keep_position=True))
 
 
 def toggle_debug_mode():
@@ -1506,6 +1562,124 @@ def reset_parser_psm_path():
     update_psm_path_entry()
     set_status("Parser PSM path reset to the installed default.")
     log_event("parser_psm_path_reset", psm_path=PARSER_PSM_ECORE)
+
+
+
+def resolve_eclipse_executable(path):
+    """Resolve an Eclipse file, folder or macOS .app bundle to the executable file."""
+    if not path:
+        return None
+
+    candidate = Path(path).expanduser()
+
+    if candidate.is_file():
+        file_name = candidate.name.lower()
+        if file_name in {"eclipse", "eclipse.exe"} or "eclipse" in file_name:
+            return candidate
+        return None
+
+    if candidate.is_dir():
+        possible_executables = []
+
+        if candidate.suffix == ".app":
+            possible_executables.extend(
+                [
+                    candidate / "Contents" / "Eclipse" / "eclipse",
+                    candidate / "Contents" / "MacOS" / "eclipse",
+                ]
+            )
+
+        possible_executables.extend(
+            [
+                candidate / "Eclipse.app" / "Contents" / "Eclipse" / "eclipse",
+                candidate / "Eclipse.app" / "Contents" / "MacOS" / "eclipse",
+                candidate / "eclipse",
+                candidate / "eclipse.exe",
+            ]
+        )
+
+        for executable in possible_executables:
+            if executable.is_file():
+                return executable
+
+    return None
+
+
+def get_eclipse_configured_path():
+    """Return the raw Eclipse path saved in MISAR.configs.json, if available."""
+    eclipse_path = str(MISAR_CONFIGS.get("eclipse.executable", "")).strip()
+    return Path(eclipse_path).expanduser() if eclipse_path else None
+
+
+def get_configured_eclipse_executable():
+    """Return a saved Eclipse path resolved to its executable when valid."""
+    configured_path = get_eclipse_configured_path()
+
+    if configured_path is None:
+        return None
+
+    executable = resolve_eclipse_executable(configured_path)
+
+    if executable is not None:
+        return executable
+
+    log_event("configured_eclipse_missing", path=configured_path)
+    return None
+
+
+def is_valid_eclipse_executable(path):
+    """Return True for Eclipse executable files, install folders, or macOS .app bundles."""
+    return resolve_eclipse_executable(path) is not None
+
+
+def select_eclipse_executable():
+    """Let the user manually select Eclipse and persist the selected path."""
+    initial_dir = USER_HOME_DIR
+    configured_path = get_eclipse_configured_path()
+
+    if configured_path is not None:
+        initial_dir = configured_path.parent if configured_path.is_file() else configured_path
+
+    if sys.platform == "darwin":
+        selected_file = filedialog.askdirectory(
+            title="Select Eclipse.app or Eclipse installation folder",
+            initialdir=str(initial_dir),
+        )
+    else:
+        selected_file = filedialog.askopenfilename(
+            title="Select Eclipse executable",
+            initialdir=str(initial_dir),
+            filetypes=(
+                ("Eclipse executable", "eclipse.exe eclipse"),
+                ("All files", "*.*"),
+            ),
+        )
+
+    if not selected_file:
+        set_status("Eclipse selection cancelled.")
+        return None
+
+    selected_path = Path(selected_file).expanduser()
+    eclipse_executable = resolve_eclipse_executable(selected_path)
+
+    if eclipse_executable is None:
+        message = "Please select a valid Eclipse installation."
+        if sys.platform == "darwin":
+            message += "\n\nOn macOS, select the Eclipse.app application bundle."
+        elif sys.platform.startswith("win"):
+            message += "\n\nOn Windows, select eclipse.exe."
+
+        messagebox.showerror("Invalid Eclipse Selection", message)
+        log_event("eclipse_manual_selection_invalid", path=selected_path)
+        return None
+
+    # Save the user's selected path. On macOS this can be the .app bundle, while
+    # get_configured_eclipse_executable() resolves it to Contents/Eclipse/eclipse.
+    write_misar_config("eclipse.executable", str(selected_path))
+    set_status("Eclipse executable selected.")
+    log_event("eclipse_manual_selection_saved", selected_path=selected_path, executable=eclipse_executable)
+    refresh_launch_buttons()
+    return eclipse_executable
 
 
 
@@ -1617,9 +1791,29 @@ def build_eclipse_launch_command(eclipse_executable):
 
 
 def find_eclipse_executable():
-    """Return the first usable Eclipse executable, or None if Eclipse is not found."""
+    """Return the configured or first auto-detected Eclipse executable, caching detections."""
+    configured_eclipse = get_configured_eclipse_executable()
+
+    if configured_eclipse is not None:
+        return configured_eclipse
+
     candidates = get_eclipse_candidates()
-    return candidates[0] if candidates else None
+
+    if not candidates:
+        return None
+
+    selected_candidate = candidates[0]
+
+    # Cache the first auto-detected executable so future launches avoid repeated globbing.
+    # If the path later becomes invalid, get_configured_eclipse_executable() ignores it
+    # and auto-detection can run again.
+    try:
+        write_misar_config("eclipse.executable", str(selected_candidate))
+        log_event("eclipse_auto_detection_cached", path=selected_candidate)
+    except Exception as error:
+        log_event("eclipse_auto_detection_cache_failed", path=selected_candidate, error=str(error))
+
+    return selected_candidate
 
 
 def open_eclipse_transformation_workspace():
@@ -1627,14 +1821,19 @@ def open_eclipse_transformation_workspace():
     eclipse_executable = find_eclipse_executable()
 
     if eclipse_executable is None:
-        messagebox.showwarning(
-            "Eclipse Not Installed",
-            "Eclipse could not be found on this system.\n\n"
-            "Please install Eclipse manually, then reopen MiSAR and try again.",
-        )
+        chooser_message = "Eclipse could not be found automatically.\n\n"
+        if sys.platform == "darwin":
+            chooser_message += "Please select the Eclipse.app application bundle."
+        else:
+            chooser_message += "Please select the Eclipse executable file. On Windows this is usually eclipse.exe."
+
+        messagebox.showinfo("Choose Eclipse", chooser_message)
         log_event("eclipse_executable_not_found")
-        set_status("Eclipse is not installed.")
-        return False
+        eclipse_executable = select_eclipse_executable()
+
+        if eclipse_executable is None:
+            set_status("Eclipse executable was not selected.")
+            return False
 
     command = build_eclipse_launch_command(eclipse_executable)
 
@@ -1725,12 +1924,45 @@ def active_monitor_bounds(root):
     return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
 
 
-def centre_and_focus_window(root, width=WINDOW_WIDTH, height=WINDOW_HEIGHT):
+def calculate_dynamic_window_height(root):
+    """Return a compact height that fits visible launcher content without leaving a large gap."""
+    root.update_idletasks()
+    _monitor_x, _monitor_y, _monitor_width, monitor_height = active_monitor_bounds(root)
+
+    requested_height = root.winfo_reqheight() + 12
+    available_height = max(WINDOW_MIN_HEIGHT, monitor_height - WINDOW_VERTICAL_MARGIN)
+
+    return min(max(requested_height, WINDOW_MIN_HEIGHT), available_height)
+
+
+def resize_window_to_visible_content(root, width=None, keep_position=False):
+    """Resize the launcher when optional panels are shown/hidden, such as Debug mode."""
+    if root is None:
+        return
+
+    root.update_idletasks()
+
+    current_width = width or max(root.winfo_width(), WINDOW_WIDTH)
+    target_height = calculate_dynamic_window_height(root)
+
+    if keep_position and root.winfo_ismapped():
+        x = root.winfo_x()
+        y = root.winfo_y()
+    else:
+        monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
+        x = monitor_x + max((monitor_width - current_width) // 2, 0)
+        y = monitor_y + max((monitor_height - target_height) // 2, 0)
+
+    root.geometry(f"{current_width}x{target_height}+{x}+{y}")
+
+
+def centre_and_focus_window(root, width=WINDOW_WIDTH, height=None):
     root.update_idletasks()
     monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
+    target_height = height or calculate_dynamic_window_height(root)
     x = monitor_x + max((monitor_width - width) // 2, 0)
-    y = monitor_y + max((monitor_height - height) // 2, 0)
-    root.geometry(f"{width}x{height}+{x}+{y}")
+    y = monitor_y + max((monitor_height - target_height) // 2, 0)
+    root.geometry(f"{width}x{target_height}+{x}+{y}")
     root.deiconify()
     root.lift()
     root.focus_force()
@@ -1974,7 +2206,7 @@ def initialise_ui():
     launcher_version_text = format_version_text(launcher_version)
     root.title("MicroService Architecture Recovery" + (" " + launcher_version_text if launcher_version_text else ""))
     root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
-    root.minsize(900, 650)
+    root.minsize(960, WINDOW_MIN_HEIGHT)
     root.configure(bg=PALETTE["bg"])
     configure_styles(root)
 
@@ -2035,7 +2267,7 @@ def initialise_ui():
         pady=6,
     )
     root.debug_status_label.pack(anchor="e", pady=(0, 8))
-    root.debug_toggle_button = RoundedButton(root.debug_header, "Turn on", command=toggle_debug_mode, variant="secondary", width=104)
+    root.debug_toggle_button = RoundedButton(root.debug_header, "Activate Debug", command=toggle_debug_mode, variant="secondary", width=142)
     root.debug_toggle_button.configure(bg=PALETTE["bg"])
     root.debug_toggle_button.pack(anchor="e")
 
@@ -2100,9 +2332,10 @@ def initialise_ui():
 
 
 def run_application():
-    global main_window, the_parser, the_transformation_engine, the_graphical_model_generator, the_help_button, MISAR_VERSIONS
+    global main_window, the_parser, the_transformation_engine, the_graphical_model_generator, the_help_button, MISAR_VERSIONS, MISAR_CONFIGS
 
     MISAR_VERSIONS = load_misar_versions()
+    MISAR_CONFIGS = load_misar_configs()
 
     log_event(
         "application_startup",
