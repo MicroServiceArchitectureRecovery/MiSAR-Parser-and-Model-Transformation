@@ -222,7 +222,13 @@ def resolve_list_rows(choice: str, screen_width: int, screen_height: int, scalin
     scaling_info = scaling_info or read_tk_scaling_info(None, screen_width, screen_height)
 
     if is_compact_layout_required(choice, screen_width, screen_height, scaling_info):
-        return 5, 3
+        # True 720p needs short lists. Scaled/full-screen 1080p still has enough
+        # logical height, so use more rows to avoid tiny list boxes in large cards.
+        if screen_height <= 800:
+            return 5, 3
+        if screen_height <= 1100:
+            return 8, 5
+        return 10, 7
     if screen_height <= 950:
         return 8, 5
     return 12, 9
@@ -274,6 +280,11 @@ def build_parser_layout_decision(
         "required_list_rows": int(required_rows),
         "optional_list_rows": int(optional_rows),
     }
+
+
+def picker_cards_fill_available_space() -> bool:
+    """Return True when only picker cards stretch their list area vertically."""
+    return True
 
 
 def parser_layout_debug_enabled() -> bool:
@@ -505,9 +516,10 @@ class RoundedButton(tk.Canvas):
 
 
 class BoxFrame(tk.Frame):
-    def __init__(self, master, **kwargs):
+    def __init__(self, master, stretch_content: bool = False, **kwargs):
         super().__init__(master, bg=PALETTE["bg"], **kwargs)
         self.palette = PALETTE
+        self.stretch_content = stretch_content
         self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, bg=PALETTE["bg"])
         self.canvas.pack(fill="both", expand=True)
         self.content = tk.Frame(self.canvas, bg=PALETTE["panel"], padx=ui_size(14), pady=ui_size(10))
@@ -529,7 +541,13 @@ class BoxFrame(tk.Frame):
 
     def _on_canvas_configure(self, event) -> None:
         width = max(event.width - CARD_SHADOW_OFFSET - 2, 120)
-        self.canvas.itemconfigure(self.window_id, width=width)
+
+        if self.stretch_content:
+            height = max(event.height - CARD_SHADOW_OFFSET - 2, self.content.winfo_reqheight())
+            self.canvas.itemconfigure(self.window_id, width=width, height=height)
+        else:
+            self.canvas.itemconfigure(self.window_id, width=width)
+
         self._draw()
 
     def _draw(self) -> None:
@@ -623,12 +641,12 @@ class PathPicker:
 
 class MultiPicker:
     def __init__(self, master, label: str, helper: str, add_text: str, add_command, delete_command, list_rows: int = LISTBOX_ROWS):
-        self.box = BoxFrame(master)
+        self.box = BoxFrame(master, stretch_content=True)
         parent = self.box.content
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_columnconfigure(1, weight=0)
         parent.grid_columnconfigure(2, weight=0)
-        parent.grid_rowconfigure(2, weight=1)
+        parent.grid_rowconfigure(2, weight=1, minsize=ui_size(64))
 
         self.label = ttk.Label(parent, text=label, style="FieldTitle.TLabel")
         self.actions = tk.Frame(parent, bg=PALETTE["panel"])
