@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import stat
+import sys
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
@@ -146,6 +147,54 @@ def resolve_list_rows(screen_height: int) -> tuple[int, int]:
     if screen_height <= 950:
         return 8, 5
     return 12, 9
+
+
+def build_parser_layout_decision(screen_width: int, screen_height: int, choice: str = "auto") -> dict:
+    """Build a testable parser layout decision for the current screen."""
+    choice = normalise_window_size_choice(choice)
+    density = resolve_ui_density(choice, screen_width, screen_height)
+    required_rows, optional_rows = resolve_list_rows(screen_height)
+    small_screen = screen_width <= 1366 or screen_height <= 800
+
+    if small_screen:
+        target_width = max(screen_width - 16, 980)
+        target_height = max(screen_height - 56, 620)
+        x = 0
+        y = 0
+        maximise = True
+    else:
+        target_width = min(max(1500, int(screen_width * 0.94)), max(screen_width - 24, 980))
+        target_height = min(max(920, int(screen_height * 0.90)), max(screen_height - 60, 620))
+        x = max((screen_width - target_width) // 2, 0)
+        y = max((screen_height - target_height) // 2, 0)
+        maximise = False
+
+    return {
+        "component": "parser",
+        "screen_width": int(screen_width),
+        "screen_height": int(screen_height),
+        "window_size_option": choice,
+        "resolved_ui_density": float(density),
+        "small_screen": small_screen,
+        "target_width": int(target_width),
+        "target_height": int(target_height),
+        "x": int(x),
+        "y": int(y),
+        "maximised": maximise,
+        "required_list_rows": int(required_rows),
+        "optional_list_rows": int(optional_rows),
+    }
+
+
+def parser_layout_debug_enabled() -> bool:
+    """Return True when parser layout decisions should be emitted for AIO debug logs."""
+    return os.environ.get("MISAR_AIO_DEBUG") == "1"
+
+
+def emit_parser_layout_diagnostics(decision: dict) -> None:
+    """Print parser layout diagnostics so the AIO debug logger can capture them."""
+    if parser_layout_debug_enabled():
+        print("misar_parser_layout_decision = " + json.dumps(decision, sort_keys=True), flush=True)
 
 
 def read_project_versions() -> dict:
@@ -713,21 +762,15 @@ def active_monitor_bounds(root):
 def centre_and_focus_window(root, width: int = 1500, height: int = 920) -> None:
     root.update_idletasks()
     monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
+    choice = getattr(root, "window_size_choice", configured_window_size_choice())
+    decision = build_parser_layout_decision(monitor_width, monitor_height, choice)
+    emit_parser_layout_diagnostics(decision)
 
-    if monitor_width <= 1366 or monitor_height <= 800:
-        target_width = max(monitor_width - 16, 980)
-        target_height = max(monitor_height - 56, 620)
-        x = monitor_x
-        y = monitor_y
-    else:
-        target_width = min(max(width, int(monitor_width * 0.94)), max(monitor_width - 24, 980))
-        target_height = min(max(height, int(monitor_height * 0.90)), max(monitor_height - 60, 620))
-        x = monitor_x + max((monitor_width - target_width) // 2, 0)
-        y = monitor_y + max((monitor_height - target_height) // 2, 0)
-
-    root.geometry(f"{target_width}x{target_height}+{x}+{y}")
+    x = monitor_x + decision["x"]
+    y = monitor_y + decision["y"]
+    root.geometry(f'{decision["target_width"]}x{decision["target_height"]}+{x}+{y}')
     root.deiconify()
-    if monitor_width <= 1366 or monitor_height <= 800:
+    if decision["maximised"]:
         try:
             if sys.platform.startswith("win"):
                 root.state("zoomed")
@@ -759,9 +802,16 @@ class MisarParserApp(tk.Tk):
         self.window_size_choice = configured_window_size_choice()
         self.screen_width = self.winfo_screenwidth()
         self.screen_height = self.winfo_screenheight()
+        self.layout_decision = build_parser_layout_decision(
+            self.screen_width,
+            self.screen_height,
+            self.window_size_choice,
+        )
         global UI_DENSITY
-        UI_DENSITY = resolve_ui_density(self.window_size_choice, self.screen_width, self.screen_height)
-        self.required_list_rows, self.optional_list_rows = resolve_list_rows(self.screen_height)
+        UI_DENSITY = self.layout_decision["resolved_ui_density"]
+        self.required_list_rows = self.layout_decision["required_list_rows"]
+        self.optional_list_rows = self.layout_decision["optional_list_rows"]
+        emit_parser_layout_diagnostics(self.layout_decision)
 
         self.title(title_with_version(APP_NAME, APP_VERSION))
         self.geometry("1500x920")

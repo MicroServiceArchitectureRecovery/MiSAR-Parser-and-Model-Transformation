@@ -50,7 +50,7 @@ REQUIRED_MODULES = [
     ("yaml", "PyYAML"),
     ("xmltodict", "xmltodict"),
     ("javalang", "javalang"),
-    ("screeninfo", "screeninfo")
+    ("screeninfo", "ScreenInfo"),
 ]
 
 VERSION_FILE_PATH = AIO_DIR / "MISAR.versions.json"
@@ -59,7 +59,6 @@ IMAGE_DIR = AIO_DIR / "img"
 MISAR_LOGO_PATH = IMAGE_DIR / "MainLogo.png"
 BRUNEL_LOGO_PATH = IMAGE_DIR / "brunel_Logo.png"
 AUTO_UPDATE_CONFIG_KEY = "updates.auto_check"
-LOCAL_RUNTIME_CONFIG_KEY = "runtime.use_repository_parser"
 MODULE_VERSION_KEYS = {
     "MiSAR Parser": ("misar.parser",),
     "MiSAR Transformation Engine": ("misar.transofrmer", "misar.transformer"),
@@ -662,6 +661,7 @@ def launch_logged_subprocess(command, process_name, cwd=None):
 
     environment = os.environ.copy()
     environment["PYTHONUNBUFFERED"] = "1"
+    environment["MISAR_AIO_DEBUG"] = "1"
 
     process = subprocess.Popen(
         command,
@@ -2515,28 +2515,68 @@ def resize_window_to_visible_content(root, width=None, keep_position=False):
     root.geometry(f"{current_width}x{target_height}+{x}+{y}")
 
 
+def build_launcher_layout_decision(monitor_width, monitor_height, requested_width=WINDOW_WIDTH, requested_height=None):
+    """Build a testable layout decision for the current launcher screen."""
+    small_screen = should_maximise_for_small_screen(monitor_width, monitor_height)
+
+    if small_screen:
+        target_width = max(monitor_width - 16, 960)
+        target_height = max(monitor_height - 56, WINDOW_MIN_HEIGHT)
+        x = 0
+        y = 0
+        maximise = True
+    else:
+        target_height = requested_height or min(max(WINDOW_MIN_HEIGHT, monitor_height - WINDOW_VERTICAL_MARGIN), WINDOW_HEIGHT)
+        target_width = min(requested_width, max(monitor_width - 40, 960))
+        x = max((monitor_width - target_width) // 2, 0)
+        y = max((monitor_height - target_height) // 2, 0)
+        maximise = False
+
+    return {
+        "component": "aio",
+        "screen_width": int(monitor_width),
+        "screen_height": int(monitor_height),
+        "window_size_option": get_ui_density_choice(),
+        "resolved_ui_density": float(UI_DENSITY),
+        "small_screen": small_screen,
+        "target_width": int(target_width),
+        "target_height": int(target_height),
+        "x": int(x),
+        "y": int(y),
+        "maximised": maximise,
+    }
+
+
+def log_launcher_layout_decision(decision):
+    """Log the launcher layout decision when debug logging is active."""
+    log_event("ui_layout_decision", **decision)
+
+
 def centre_and_focus_window(root, width=WINDOW_WIDTH, height=None):
     root.update_idletasks()
     monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
-
-    if should_maximise_for_small_screen(monitor_width, monitor_height):
-        target_width = max(monitor_width - 16, 960)
-        target_height = max(monitor_height - 56, WINDOW_MIN_HEIGHT)
-        root.geometry(f"{target_width}x{target_height}+{monitor_x}+{monitor_y}")
-        root.deiconify()
-        maximise_window_if_supported(root)
-        root.lift()
-        root.focus_force()
-        return
-
     target_height = height or calculate_dynamic_window_height(root)
-    target_width = min(width, max(monitor_width - 40, 960))
-    x = monitor_x + max((monitor_width - target_width) // 2, 0)
-    y = monitor_y + max((monitor_height - target_height) // 2, 0)
-    root.geometry(f"{target_width}x{target_height}+{x}+{y}")
+    decision = build_launcher_layout_decision(
+        monitor_width,
+        monitor_height,
+        requested_width=width,
+        requested_height=target_height,
+    )
+    log_launcher_layout_decision(decision)
+
+    x = monitor_x + decision["x"]
+    y = monitor_y + decision["y"]
+    root.geometry(f'{decision["target_width"]}x{decision["target_height"]}+{x}+{y}')
     root.deiconify()
+
+    if decision["maximised"]:
+        maximise_window_if_supported(root)
+
     root.lift()
     root.focus_force()
+
+    if decision["maximised"]:
+        return
 
     try:
         root.attributes("-topmost", True)
@@ -2943,6 +2983,13 @@ def run_application():
     )
     configure_parser_runtime_paths()
     apply_configured_ui_density()
+    log_event(
+        "ui_density_startup",
+        component="aio",
+        window_size_option=get_ui_density_choice(),
+        resolved_ui_density=UI_DENSITY,
+        config_path=CONFIG_FILE_PATH,
+    )
 
     log_event(
         "application_startup",
