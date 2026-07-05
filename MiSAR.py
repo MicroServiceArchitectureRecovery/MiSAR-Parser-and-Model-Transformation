@@ -43,6 +43,7 @@ GMG_VERSION_KEY = "misar.visualiser"
 MISAR_DOCUMENTATION_URL = "https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/"
 LOG_DIR = AIO_DIR / "logs"
 LOG_FILE_PATH = LOG_DIR / f"MiSAR-LOGGER-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
+LOCAL_RUNTIME_CONFIG_KEY = "runtime.use_repository_parser"
 
 REQUIRED_MODULES = [
     ("git", "GitPython"),
@@ -112,6 +113,16 @@ def read_bootstrap_configs():
         return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+
+
+def resolve_use_repository_parser(cli_enabled=False, configs=None):
+    """Return True when the repository parser runtime should be used."""
+    if cli_enabled:
+        return True
+
+    configs = configs or {}
+    return config_value_as_bool(configs.get(LOCAL_RUNTIME_CONFIG_KEY), False)
+
 
 def parse_arguments():
     """Parse MiSAR AIO command-line arguments without interrupting Tkinter."""
