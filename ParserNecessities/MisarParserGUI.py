@@ -79,7 +79,10 @@ PROJECT_ROOT_DIR = PARSER_UI_DIR.parent
 MISAR_DIR = USER_HOME_DIR / "MiSAR"
 PARSER_DIR = MISAR_DIR / "Parser"
 VERSION_FILE_PATH = PROJECT_ROOT_DIR / "MISAR.versions.json"
+CONFIG_FILE_PATH = PROJECT_ROOT_DIR / "MISAR.configs.json"
 SESSION_FILE_PATH = PARSER_DIR / "MisarParserGUI.last_session.json"
+WINDOW_SIZE_CONFIG_KEY = "ui.window_size"
+LEGACY_UI_DENSITY_CONFIG_KEY = "ui.density"
 VERSION_KEYS = {"parser": ("misar.parser",)}
 
 
@@ -91,6 +94,58 @@ def _read_version_json(file_path: Path) -> dict:
         return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+
+
+def read_misar_configs() -> dict:
+    """Read shared MISAR UI options written by the AIO launcher."""
+    try:
+        if not CONFIG_FILE_PATH.is_file():
+            return {}
+        data = json.loads(CONFIG_FILE_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def normalise_window_size_choice(choice: str) -> str:
+    choice = str(choice or "auto").strip().lower()
+    return choice if choice in {"auto", "compact", "normal", "comfortable", "large"} else "auto"
+
+
+def configured_window_size_choice() -> str:
+    configs = read_misar_configs()
+    return normalise_window_size_choice(
+        configs.get(WINDOW_SIZE_CONFIG_KEY, configs.get(LEGACY_UI_DENSITY_CONFIG_KEY, "auto"))
+    )
+
+
+def resolve_ui_density(choice: str, screen_width: int, screen_height: int) -> float:
+    """Resolve shared window-size choice into a parser UI scale."""
+    choice = normalise_window_size_choice(choice)
+
+    if choice == "compact":
+        return 0.88
+    if choice == "normal":
+        return 1.0
+    if choice == "comfortable":
+        return 1.08
+    if choice == "large":
+        return 1.18
+
+    if screen_width <= 1366 or screen_height <= 800:
+        return 0.86
+    if screen_width >= 2200 and screen_height >= 1300:
+        return 1.06
+    return 1.0
+
+
+def resolve_list_rows(screen_height: int) -> tuple[int, int]:
+    """Return required/optional list heights suitable for the current screen."""
+    if screen_height <= 800:
+        return 5, 3
+    if screen_height <= 950:
+        return 8, 5
+    return 12, 9
 
 
 def read_project_versions() -> dict:
@@ -155,6 +210,11 @@ PALETTE = {
 CARD_RADIUS = 10
 CARD_SHADOW_OFFSET = 5
 LISTBOX_ROWS = 3
+UI_DENSITY = 1.0
+
+
+def ui_size(value: int, minimum: int = 1) -> int:
+    return max(int(round(value * UI_DENSITY)), minimum)
 
 
 def ui_font(size: int = 11, weight: str = "normal"):
@@ -162,7 +222,8 @@ def ui_font(size: int = 11, weight: str = "normal"):
         family = tkfont.nametofont("TkDefaultFont").cget("family")
     except Exception:
         family = "Helvetica"
-    return (family, size, weight) if weight != "normal" else (family, size)
+    scaled_size = ui_size(size, 8)
+    return (family, scaled_size, weight) if weight != "normal" else (family, scaled_size)
 
 
 def notify_setup_required() -> None:
@@ -210,7 +271,7 @@ class ListboxSnapshot:
 
 class RoundedButton(tk.Canvas):
     def __init__(self, master, text: str, command=None, variant: str = "primary", width: int = 132, disabled_command=None):
-        super().__init__(master, width=width, height=38, highlightthickness=0, bd=0, cursor="hand2")
+        super().__init__(master, width=ui_size(width), height=ui_size(38), highlightthickness=0, bd=0, cursor="hand2")
         self.text = text
         self.command = command
         self.disabled_command = disabled_command
@@ -310,7 +371,7 @@ class BoxFrame(tk.Frame):
         self.palette = PALETTE
         self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, bg=PALETTE["bg"])
         self.canvas.pack(fill="both", expand=True)
-        self.content = tk.Frame(self.canvas, bg=PALETTE["panel"], padx=14, pady=10)
+        self.content = tk.Frame(self.canvas, bg=PALETTE["panel"], padx=ui_size(14), pady=ui_size(10))
         self.window_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
         self.content.bind("<Configure>", self._on_content_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
@@ -460,6 +521,7 @@ class MultiPicker:
         self.listbox.bind("<<ListboxSelect>>", self._remember_selection)
         self.listbox.bind("<Delete>", self._delete_from_keyboard)
         self._last_selection: tuple[int, ...] = ()
+        self.item_values: dict[str, str] = {}
         self.add_button = RoundedButton(self.actions, add_text, command=add_command, variant="primary", width=112, disabled_command=notify_setup_required)
         self.delete_button = RoundedButton(self.actions, "Remove", command=delete_command, variant="secondary", width=104, disabled_command=notify_setup_required)
         self.error_label = ttk.Label(parent, text="", style="Error.TLabel")
@@ -525,20 +587,48 @@ class MultiPicker:
         self.add_button.apply_theme(palette)
         self.delete_button.apply_theme(palette)
 
+    def display_name_for_path(self, value: str) -> str:
+        """Show readable names by default while preserving full paths internally."""
+        path = Path(value)
+        name = path.name or value
+        parent = path.parent.name
+
+        if parent:
+            return f"{name} — {parent}"
+
+        return name
+
+    def unique_display_value(self, display_value: str, raw_value: str, current: set[str]) -> str:
+        if display_value not in current and display_value not in self.item_values:
+            return display_value
+
+        path = Path(raw_value)
+        parent = path.parent.name
+        candidate = f"{path.name} — {parent}" if parent else display_value
+        counter = 2
+
+        while candidate in current or candidate in self.item_values:
+            candidate = f"{display_value} ({counter})"
+            counter += 1
+
+        return candidate
+
     def add_items(self, values: Iterable[str], formatter=None) -> int:
         added = 0
         current = set(self.listbox.get(0, tk.END))
-        raw_current = {strip_language_badge(item) for item in current}
+        raw_current = {strip_language_badge(raw_value) for raw_value in self.item_values.values()}
         for value in values:
             text = str(value).strip()
-            if not text or text in current or text in raw_current:
+            raw_text = strip_language_badge(text)
+            if not raw_text or raw_text in raw_current:
                 continue
-            display_value = formatter(text) if formatter else text
-            if display_value not in current:
-                self.listbox.insert(tk.END, display_value)
-                current.add(display_value)
-                raw_current.add(strip_language_badge(display_value))
-                added += 1
+            display_value = formatter(raw_text) if formatter else self.display_name_for_path(raw_text)
+            display_value = self.unique_display_value(display_value, raw_text, current)
+            self.listbox.insert(tk.END, display_value)
+            self.item_values[display_value] = raw_text
+            current.add(display_value)
+            raw_current.add(raw_text)
+            added += 1
         return added
 
     def remove_selected(self) -> int:
@@ -549,6 +639,8 @@ class MultiPicker:
             return 0
 
         for index in reversed(selected_indices):
+            display_value = self.listbox.get(index)
+            self.item_values.pop(display_value, None)
             self.listbox.delete(index)
 
         self._last_selection = ()
@@ -558,7 +650,10 @@ class MultiPicker:
         return self.listbox.size()
 
     def values(self) -> List[str]:
-        return list(self.listbox.get(0, tk.END))
+        values = []
+        for display_value in self.listbox.get(0, tk.END):
+            values.append(self.item_values.get(display_value, strip_language_badge(display_value)))
+        return values
 
 class ProjectNameBox:
     def __init__(self, master, change_callback):
@@ -618,13 +713,28 @@ def active_monitor_bounds(root):
 def centre_and_focus_window(root, width: int = 1500, height: int = 920) -> None:
     root.update_idletasks()
     monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
-    target_width = min(max(width, int(monitor_width * 0.94)), max(monitor_width - 24, 900))
-    target_height = min(max(height, int(monitor_height * 0.90)), max(monitor_height - 60, 680))
-    x = monitor_x + max((monitor_width - target_width) // 2, 0)
-    y = monitor_y + max((monitor_height - target_height) // 2, 0)
+
+    if monitor_width <= 1366 or monitor_height <= 800:
+        target_width = max(monitor_width - 16, 980)
+        target_height = max(monitor_height - 56, 620)
+        x = monitor_x
+        y = monitor_y
+    else:
+        target_width = min(max(width, int(monitor_width * 0.94)), max(monitor_width - 24, 980))
+        target_height = min(max(height, int(monitor_height * 0.90)), max(monitor_height - 60, 620))
+        x = monitor_x + max((monitor_width - target_width) // 2, 0)
+        y = monitor_y + max((monitor_height - target_height) // 2, 0)
 
     root.geometry(f"{target_width}x{target_height}+{x}+{y}")
     root.deiconify()
+    if monitor_width <= 1366 or monitor_height <= 800:
+        try:
+            if sys.platform.startswith("win"):
+                root.state("zoomed")
+            else:
+                root.attributes("-zoomed", True)
+        except Exception:
+            pass
     root.update_idletasks()
 
     root.lift()
@@ -646,9 +756,16 @@ class MisarParserApp(tk.Tk):
         self.restoring_session = False
         self.session_completed_successfully = False
 
+        self.window_size_choice = configured_window_size_choice()
+        self.screen_width = self.winfo_screenwidth()
+        self.screen_height = self.winfo_screenheight()
+        global UI_DENSITY
+        UI_DENSITY = resolve_ui_density(self.window_size_choice, self.screen_width, self.screen_height)
+        self.required_list_rows, self.optional_list_rows = resolve_list_rows(self.screen_height)
+
         self.title(title_with_version(APP_NAME, APP_VERSION))
         self.geometry("1500x920")
-        self.minsize(1280, 780)
+        self.minsize(980, 620)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.style = ttk.Style(self)
@@ -669,7 +786,7 @@ class MisarParserApp(tk.Tk):
             pass
         for font_name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
             try:
-                tkfont.nametofont(font_name).configure(size=10)
+                tkfont.nametofont(font_name).configure(size=ui_size(10, 8))
             except Exception:
                 pass
 
@@ -677,7 +794,7 @@ class MisarParserApp(tk.Tk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        self.sidebar = tk.Frame(self, width=92, bg=PALETTE["sidebar"])
+        self.sidebar = tk.Frame(self, width=ui_size(88), bg=PALETTE["sidebar"])
         self.sidebar.grid(row=0, column=0, sticky="ns")
         self.sidebar.grid_propagate(False)
 
@@ -698,7 +815,7 @@ class MisarParserApp(tk.Tk):
         self.main.grid_rowconfigure(1, weight=1)
         self.main.grid_columnconfigure(0, weight=1)
 
-        self.header = ttk.Frame(self.main, padding=(28, 18, 28, 4), style="Root.TFrame")
+        self.header = ttk.Frame(self.main, padding=(ui_size(24), ui_size(14), ui_size(24), ui_size(4)), style="Root.TFrame")
         self.header.grid(row=0, column=0, sticky="ew")
         self.header.grid_columnconfigure(0, weight=1)
 
@@ -711,7 +828,7 @@ class MisarParserApp(tk.Tk):
         )
         self.subtitle_label.grid(row=1, column=0, sticky="w", pady=(4, 0))
 
-        self.content = ttk.Frame(self.main, padding=(28, 8, 28, 12), style="Root.TFrame")
+        self.content = ttk.Frame(self.main, padding=(ui_size(24), ui_size(6), ui_size(24), ui_size(10)), style="Root.TFrame")
         self.content.grid(row=1, column=0, sticky="nsew")
         for index in range(12):
             self.content.grid_columnconfigure(index, weight=1, uniform="parser_grid")
@@ -760,7 +877,7 @@ class MisarParserApp(tk.Tk):
             "Add files",
             self.add_docker_compose_files,
             lambda: self.delete_items(self.docker_compose),
-            list_rows=12,
+            list_rows=self.required_list_rows,
         )
         self.docker_compose.grid(1, 0, 6, padx=(0, 10), pady=(0, 12))
 
@@ -771,7 +888,7 @@ class MisarParserApp(tk.Tk):
             "Add folder",
             self.add_module_directory,
             lambda: self.delete_items(self.module_build_dir),
-            list_rows=12,
+            list_rows=self.required_list_rows,
         )
         self.module_build_dir.grid(1, 6, 6, padx=(10, 0), pady=(0, 12))
 
@@ -783,7 +900,7 @@ class MisarParserApp(tk.Tk):
             "Add files",
             self.add_app_build_files,
             lambda: self.delete_items(self.app_build),
-            list_rows=9,
+            list_rows=self.optional_list_rows,
         )
         self.app_build.grid(2, 0, 4, padx=(0, 10), pady=(0, 12))
 
@@ -794,7 +911,7 @@ class MisarParserApp(tk.Tk):
             "Add files",
             self.add_module_build_files,
             lambda: self.delete_items(self.module_build),
-            list_rows=9,
+            list_rows=self.optional_list_rows,
         )
         self.module_build.grid(2, 4, 4, padx=(6, 6), pady=(0, 12))
 
@@ -805,7 +922,7 @@ class MisarParserApp(tk.Tk):
             "Add folder",
             self.add_config_directory,
             lambda: self.delete_items(self.app_config_dir),
-            list_rows=9,
+            list_rows=self.optional_list_rows,
         )
         self.app_config_dir.grid(2, 8, 4, padx=(10, 0), pady=(0, 12))
 
@@ -967,6 +1084,7 @@ class MisarParserApp(tk.Tk):
                 skipped += 1
 
         picker.listbox.delete(0, tk.END)
+        picker.item_values.clear()
         restored += picker.add_items(valid_values, formatter=formatter)
         return restored, skipped
 
@@ -1162,7 +1280,7 @@ class MisarParserApp(tk.Tk):
         if added:
             self.module_build_dir.set_error("")
             self.set_status("Microservice build directory added.")
-            self.offer_dependency_scan(directory, self.module_build.listbox)
+            self.offer_dependency_scan(directory, self.module_build)
             self.save_session()
         self.update_create_state()
 
@@ -1243,11 +1361,11 @@ class MisarParserApp(tk.Tk):
         added_module_files = 0
         for target_directory in candidate_directories:
             added_dirs += self.module_build_dir.add_items([str(target_directory)], formatter=format_module_display_path)
-            added_module_files += self.add_dependency_files_for_directory(target_directory, self.module_build.listbox)
-        added_app_files = self.add_dependency_files_for_directory(input_dir_path, self.app_build.listbox)
+            added_module_files += self.add_dependency_files_for_directory(target_directory, self.module_build)
+        added_app_files = self.add_dependency_files_for_directory(input_dir_path, self.app_build)
         return added_dirs, added_app_files, added_module_files
 
-    def offer_dependency_scan(self, directory: str, target_listbox: tk.Listbox) -> None:
+    def offer_dependency_scan(self, directory: str, target_picker: MultiPicker) -> None:
         folder_name = Path(directory).name
         answer = messagebox.askquestion(
             "Build / Dependency Scanner",
@@ -1255,23 +1373,19 @@ class MisarParserApp(tk.Tk):
             icon="info",
         )
         if answer == "yes":
-            added = self.add_dependency_files_for_directory(Path(directory), target_listbox)
+            added = self.add_dependency_files_for_directory(Path(directory), target_picker)
             if added:
                 self.set_status(f"Added {added} dependency file{'s' if added != 1 else ''}.")
                 self.save_session()
 
-    def add_dependency_files_for_directory(self, input_directory: Path, target_listbox: tk.Listbox) -> int:
-        added = 0
+    def add_dependency_files_for_directory(self, input_directory: Path, target_picker: MultiPicker) -> int:
         input_path = Path(input_directory)
-        current = set(target_listbox.get(0, tk.END))
+        dependency_files = []
         for dependency_file in DEPENDENCY_BUILD_FILES:
             candidate = input_path / dependency_file
-            candidate_text = str(candidate)
-            if candidate.is_file() and candidate_text not in current:
-                target_listbox.insert(tk.END, candidate_text)
-                current.add(candidate_text)
-                added += 1
-        return added
+            if candidate.is_file():
+                dependency_files.append(str(candidate))
+        return target_picker.add_items(dependency_files)
 
     def yaml_to_dict(self, filename: str) -> dict:
         with open(filename, encoding="utf-8") as file:

@@ -50,6 +50,7 @@ REQUIRED_MODULES = [
     ("yaml", "PyYAML"),
     ("xmltodict", "xmltodict"),
     ("javalang", "javalang"),
+    ("screeninfo", "screeninfo")
 ]
 
 VERSION_FILE_PATH = AIO_DIR / "MISAR.versions.json"
@@ -315,23 +316,23 @@ def check_required_modules():
     if not missing_modules:
         return True
 
-    module_names = [import_name for import_name, _ in missing_modules]
+    module_names = [package_name for _, package_name in missing_modules]
     module_list = "\n".join(module_names)
 
     if len(missing_modules) == 1:
         message = (
-            "The following import is currently not installed:\n\n"
+            "The following Python package is currently not installed:\n\n"
             + module_list
-            + "\n\nThis import is mandatory for the function of MiSAR.\nWould you like to install it now?"
+            + "\n\nThis package is required for MiSAR.\nWould you like MiSAR to install it now?"
         )
     else:
         message = (
-            "The following imports are currently not installed:\n\n"
+            "The following Python packages are currently not installed:\n\n"
             + module_list
-            + "\n\nThese imports are mandatory for the function of MiSAR.\nWould you like to install them now?"
+            + "\n\nThese packages are required for MiSAR.\nWould you like MiSAR to install them now?"
         )
 
-    install_modules = messagebox.askquestion("Missing Imports", message)
+    install_modules = messagebox.askquestion("Missing Python Packages", message)
     log_event("missing_dependency_user_response", response=install_modules, modules=module_names)
 
     if install_modules != "yes":
@@ -1065,19 +1066,11 @@ def manual_update_check():
         return False
 
     if not is_parser_installed():
-        install_parser_choice = ask_question_on_ui_thread(
+        show_info_on_ui_thread(
             "Parser Not Installed",
-            "The MiSAR Parser is not installed yet.\nWould you like to install it now?",
+            "The MiSAR Parser is not installed yet. Please use the Install button on the MiSAR Parser card first.",
         )
-        log_event("manual_update_install_prompt_response", response=install_parser_choice)
-
-        if install_parser_choice == "yes":
-            if check_required_modules() and install_parser():
-                show_info_on_ui_thread("Success!", "The parser installation completed successfully.")
-                run_on_ui_thread(refresh_launch_buttons)
-                return True
-            show_error_on_ui_thread("Failure!", "The parser installation has failed.")
-
+        log_event("manual_update_check_skipped", reason="parser_not_installed")
         return False
 
     try:
@@ -1307,13 +1300,15 @@ WINDOW_VERTICAL_MARGIN = 72
 WINDOWS_COMPACT_DENSITY = sys.platform.startswith("win")
 DEFAULT_UI_DENSITY = 0.88 if WINDOWS_COMPACT_DENSITY else 1.0
 UI_DENSITY = DEFAULT_UI_DENSITY
-UI_DENSITY_CONFIG_KEY = "ui.density"
+WINDOW_SIZE_CONFIG_KEY = "ui.window_size"
+LEGACY_UI_DENSITY_CONFIG_KEY = "ui.density"
+UI_DENSITY_CONFIG_KEY = WINDOW_SIZE_CONFIG_KEY
 UI_DENSITY_OPTIONS = {
     "auto": ("Auto", None),
-    "compact": ("Smaller", 0.88),
+    "compact": ("Small", 0.88),
     "normal": ("Default", 1.0),
-    "comfortable": ("Larger", 1.08),
-    "large": ("Largest", 1.18),
+    "comfortable": ("Large", 1.08),
+    "large": ("Extra large", 1.18),
 }
 
 
@@ -1324,8 +1319,10 @@ def normalise_ui_density_choice(choice):
 
 
 def get_ui_density_choice():
-    """Return the configured UI density choice from MISAR.configs.json."""
-    return normalise_ui_density_choice(MISAR_CONFIGS.get(UI_DENSITY_CONFIG_KEY, "auto"))
+    """Return the configured window size choice from MISAR.configs.json."""
+    return normalise_ui_density_choice(
+        MISAR_CONFIGS.get(WINDOW_SIZE_CONFIG_KEY, MISAR_CONFIGS.get(LEGACY_UI_DENSITY_CONFIG_KEY, "auto"))
+    )
 
 
 def resolve_ui_density(choice=None):
@@ -1742,6 +1739,46 @@ def set_status(message):
         main_window.status_label.configure(text=message)
 
 
+def set_busy_status(message=None, active=True):
+    """Show or hide a small indeterminate status loader in the launcher footer."""
+    if message:
+        set_status(message)
+
+    if main_window is None or not hasattr(main_window, "status_progress"):
+        return
+
+    if active:
+        if not getattr(main_window, "status_progress_visible", False):
+            main_window.status_progress.pack(side="left", padx=ui_pad((10, 0)))
+            main_window.status_progress_visible = True
+        main_window.status_progress.start(12)
+    else:
+        main_window.status_progress.stop()
+        if getattr(main_window, "status_progress_visible", False):
+            main_window.status_progress.pack_forget()
+            main_window.status_progress_visible = False
+
+
+def refresh_ui_now():
+    """Flush pending Tk updates so progress/status text is visible before long work."""
+    if main_window is not None:
+        try:
+            main_window.update_idletasks()
+        except tkinter.TclError:
+            pass
+
+
+def set_module_actions_enabled(enabled):
+    """Enable/disable module action buttons while install/update work is running."""
+    for module in (the_parser, the_transformation_engine, the_graphical_model_generator, the_help_button):
+        if module is None:
+            continue
+        if getattr(module, "launch_button", None) is not None:
+            module.launch_button.configure(state=tkinter.NORMAL if enabled else tkinter.DISABLED)
+        if getattr(module, "uninstall_button", None) is not None:
+            module.uninstall_button.configure(state=tkinter.NORMAL if enabled else tkinter.DISABLED)
+
+
 def set_module_button_state(module, installed):
     module.launch_button.configure(text="Launch" if installed else "Install")
     if hasattr(module, "set_installed_state"):
@@ -1934,12 +1971,12 @@ def restart_launcher():
 
 
 def open_launcher_settings():
-    """Open launcher settings for display, runtime and update preferences."""
+    """Open launcher options for display and update preferences."""
     if main_window is None:
         return
 
     settings_window = tkinter.Toplevel(main_window)
-    settings_window.title("MiSAR Settings")
+    settings_window.title("MiSAR Options")
     settings_window.transient(main_window)
     settings_window.resizable(False, False)
     settings_window.configure(bg=PALETTE["panel"])
@@ -1947,7 +1984,7 @@ def open_launcher_settings():
 
     tkinter.Label(
         settings_window,
-        text="MiSAR Settings",
+        text="MiSAR Options",
         font=ui_font(14, "bold"),
         bg=PALETTE["panel"],
         fg=PALETTE["title"],
@@ -1955,7 +1992,7 @@ def open_launcher_settings():
 
     tkinter.Label(
         settings_window,
-        text="Configure launcher display, local runtime and update behaviour. These settings are saved locally.",
+        text="Configure display and update options. These settings are saved locally.",
         font=ui_font(11),
         bg=PALETTE["panel"],
         fg=PALETTE["muted"],
@@ -1965,7 +2002,7 @@ def open_launcher_settings():
 
     tkinter.Label(
         settings_window,
-        text="Launcher density",
+        text="Window size",
         font=ui_font(11, "bold"),
         bg=PALETTE["panel"],
         fg=PALETTE["text"],
@@ -1986,8 +2023,7 @@ def open_launcher_settings():
     tkinter.Label(
         settings_window,
         text=(
-            "Auto keeps the platform default: smaller on Windows and default on macOS/Linux. "
-            "Other choices are saved to MISAR.configs.json."
+            "Auto chooses a suitable size for the current screen. "
         ),
         font=ui_font(10),
         bg=PALETTE["panel"],
@@ -1995,18 +2031,6 @@ def open_launcher_settings():
         wraplength=420,
         justify="left",
     ).grid(row=3, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 12))
-
-    local_runtime_var = tkinter.BooleanVar(value=USE_REPOSITORY_PARSER)
-    local_runtime_check = tkinter.Checkbutton(
-        settings_window,
-        text="Run repository parser locally",
-        variable=local_runtime_var,
-        bg=PALETTE["panel"],
-        fg=PALETTE["text"],
-        activebackground=PALETTE["panel"],
-        font=ui_font(11),
-    )
-    local_runtime_check.grid(row=4, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 6))
 
     auto_update_var = tkinter.BooleanVar(value=is_auto_update_enabled())
     auto_update_check = tkinter.Checkbutton(
@@ -2018,10 +2042,10 @@ def open_launcher_settings():
         activebackground=PALETTE["panel"],
         font=ui_font(11),
     )
-    auto_update_check.grid(row=5, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 10))
+    auto_update_check.grid(row=4, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 10))
 
     update_button_frame = tkinter.Frame(settings_window, bg=PALETTE["panel"])
-    update_button_frame.grid(row=6, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 16))
+    update_button_frame.grid(row=5, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 16))
     check_updates_button = RoundedButton(
         update_button_frame,
         "Check Updates",
@@ -2032,28 +2056,25 @@ def open_launcher_settings():
     check_updates_button.pack(side=tkinter.LEFT)
 
     button_frame = tkinter.Frame(settings_window, bg=PALETTE["panel"])
-    button_frame.grid(row=7, column=0, columnspan=2, sticky="e", padx=18, pady=(0, 16))
+    button_frame.grid(row=6, column=0, columnspan=2, sticky="e", padx=18, pady=(0, 16))
 
     def save_launcher_settings():
         selected_key = label_to_key.get(density_var.get(), "auto")
         old_density_choice = get_ui_density_choice()
-        old_local_runtime = USE_REPOSITORY_PARSER
 
-        write_misar_config(UI_DENSITY_CONFIG_KEY, selected_key)
-        write_misar_config(LOCAL_RUNTIME_CONFIG_KEY, bool_to_config_value(local_runtime_var.get()))
+        write_misar_config(WINDOW_SIZE_CONFIG_KEY, selected_key)
+        # Repository-runtime mode is only intended for development/PR testing.
+        # Keep --use-repository-parser and MISAR.configs.json support, but do
+        # not expose this developer switch in the normal Options UI.
         write_misar_config(AUTO_UPDATE_CONFIG_KEY, bool_to_config_value(auto_update_var.get()))
         apply_configured_ui_density()
 
-        restart_required = (
-            selected_key != old_density_choice
-            or bool(local_runtime_var.get()) != old_local_runtime
-        )
+        restart_required = selected_key != old_density_choice
 
         log_event(
             "launcher_settings_saved",
             ui_density_choice=selected_key,
             density=UI_DENSITY,
-            use_repository_parser=local_runtime_var.get(),
             auto_update_enabled=auto_update_var.get(),
             restart_required=restart_required,
         )
@@ -2061,7 +2082,7 @@ def open_launcher_settings():
 
         if restart_required:
             restart_now = messagebox.askyesno(
-                "Apply MiSAR Settings",
+                "Apply MiSAR Options",
                 "Settings were saved. Restart MiSAR now to apply the runtime/layout changes cleanly?",
             )
 
@@ -2445,6 +2466,23 @@ def active_monitor_bounds(root):
     return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
 
 
+def should_maximise_for_small_screen(monitor_width, monitor_height):
+    """Return True when the current screen is small enough to benefit from maximising."""
+    return monitor_width <= 1366 or monitor_height <= 800
+
+
+def maximise_window_if_supported(root):
+    """Best-effort maximise/zoom for small screens such as 1280x720 laptops."""
+    try:
+        if sys.platform.startswith("win"):
+            root.state("zoomed")
+            return True
+        root.attributes("-zoomed", True)
+        return True
+    except Exception:
+        return False
+
+
 def calculate_dynamic_window_height(root):
     """Return a compact height that fits visible launcher content without leaving a large gap."""
     root.update_idletasks()
@@ -2480,10 +2518,22 @@ def resize_window_to_visible_content(root, width=None, keep_position=False):
 def centre_and_focus_window(root, width=WINDOW_WIDTH, height=None):
     root.update_idletasks()
     monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
+
+    if should_maximise_for_small_screen(monitor_width, monitor_height):
+        target_width = max(monitor_width - 16, 960)
+        target_height = max(monitor_height - 56, WINDOW_MIN_HEIGHT)
+        root.geometry(f"{target_width}x{target_height}+{monitor_x}+{monitor_y}")
+        root.deiconify()
+        maximise_window_if_supported(root)
+        root.lift()
+        root.focus_force()
+        return
+
     target_height = height or calculate_dynamic_window_height(root)
-    x = monitor_x + max((monitor_width - width) // 2, 0)
+    target_width = min(width, max(monitor_width - 40, 960))
+    x = monitor_x + max((monitor_width - target_width) // 2, 0)
     y = monitor_y + max((monitor_height - target_height) // 2, 0)
-    root.geometry(f"{width}x{target_height}+{x}+{y}")
+    root.geometry(f"{target_width}x{target_height}+{x}+{y}")
     root.deiconify()
     root.lift()
     root.focus_force()
@@ -2528,7 +2578,9 @@ def handle_parser_button():
             return
 
         messagebox.showinfo("Installation commencing!", "The Parser will now be installed.")
-        set_status("Installing MiSAR Parser...")
+        set_module_actions_enabled(False)
+        set_busy_status("Installing MiSAR Parser. Please wait...", active=True)
+        refresh_ui_now()
 
         if install_parser():
             messagebox.showinfo(
@@ -2537,7 +2589,8 @@ def handle_parser_button():
                 + str(MISAR_DIR),
             )
             refresh_launch_buttons()
-            set_status("MiSAR Parser installed successfully.")
+            set_busy_status("MiSAR Parser installed successfully.", active=False)
+            set_module_actions_enabled(True)
             return
 
         uninstall_path(Path("MiSAR") / "Parser")
@@ -2549,11 +2602,12 @@ def handle_parser_button():
                 + str(INSTALLED_PARSER_DIR),
             )
             refresh_launch_buttons()
-            set_status("MiSAR Parser installed successfully.")
+            set_busy_status("MiSAR Parser installed successfully.", active=False)
         else:
             messagebox.showerror("Failure!", "The Parser installation has failed.")
-            set_status("Parser installation failed.")
+            set_busy_status("Parser installation failed.", active=False)
 
+        set_module_actions_enabled(True)
         return
 
     if check_required_modules():
@@ -2812,7 +2866,7 @@ def initialise_ui():
     root.debug_toggle_button = RoundedButton(root.debug_header, "Activate Debug", command=toggle_debug_mode, variant="secondary", width=130)
     root.debug_toggle_button.configure(bg=PALETTE["bg"])
     root.debug_toggle_button.pack(anchor="e")
-    root.settings_button = RoundedButton(root.debug_header, "Settings", command=open_launcher_settings, variant="secondary", width=110)
+    root.settings_button = RoundedButton(root.debug_header, "Options", command=open_launcher_settings, variant="secondary", width=110)
     root.settings_button.configure(bg=PALETTE["bg"])
     root.settings_button.pack(anchor="e", pady=ui_pad((6, 0)))
 
@@ -2869,6 +2923,8 @@ def initialise_ui():
     root.status_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
     root.status_label = tkinter.Label(root.status_bar, text="Ready", anchor="w", font=ui_font(11), bg=PALETTE["status_bg"], fg=PALETTE["text"])
     root.status_label.pack(side="left", padx=ui_size(16))
+    root.status_progress = ttk.Progressbar(root.status_bar, mode="indeterminate", length=ui_size(150))
+    root.status_progress_visible = False
     root.footer_label = tkinter.Label(root.status_bar, text="Brunel University London", anchor="e", font=ui_font(11), bg=PALETTE["status_bg"], fg=PALETTE["muted"])
     root.footer_label.pack(side="right", padx=ui_size(16))
 
