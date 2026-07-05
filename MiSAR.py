@@ -113,16 +113,6 @@ def read_bootstrap_configs():
     except Exception:
         return {}
 
-
-def resolve_use_repository_parser(cli_enabled=False, configs=None):
-    """Return True when the repository parser runtime should be used."""
-    if cli_enabled:
-        return True
-
-    configs = configs or {}
-    return config_value_as_bool(configs.get(LOCAL_RUNTIME_CONFIG_KEY), False)
-
-
 def parse_arguments():
     """Parse MiSAR AIO command-line arguments without interrupting Tkinter."""
     parser = argparse.ArgumentParser(description="MiSAR All-in-One launcher")
