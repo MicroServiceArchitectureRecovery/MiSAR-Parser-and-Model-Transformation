@@ -309,6 +309,97 @@ def install_python_package(package_name):
     log_event("python_package_install_success", package=package_name)
 
 
+def create_package_install_status_window(package_names):
+    """Show a small status dialog while required Python packages are being installed."""
+    if main_window is None:
+        return None
+
+    package_text = ", ".join(package_names)
+    status_window = tkinter.Toplevel(main_window)
+    status_window.title("Installing Python Packages")
+    status_window.transient(main_window)
+    status_window.resizable(False, False)
+    status_window.configure(bg=PALETTE["panel"])
+    status_window.grab_set()
+
+    tkinter.Label(
+        status_window,
+        text="Installing required Python packages",
+        font=ui_font(13, "bold"),
+        bg=PALETTE["panel"],
+        fg=PALETTE["title"],
+    ).grid(row=0, column=0, sticky="w", padx=18, pady=(16, 4))
+
+    status_window.message_label = tkinter.Label(
+        status_window,
+        text="MiSAR is installing packages now. Please wait.",
+        font=ui_font(11),
+        bg=PALETTE["panel"],
+        fg=PALETTE["text"],
+        justify="left",
+        wraplength=420,
+    )
+    status_window.message_label.grid(row=1, column=0, sticky="w", padx=18, pady=(0, 8))
+
+    status_window.package_label = tkinter.Label(
+        status_window,
+        text=f"Packages: {package_text}" if package_text else "Checking packages...",
+        font=ui_font(10),
+        bg=PALETTE["panel"],
+        fg=PALETTE["muted"],
+        justify="left",
+        wraplength=420,
+    )
+    status_window.package_label.grid(row=2, column=0, sticky="w", padx=18, pady=(0, 12))
+
+    status_window.progress = ttk.Progressbar(
+        status_window,
+        mode="determinate",
+        maximum=max(len(package_names), 1),
+        value=0,
+    )
+    status_window.progress.grid(row=3, column=0, sticky="ew", padx=18, pady=(0, 16))
+    status_window.grid_columnconfigure(0, weight=1)
+    status_window.update_idletasks()
+
+    x = main_window.winfo_x() + max((main_window.winfo_width() - status_window.winfo_reqwidth()) // 2, 0)
+    y = main_window.winfo_y() + max((main_window.winfo_height() - status_window.winfo_reqheight()) // 2, 0)
+    status_window.geometry(f"+{x}+{y}")
+    status_window.update_idletasks()
+    return status_window
+
+
+def update_package_install_status_window(status_window, package_name, package_index, package_total):
+    """Update the Python package installation status dialog."""
+    if status_window is None:
+        return
+
+    try:
+        status_window.message_label.configure(
+            text=f"Installing package {package_index} of {package_total}: {package_name}"
+        )
+        status_window.progress.configure(value=package_index - 1)
+        status_window.update_idletasks()
+    except tkinter.TclError:
+        pass
+
+
+def finish_package_install_status_window(status_window, success):
+    """Close the Python package installation status dialog after installation."""
+    if status_window is None:
+        return
+
+    try:
+        if success:
+            status_window.message_label.configure(text="Python packages installed successfully.")
+            status_window.progress.configure(value=status_window.progress.cget("maximum"))
+            status_window.update_idletasks()
+        status_window.grab_release()
+        status_window.destroy()
+    except tkinter.TclError:
+        pass
+
+
 def check_required_modules():
     """Ensure MiSAR parser dependencies exist, optionally installing missing packages."""
     missing_modules = get_missing_modules()
@@ -353,20 +444,32 @@ def check_required_modules():
         )
         return False
 
+    status_window = create_package_install_status_window(module_names)
+    set_busy_status("Installing required Python packages. Please wait...", active=True)
+    refresh_ui_now()
+
     try:
-        for _, package_name in missing_modules:
+        total_packages = len(missing_modules)
+        for package_index, (_import_name, package_name) in enumerate(missing_modules, start=1):
+            update_package_install_status_window(status_window, package_name, package_index, total_packages)
+            set_status(f"Installing Python package {package_index} of {total_packages}: {package_name}")
+            refresh_ui_now()
             install_python_package(package_name)
 
         if get_missing_modules():
             raise RuntimeError("Some required modules are still missing after installation.")
 
-        messagebox.showinfo("Success!", "The operation completed successfully!")
+        finish_package_install_status_window(status_window, success=True)
+        set_busy_status("Required Python packages installed successfully.", active=False)
+        messagebox.showinfo("Success!", "The required Python packages were installed successfully.")
         return True
     except Exception as error:
+        finish_package_install_status_window(status_window, success=False)
+        set_busy_status("Python package installation failed.", active=False)
         log_exception("dependency_install_failed", error, modules=module_names)
         messagebox.showerror(
             "Error!",
-            "The installation of the required modules has failed.\nError code:\n" + str(error),
+            "The installation of the required Python packages has failed.\nError code:\n" + str(error),
         )
         return False
 
@@ -1302,11 +1405,11 @@ WINDOWS_COMPACT_DENSITY = sys.platform.startswith("win")
 DEFAULT_UI_DENSITY = 0.88 if WINDOWS_COMPACT_DENSITY else 1.0
 UI_DENSITY = DEFAULT_UI_DENSITY
 WINDOW_SIZE_CONFIG_KEY = "ui.window_size"
-LEGACY_UI_DENSITY_CONFIG_KEY = "ui.density"
-UI_DENSITY_CONFIG_KEY = WINDOW_SIZE_CONFIG_KEY
+BASELINE_DPI = 96.0
+BASELINE_TK_SCALING = BASELINE_DPI / 72.0
 UI_DENSITY_OPTIONS = {
     "auto": ("Auto", None),
-    "compact": ("Small", 0.88),
+    "compact": ("Small", 0.78),
     "normal": ("Default", 1.0),
     "comfortable": ("Large", 1.08),
     "large": ("Extra large", 1.18),
@@ -1321,23 +1424,117 @@ def normalise_ui_density_choice(choice):
 
 def get_ui_density_choice():
     """Return the configured window size choice from MISAR.configs.json."""
-    return normalise_ui_density_choice(
-        MISAR_CONFIGS.get(WINDOW_SIZE_CONFIG_KEY, MISAR_CONFIGS.get(LEGACY_UI_DENSITY_CONFIG_KEY, "auto"))
+    return normalise_ui_density_choice(MISAR_CONFIGS.get(WINDOW_SIZE_CONFIG_KEY, "auto"))
+
+
+def safe_float(value, default):
+    """Convert platform/Tk numeric values safely."""
+    try:
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def normalise_scale_factor(value):
+    """Clamp invalid display-scale values to a safe cross-platform range."""
+    try:
+        value = float(value)
+    except Exception:
+        return 1.0
+
+    if value <= 0:
+        return 1.0
+
+    return max(0.75, min(value, 3.0))
+
+
+def read_tk_scaling_info(root=None, monitor_width=None, monitor_height=None):
+    """Read DPI/Tk scaling using Tk APIs available on Windows, macOS and Linux."""
+    tk_scaling = BASELINE_TK_SCALING
+    pixels_per_inch = BASELINE_DPI
+
+    if root is not None:
+        try:
+            tk_scaling = safe_float(root.tk.call("tk", "scaling"), BASELINE_TK_SCALING)
+        except Exception:
+            tk_scaling = BASELINE_TK_SCALING
+
+        try:
+            pixels_per_inch = safe_float(root.winfo_fpixels("1i"), BASELINE_DPI)
+        except Exception:
+            pixels_per_inch = BASELINE_DPI
+
+    tk_dpi_scale = normalise_scale_factor(tk_scaling / BASELINE_TK_SCALING)
+    pixel_dpi_scale = normalise_scale_factor(pixels_per_inch / BASELINE_DPI)
+    effective_scale = max(tk_dpi_scale, pixel_dpi_scale, 1.0)
+
+    effective_width = int(monitor_width / effective_scale) if monitor_width else None
+    effective_height = int(monitor_height / effective_scale) if monitor_height else None
+
+    return {
+        "tk_scaling": float(tk_scaling),
+        "pixels_per_inch": float(pixels_per_inch),
+        "tk_dpi_scale": float(tk_dpi_scale),
+        "pixel_dpi_scale": float(pixel_dpi_scale),
+        "effective_scale": float(effective_scale),
+        "effective_width": effective_width,
+        "effective_height": effective_height,
+    }
+
+
+def is_compact_window_required(choice, monitor_width, monitor_height, scaling_info=None):
+    """Return True when the launcher should use the compact full-window layout."""
+    choice = normalise_ui_density_choice(choice)
+
+    if choice == "compact":
+        return True
+
+    if choice != "auto":
+        return False
+
+    scaling_info = scaling_info or {}
+    effective_width = scaling_info.get("effective_width") or monitor_width
+    effective_height = scaling_info.get("effective_height") or monitor_height
+    effective_scale = scaling_info.get("effective_scale", 1.0)
+
+    return (
+        effective_width <= 1366
+        or effective_height <= 800
+        or (effective_scale >= 1.25 and effective_height <= 900)
     )
 
 
-def resolve_ui_density(choice=None):
-    """Resolve the configured UI density choice to a numeric multiplier."""
+def resolve_ui_density(choice=None, scaling_info=None):
+    """Resolve the configured window-size choice to a numeric UI scale."""
     choice = normalise_ui_density_choice(choice if choice is not None else get_ui_density_choice())
     _label, configured_density = UI_DENSITY_OPTIONS[choice]
-    return DEFAULT_UI_DENSITY if configured_density is None else configured_density
+
+    if configured_density is not None:
+        return configured_density
+
+    scaling_info = scaling_info or {}
+    effective_scale = scaling_info.get("effective_scale", 1.0)
+    effective_height = scaling_info.get("effective_height")
+
+    if effective_scale >= 1.5:
+        return 0.80
+    if effective_scale >= 1.25 or (effective_height is not None and effective_height <= 800):
+        return 0.84
+
+    return DEFAULT_UI_DENSITY
 
 
-def apply_configured_ui_density():
-    """Refresh the in-memory UI density from MISAR.configs.json."""
+def apply_configured_ui_density(root=None, monitor_width=None, monitor_height=None):
+    """Refresh the in-memory UI density from MISAR.configs.json and display scale."""
     global UI_DENSITY
-    UI_DENSITY = resolve_ui_density()
-    log_event("ui_density_configured", choice=get_ui_density_choice(), density=UI_DENSITY)
+    scaling_info = read_tk_scaling_info(root, monitor_width, monitor_height)
+    UI_DENSITY = resolve_ui_density(scaling_info=scaling_info)
+    log_event(
+        "ui_density_configured",
+        choice=get_ui_density_choice(),
+        density=UI_DENSITY,
+        scaling_info=scaling_info,
+    )
     return UI_DENSITY
 
 
@@ -2467,9 +2664,14 @@ def active_monitor_bounds(root):
     return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
 
 
-def should_maximise_for_small_screen(monitor_width, monitor_height):
-    """Return True when the current screen is small enough to benefit from maximising."""
-    return monitor_width <= 1366 or monitor_height <= 800
+def should_maximise_for_small_screen(monitor_width, monitor_height, scaling_info=None, choice=None):
+    """Return True when the current screen/scale benefits from maximising."""
+    return is_compact_window_required(
+        choice if choice is not None else get_ui_density_choice(),
+        monitor_width,
+        monitor_height,
+        scaling_info=scaling_info,
+    )
 
 
 def maximise_window_if_supported(root):
@@ -2516,11 +2718,25 @@ def resize_window_to_visible_content(root, width=None, keep_position=False):
     root.geometry(f"{current_width}x{target_height}+{x}+{y}")
 
 
-def build_launcher_layout_decision(monitor_width, monitor_height, requested_width=WINDOW_WIDTH, requested_height=None):
+def build_launcher_layout_decision(
+    monitor_width,
+    monitor_height,
+    requested_width=WINDOW_WIDTH,
+    requested_height=None,
+    scaling_info=None,
+    choice=None,
+):
     """Build a testable layout decision for the current launcher screen."""
-    small_screen = should_maximise_for_small_screen(monitor_width, monitor_height)
+    choice = normalise_ui_density_choice(choice if choice is not None else get_ui_density_choice())
+    scaling_info = scaling_info or read_tk_scaling_info(None, monitor_width, monitor_height)
+    compact_required = should_maximise_for_small_screen(
+        monitor_width,
+        monitor_height,
+        scaling_info=scaling_info,
+        choice=choice,
+    )
 
-    if small_screen:
+    if compact_required:
         target_width = max(monitor_width - 16, 960)
         target_height = max(monitor_height - 56, WINDOW_MIN_HEIGHT)
         x = 0
@@ -2537,9 +2753,14 @@ def build_launcher_layout_decision(monitor_width, monitor_height, requested_widt
         "component": "aio",
         "screen_width": int(monitor_width),
         "screen_height": int(monitor_height),
-        "window_size_option": get_ui_density_choice(),
+        "tk_scaling": scaling_info.get("tk_scaling"),
+        "pixels_per_inch": scaling_info.get("pixels_per_inch"),
+        "effective_scale": scaling_info.get("effective_scale"),
+        "effective_width": scaling_info.get("effective_width"),
+        "effective_height": scaling_info.get("effective_height"),
+        "window_size_option": choice,
         "resolved_ui_density": float(UI_DENSITY),
-        "small_screen": small_screen,
+        "small_screen": compact_required,
         "target_width": int(target_width),
         "target_height": int(target_height),
         "x": int(x),
@@ -2556,12 +2777,15 @@ def log_launcher_layout_decision(decision):
 def centre_and_focus_window(root, width=WINDOW_WIDTH, height=None):
     root.update_idletasks()
     monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
+    scaling_info = read_tk_scaling_info(root, monitor_width, monitor_height)
+    apply_configured_ui_density(root, monitor_width, monitor_height)
     target_height = height or calculate_dynamic_window_height(root)
     decision = build_launcher_layout_decision(
         monitor_width,
         monitor_height,
         requested_width=width,
         requested_height=target_height,
+        scaling_info=scaling_info,
     )
     log_launcher_layout_decision(decision)
 

@@ -83,7 +83,8 @@ VERSION_FILE_PATH = PROJECT_ROOT_DIR / "MISAR.versions.json"
 CONFIG_FILE_PATH = PROJECT_ROOT_DIR / "MISAR.configs.json"
 SESSION_FILE_PATH = PARSER_DIR / "MisarParserGUI.last_session.json"
 WINDOW_SIZE_CONFIG_KEY = "ui.window_size"
-LEGACY_UI_DENSITY_CONFIG_KEY = "ui.density"
+BASELINE_DPI = 96.0
+BASELINE_TK_SCALING = BASELINE_DPI / 72.0
 VERSION_KEYS = {"parser": ("misar.parser",)}
 
 
@@ -115,17 +116,89 @@ def normalise_window_size_choice(choice: str) -> str:
 
 def configured_window_size_choice() -> str:
     configs = read_misar_configs()
-    return normalise_window_size_choice(
-        configs.get(WINDOW_SIZE_CONFIG_KEY, configs.get(LEGACY_UI_DENSITY_CONFIG_KEY, "auto"))
+    return normalise_window_size_choice(configs.get(WINDOW_SIZE_CONFIG_KEY, "auto"))
+
+
+def safe_float(value, default):
+    """Convert platform/Tk numeric values safely."""
+    try:
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def normalise_scale_factor(value):
+    """Clamp invalid display-scale values to a safe cross-platform range."""
+    try:
+        value = float(value)
+    except Exception:
+        return 1.0
+
+    if value <= 0:
+        return 1.0
+
+    return max(0.75, min(value, 3.0))
+
+
+def read_tk_scaling_info(root=None, screen_width=None, screen_height=None) -> dict:
+    """Read DPI/Tk scaling using Tk APIs available on Windows, macOS and Linux."""
+    tk_scaling = BASELINE_TK_SCALING
+    pixels_per_inch = BASELINE_DPI
+
+    if root is not None:
+        try:
+            tk_scaling = safe_float(root.tk.call("tk", "scaling"), BASELINE_TK_SCALING)
+        except Exception:
+            tk_scaling = BASELINE_TK_SCALING
+
+        try:
+            pixels_per_inch = safe_float(root.winfo_fpixels("1i"), BASELINE_DPI)
+        except Exception:
+            pixels_per_inch = BASELINE_DPI
+
+    tk_dpi_scale = normalise_scale_factor(tk_scaling / BASELINE_TK_SCALING)
+    pixel_dpi_scale = normalise_scale_factor(pixels_per_inch / BASELINE_DPI)
+    effective_scale = max(tk_dpi_scale, pixel_dpi_scale, 1.0)
+
+    return {
+        "tk_scaling": float(tk_scaling),
+        "pixels_per_inch": float(pixels_per_inch),
+        "tk_dpi_scale": float(tk_dpi_scale),
+        "pixel_dpi_scale": float(pixel_dpi_scale),
+        "effective_scale": float(effective_scale),
+        "effective_width": int(screen_width / effective_scale) if screen_width else None,
+        "effective_height": int(screen_height / effective_scale) if screen_height else None,
+    }
+
+
+def is_compact_layout_required(choice: str, screen_width: int, screen_height: int, scaling_info: dict | None = None) -> bool:
+    """Return True when parser should use compact sizing/list rows."""
+    choice = normalise_window_size_choice(choice)
+
+    if choice == "compact":
+        return True
+
+    if choice != "auto":
+        return False
+
+    scaling_info = scaling_info or {}
+    effective_width = scaling_info.get("effective_width") or screen_width
+    effective_height = scaling_info.get("effective_height") or screen_height
+    effective_scale = scaling_info.get("effective_scale", 1.0)
+
+    return (
+        effective_width <= 1366
+        or effective_height <= 800
+        or (effective_scale >= 1.25 and effective_height <= 900)
     )
 
 
-def resolve_ui_density(choice: str, screen_width: int, screen_height: int) -> float:
+def resolve_ui_density(choice: str, screen_width: int, screen_height: int, scaling_info: dict | None = None) -> float:
     """Resolve shared window-size choice into a parser UI scale."""
     choice = normalise_window_size_choice(choice)
 
     if choice == "compact":
-        return 0.88
+        return 0.78
     if choice == "normal":
         return 1.0
     if choice == "comfortable":
@@ -133,30 +206,42 @@ def resolve_ui_density(choice: str, screen_width: int, screen_height: int) -> fl
     if choice == "large":
         return 1.18
 
-    if screen_width <= 1366 or screen_height <= 800:
-        return 0.86
+    scaling_info = scaling_info or read_tk_scaling_info(None, screen_width, screen_height)
+    effective_scale = scaling_info.get("effective_scale", 1.0)
+
+    if is_compact_layout_required(choice, screen_width, screen_height, scaling_info):
+        return 0.82 if effective_scale < 1.5 else 0.78
     if screen_width >= 2200 and screen_height >= 1300:
         return 1.06
     return 1.0
 
 
-def resolve_list_rows(screen_height: int) -> tuple[int, int]:
-    """Return required/optional list heights suitable for the current screen."""
-    if screen_height <= 800:
+def resolve_list_rows(choice: str, screen_width: int, screen_height: int, scaling_info: dict | None = None) -> tuple[int, int]:
+    """Return required/optional list heights suitable for the current display scale."""
+    choice = normalise_window_size_choice(choice)
+    scaling_info = scaling_info or read_tk_scaling_info(None, screen_width, screen_height)
+
+    if is_compact_layout_required(choice, screen_width, screen_height, scaling_info):
         return 5, 3
     if screen_height <= 950:
         return 8, 5
     return 12, 9
 
 
-def build_parser_layout_decision(screen_width: int, screen_height: int, choice: str = "auto") -> dict:
-    """Build a testable parser layout decision for the current screen."""
+def build_parser_layout_decision(
+    screen_width: int,
+    screen_height: int,
+    choice: str = "auto",
+    scaling_info: dict | None = None,
+) -> dict:
+    """Build a testable parser layout decision for the current screen and scale."""
     choice = normalise_window_size_choice(choice)
-    density = resolve_ui_density(choice, screen_width, screen_height)
-    required_rows, optional_rows = resolve_list_rows(screen_height)
-    small_screen = screen_width <= 1366 or screen_height <= 800
+    scaling_info = scaling_info or read_tk_scaling_info(None, screen_width, screen_height)
+    density = resolve_ui_density(choice, screen_width, screen_height, scaling_info)
+    required_rows, optional_rows = resolve_list_rows(choice, screen_width, screen_height, scaling_info)
+    compact_layout = is_compact_layout_required(choice, screen_width, screen_height, scaling_info)
 
-    if small_screen:
+    if compact_layout:
         target_width = max(screen_width - 16, 980)
         target_height = max(screen_height - 56, 620)
         x = 0
@@ -173,9 +258,14 @@ def build_parser_layout_decision(screen_width: int, screen_height: int, choice: 
         "component": "parser",
         "screen_width": int(screen_width),
         "screen_height": int(screen_height),
+        "tk_scaling": scaling_info.get("tk_scaling"),
+        "pixels_per_inch": scaling_info.get("pixels_per_inch"),
+        "effective_scale": scaling_info.get("effective_scale"),
+        "effective_width": scaling_info.get("effective_width"),
+        "effective_height": scaling_info.get("effective_height"),
         "window_size_option": choice,
         "resolved_ui_density": float(density),
-        "small_screen": small_screen,
+        "small_screen": compact_layout,
         "target_width": int(target_width),
         "target_height": int(target_height),
         "x": int(x),
@@ -492,10 +582,10 @@ class PathPicker:
         self.error_label = ttk.Label(parent, text="", style="Error.TLabel")
 
         self.label.grid(row=0, column=0, sticky="w", columnspan=3)
-        self.helper.grid(row=1, column=0, sticky="w", columnspan=3, pady=(3, 10))
-        self.entry.grid(row=2, column=0, columnspan=2, sticky="ew", padx=(0, 12), ipady=8)
+        self.helper.grid(row=1, column=0, sticky="w", columnspan=3, pady=(ui_size(3), ui_size(10)))
+        self.entry.grid(row=2, column=0, columnspan=2, sticky="ew", padx=(0, ui_size(12)), ipady=ui_size(8))
         self.button.grid(row=2, column=2, sticky="e")
-        self.error_label.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        self.error_label.grid(row=3, column=0, columnspan=3, sticky="w", pady=(ui_size(8), 0))
 
     def grid(self, row: int, column: int = 0, columnspan: int = 1, sticky: str = "nsew", padx=None, pady=None) -> None:
         if padx is None:
@@ -548,8 +638,8 @@ class MultiPicker:
             bg=PALETTE["input"],
             highlightthickness=1,
             highlightbackground=PALETTE["border"],
-            padx=10,
-            pady=10,
+            padx=ui_size(10),
+            pady=ui_size(10),
         )
         self.listbox = tk.Listbox(
             self.list_frame,
@@ -575,7 +665,7 @@ class MultiPicker:
         self.delete_button = RoundedButton(self.actions, "Remove", command=delete_command, variant="secondary", width=104, disabled_command=notify_setup_required)
         self.error_label = ttk.Label(parent, text="", style="Error.TLabel")
 
-        self.label.grid(row=0, column=0, sticky="w", padx=(0, 12))
+        self.label.grid(row=0, column=0, sticky="w", padx=(0, ui_size(12)))
         self.actions.grid(row=0, column=1, sticky="e")
         self.add_button.pack(side="left", padx=(0, 8))
         self.delete_button.pack(side="left")
@@ -585,7 +675,7 @@ class MultiPicker:
         self.yscroll.grid(row=0, column=1, sticky="ns", padx=(8, 0))
         self.list_frame.grid_rowconfigure(0, weight=1)
         self.list_frame.grid_columnconfigure(0, weight=1)
-        self.error_label.grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        self.error_label.grid(row=3, column=0, columnspan=2, sticky="w", pady=(ui_size(8), 0))
 
     def grid(self, row: int, column: int = 0, columnspan: int = 1, sticky: str = "nsew", padx=None, pady=None) -> None:
         if padx is None:
@@ -716,9 +806,9 @@ class ProjectNameBox:
         self.entry.bind("<KeyRelease>", lambda _event: change_callback())
 
         self.label.grid(row=0, column=0, sticky="w")
-        self.helper.grid(row=1, column=0, sticky="w", pady=(3, 10))
-        self.entry.grid(row=2, column=0, sticky="ew", ipady=8)
-        self.error_label.grid(row=3, column=0, sticky="w", pady=(8, 0))
+        self.helper.grid(row=1, column=0, sticky="w", pady=(ui_size(3), ui_size(10)))
+        self.entry.grid(row=2, column=0, sticky="ew", ipady=ui_size(8))
+        self.error_label.grid(row=3, column=0, sticky="w", pady=(ui_size(8), 0))
 
     def grid(self, row: int, column: int = 0, columnspan: int = 1, sticky: str = "nsew", padx=None, pady=None) -> None:
         if padx is None:
@@ -763,7 +853,8 @@ def centre_and_focus_window(root, width: int = 1500, height: int = 920) -> None:
     root.update_idletasks()
     monitor_x, monitor_y, monitor_width, monitor_height = active_monitor_bounds(root)
     choice = getattr(root, "window_size_choice", configured_window_size_choice())
-    decision = build_parser_layout_decision(monitor_width, monitor_height, choice)
+    scaling_info = read_tk_scaling_info(root, monitor_width, monitor_height)
+    decision = build_parser_layout_decision(monitor_width, monitor_height, choice, scaling_info)
     emit_parser_layout_diagnostics(decision)
 
     x = monitor_x + decision["x"]
@@ -806,6 +897,7 @@ class MisarParserApp(tk.Tk):
             self.screen_width,
             self.screen_height,
             self.window_size_choice,
+            read_tk_scaling_info(self, self.screen_width, self.screen_height),
         )
         global UI_DENSITY
         UI_DENSITY = self.layout_decision["resolved_ui_density"]
