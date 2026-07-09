@@ -2169,7 +2169,7 @@ def restart_launcher():
 
 
 def open_launcher_settings():
-    """Open launcher options for display and update preferences."""
+    """Open launcher options for display, updates and diagnostics."""
     if main_window is None:
         return
 
@@ -2179,6 +2179,80 @@ def open_launcher_settings():
     settings_window.resizable(False, False)
     settings_window.configure(bg=PALETTE["panel"])
     settings_window.grab_set()
+    settings_window.grid_columnconfigure(0, weight=1)
+    settings_window.grid_columnconfigure(1, weight=0)
+
+    row = 0
+
+    def add_heading(text, description=None):
+        nonlocal row
+        tkinter.Label(
+            settings_window,
+            text=text,
+            font=ui_font(13, "bold"),
+            bg=PALETTE["panel"],
+            fg=PALETTE["title"],
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=18, pady=(14 if row else 16, 3))
+        row += 1
+
+        if description:
+            tkinter.Label(
+                settings_window,
+                text=description,
+                font=ui_font(10),
+                bg=PALETTE["panel"],
+                fg=PALETTE["muted"],
+                wraplength=470,
+                justify="left",
+            ).grid(row=row, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 10))
+            row += 1
+
+    def add_separator():
+        nonlocal row
+        ttk.Separator(settings_window, orient="horizontal").grid(
+            row=row,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            padx=18,
+            pady=(8, 4),
+        )
+        row += 1
+
+    def add_paragraph(text, top=0, bottom=10):
+        nonlocal row
+        tkinter.Label(
+            settings_window,
+            text=text,
+            font=ui_font(10),
+            bg=PALETTE["panel"],
+            fg=PALETTE["muted"],
+            wraplength=470,
+            justify="left",
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=18, pady=(top, bottom))
+        row += 1
+
+    def add_info_box(text):
+        nonlocal row
+        info_box = tkinter.Frame(
+            settings_window,
+            bg=PALETTE["panel_soft"],
+            highlightthickness=1,
+            highlightbackground=PALETTE["border"],
+        )
+        info_box.grid(row=row, column=0, columnspan=2, sticky="ew", padx=18, pady=(0, 12))
+        info_box.grid_columnconfigure(0, weight=1)
+
+        tkinter.Label(
+            info_box,
+            text=text,
+            font=ui_font(10),
+            bg=PALETTE["panel_soft"],
+            fg=PALETTE["text"],
+            wraplength=440,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w", padx=12, pady=9)
+        row += 1
 
     tkinter.Label(
         settings_window,
@@ -2186,17 +2260,20 @@ def open_launcher_settings():
         font=ui_font(14, "bold"),
         bg=PALETTE["panel"],
         fg=PALETTE["title"],
-    ).grid(row=0, column=0, columnspan=2, sticky="w", padx=18, pady=(16, 4))
+    ).grid(row=row, column=0, columnspan=2, sticky="w", padx=18, pady=(16, 4))
+    row += 1
 
-    tkinter.Label(
-        settings_window,
-        text="Configure display and update options. These settings are saved locally.",
-        font=ui_font(11),
-        bg=PALETTE["panel"],
-        fg=PALETTE["muted"],
-        wraplength=420,
-        justify="left",
-    ).grid(row=1, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 14))
+    add_paragraph(
+        "Configure the launcher display, update checks and diagnostic logging. These settings are saved locally.",
+        top=0,
+        bottom=8,
+    )
+
+    add_separator()
+    add_heading(
+        "Display",
+        "Control how large the AIO launcher and connected MiSAR interfaces should appear on this computer.",
+    )
 
     tkinter.Label(
         settings_window,
@@ -2204,7 +2281,7 @@ def open_launcher_settings():
         font=ui_font(11, "bold"),
         bg=PALETTE["panel"],
         fg=PALETTE["text"],
-    ).grid(row=2, column=0, sticky="w", padx=18, pady=(0, 10))
+    ).grid(row=row, column=0, sticky="w", padx=18, pady=(0, 6))
 
     label_to_key = {label: key for key, (label, _density) in UI_DENSITY_OPTIONS.items()}
     current_label = ui_density_display_text()
@@ -2216,34 +2293,44 @@ def open_launcher_settings():
         state="readonly",
         width=22,
     )
-    density_selector.grid(row=2, column=1, sticky="ew", padx=18, pady=(0, 10))
+    density_selector.grid(row=row, column=1, sticky="ew", padx=18, pady=(0, 6))
+    row += 1
 
-    tkinter.Label(
-        settings_window,
-        text=(
-            "Auto chooses a suitable size for the current screen. "
-        ),
-        font=ui_font(10),
-        bg=PALETTE["panel"],
-        fg=PALETTE["muted"],
-        wraplength=420,
-        justify="left",
-    ).grid(row=3, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 12))
+    add_paragraph(
+        "Choose Small if the launcher or Parser is too large for your screen. Auto lets MiSAR choose a suitable size based on the detected display.",
+        top=0,
+        bottom=10,
+    )
+
+    add_separator()
+    add_heading(
+        "Updates",
+        "Control whether MiSAR checks for updates automatically or only when you request it.",
+    )
 
     auto_update_var = tkinter.BooleanVar(value=is_auto_update_enabled())
     auto_update_check = tkinter.Checkbutton(
         settings_window,
-        text="Automatically check parser updates on startup",
+        text="Enable MiSAR to check automatically for updates when launching the AIO.",
         variable=auto_update_var,
         bg=PALETTE["panel"],
         fg=PALETTE["text"],
         activebackground=PALETTE["panel"],
         font=ui_font(11),
+        justify="left",
+        wraplength=470,
     )
-    auto_update_check.grid(row=4, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 10))
+    auto_update_check.grid(row=row, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 4))
+    row += 1
+
+    add_paragraph(
+        "When enabled, MiSAR checks for Parser updates in the background during startup. It does not install an update unless you confirm it.",
+        top=0,
+        bottom=8,
+    )
 
     update_button_frame = tkinter.Frame(settings_window, bg=PALETTE["panel"])
-    update_button_frame.grid(row=5, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 16))
+    update_button_frame.grid(row=row, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 8))
     check_updates_button = RoundedButton(
         update_button_frame,
         "Check Updates",
@@ -2252,9 +2339,58 @@ def open_launcher_settings():
         width=128,
     )
     check_updates_button.pack(side=tkinter.LEFT)
+    row += 1
+
+    add_info_box("You can always click on the Check Updates button to manually check for the latest version of MiSAR.")
+
+    add_separator()
+    add_heading(
+        "Diagnostics",
+        "Use debug mode only when you need local logs for troubleshooting or testing.",
+    )
+
+    debug_status_label = tkinter.Label(
+        settings_window,
+        font=ui_font(10, "bold"),
+        bg=PALETTE["secondary"],
+        fg=PALETTE["muted"],
+        padx=ui_size(10),
+        pady=ui_size(5),
+    )
+    debug_status_label.grid(row=row, column=0, sticky="w", padx=18, pady=(0, 8))
+
+    debug_toggle_button = RoundedButton(
+        settings_window,
+        "Activate Debug",
+        variant="secondary",
+        width=150,
+    )
+    debug_toggle_button.grid(row=row, column=1, sticky="e", padx=18, pady=(0, 8))
+    row += 1
+
+    add_paragraph(
+        "Debug mode writes diagnostic logs to this computer only. It is useful when checking paths, update behaviour, screen sizing or parser launch issues.",
+        top=0,
+        bottom=10,
+    )
+
+    def refresh_debug_options_state():
+        debug_status_label.configure(
+            text="Debug mode: Active" if DEBUG_MODE else "Debug mode: Inactive",
+            bg="#dcfce7" if DEBUG_MODE else PALETTE["secondary"],
+            fg=PALETTE["success"] if DEBUG_MODE else PALETTE["muted"],
+        )
+        debug_toggle_button.configure(text="Deactivate Debug" if DEBUG_MODE else "Activate Debug")
+
+    def toggle_debug_from_options():
+        toggle_debug_mode()
+        refresh_debug_options_state()
+
+    debug_toggle_button.configure(command=toggle_debug_from_options)
+    refresh_debug_options_state()
 
     button_frame = tkinter.Frame(settings_window, bg=PALETTE["panel"])
-    button_frame.grid(row=6, column=0, columnspan=2, sticky="e", padx=18, pady=(0, 16))
+    button_frame.grid(row=row, column=0, columnspan=2, sticky="e", padx=18, pady=(4, 16))
 
     def save_launcher_settings():
         selected_key = label_to_key.get(density_var.get(), "auto")
@@ -2274,6 +2410,7 @@ def open_launcher_settings():
             ui_density_choice=selected_key,
             density=UI_DENSITY,
             auto_update_enabled=auto_update_var.get(),
+            debug_enabled=DEBUG_MODE,
             restart_required=restart_required,
         )
         settings_window.destroy()
@@ -2281,16 +2418,16 @@ def open_launcher_settings():
         if restart_required:
             restart_now = messagebox.askyesno(
                 "Apply MiSAR Options",
-                "Settings were saved. Restart MiSAR now to apply the runtime/layout changes cleanly?",
+                "Options were saved. Restart MiSAR now to apply the display changes cleanly?",
             )
 
             if restart_now:
                 restart_launcher()
             else:
-                set_status("Settings saved. Restart MiSAR to apply all changes.")
+                set_status("Options saved. Restart MiSAR to apply all display changes.")
             return
 
-        set_status("Settings saved.")
+        set_status("Options saved.")
 
     save_button = RoundedButton(button_frame, "Apply", command=save_launcher_settings, width=96)
     save_button.pack(side=tkinter.RIGHT, padx=(8, 0))
@@ -2302,7 +2439,6 @@ def open_launcher_settings():
     x = main_window.winfo_x() + max((main_window.winfo_width() - settings_window.winfo_reqwidth()) // 2, 0)
     y = main_window.winfo_y() + max((main_window.winfo_height() - settings_window.winfo_reqheight()) // 2, 0)
     settings_window.geometry(f"+{x}+{y}")
-
 
 
 def resolve_eclipse_executable(path):
@@ -3118,22 +3254,9 @@ def initialise_ui():
 
     root.debug_header = tkinter.Frame(header, bg=PALETTE["bg"])
     root.debug_header.grid(row=0, column=1, rowspan=3, sticky="ne", padx=ui_pad((14, 0)))
-    root.debug_status_label = tkinter.Label(
-        root.debug_header,
-        text="Debug mode: OFF",
-        font=ui_font(10, "bold"),
-        bg=PALETTE["secondary"],
-        fg=PALETTE["muted"],
-        padx=ui_size(10),
-        pady=ui_size(5),
-    )
-    root.debug_status_label.pack(anchor="e", pady=ui_pad((0, 6)))
-    root.debug_toggle_button = RoundedButton(root.debug_header, "Activate Debug", command=toggle_debug_mode, variant="secondary", width=130)
-    root.debug_toggle_button.configure(bg=PALETTE["bg"])
-    root.debug_toggle_button.pack(anchor="e")
     root.settings_button = RoundedButton(root.debug_header, "Options", command=open_launcher_settings, variant="secondary", width=110)
     root.settings_button.configure(bg=PALETTE["bg"])
-    root.settings_button.pack(anchor="e", pady=ui_pad((6, 0)))
+    root.settings_button.pack(anchor="e")
 
     body = ttk.Frame(main, padding=ui_pad((24, 10, 24, 14)), style="Root.TFrame")
     body.grid(row=1, column=0, sticky="nsew")
