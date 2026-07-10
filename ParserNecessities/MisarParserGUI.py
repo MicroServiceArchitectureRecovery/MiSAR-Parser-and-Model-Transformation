@@ -657,10 +657,10 @@ class PathPicker:
         self.entry = tk.Entry(parent, relief="flat", font=ui_font(11), width=34)
         self.entry.configure(state="readonly")
         self.copy_menu = tk.Menu(parent, tearoff=0)
-        self.entry.bind("<Control-c>", self.copy_display_path)
-        self.entry.bind("<Command-c>", self.copy_display_path)
-        self.entry.bind("<Control-Shift-C>", self.copy_full_path)
-        self.entry.bind("<Command-Shift-C>", self.copy_full_path)
+        self.entry.bind("<Control-c>", self.copy_full_path)
+        self.entry.bind("<Command-c>", self.copy_full_path)
+        self.entry.bind("<Control-Shift-C>", self.copy_display_path)
+        self.entry.bind("<Command-Shift-C>", self.copy_display_path)
         self.entry.bind("<Button-3>", self.show_copy_menu)
         self.entry.bind("<Button-2>", self.show_copy_menu)
         self.button = RoundedButton(parent, button_text, command=command, variant="primary", width=124)
@@ -699,8 +699,8 @@ class PathPicker:
 
     def show_copy_menu(self, event):
         self.copy_menu.delete(0, tk.END)
-        self.copy_menu.add_command(label="Copy displayed path", command=self.copy_display_path)
         self.copy_menu.add_command(label="Copy full path", command=self.copy_full_path)
+        self.copy_menu.add_command(label="Copy displayed path", command=self.copy_display_path)
         self.copy_menu.tk_popup(event.x_root, event.y_root)
         return "break"
 
@@ -760,10 +760,10 @@ class MultiPicker:
         self.listbox.bind("<Button-5>", self._on_list_mousewheel)
         self.listbox.bind("<<ListboxSelect>>", self._remember_selection)
         self.listbox.bind("<Delete>", self._delete_from_keyboard)
-        self.listbox.bind("<Control-c>", self.copy_selected_display_values)
-        self.listbox.bind("<Command-c>", self.copy_selected_display_values)
-        self.listbox.bind("<Control-Shift-C>", self.copy_selected_full_paths)
-        self.listbox.bind("<Command-Shift-C>", self.copy_selected_full_paths)
+        self.listbox.bind("<Control-c>", self.copy_selected_full_paths)
+        self.listbox.bind("<Command-c>", self.copy_selected_full_paths)
+        self.listbox.bind("<Control-Shift-C>", self.copy_selected_display_values)
+        self.listbox.bind("<Command-Shift-C>", self.copy_selected_display_values)
         self.listbox.bind("<Button-3>", self.show_copy_menu)
         self.listbox.bind("<Button-2>", self.show_copy_menu)
         self.copy_menu = tk.Menu(self.listbox, tearoff=0)
@@ -839,8 +839,8 @@ class MultiPicker:
             self._remember_selection()
 
         self.copy_menu.delete(0, tk.END)
-        self.copy_menu.add_command(label="Copy displayed item", command=self.copy_selected_display_values)
         self.copy_menu.add_command(label="Copy full path", command=self.copy_selected_full_paths)
+        self.copy_menu.add_command(label="Copy displayed item", command=self.copy_selected_display_values)
         self.copy_menu.tk_popup(event.x_root, event.y_root)
         return "break"
 
