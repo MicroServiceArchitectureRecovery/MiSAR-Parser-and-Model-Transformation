@@ -3,3 +3,6 @@
 
 # Don't deploy the site directory (built by MkDocs) to GitHub, as it is generated and can be large. Instead, we will deploy it to GitHub Pages using the gh-pages branch.
 misar-docs/site
+
+# configs are user/machine-specific, so we don't have to commit them to the repository.
+MISAR.configs.json

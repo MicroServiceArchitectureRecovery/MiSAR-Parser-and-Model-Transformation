@@ -37,6 +37,12 @@ from MisarParserConfig import resolve_psm_ecore_path, describe_psm_selection
 from MisarParserPython import *
 from MisarParserLanguage import detect_language_scopes, has_language, primary_framework, format_language_summary, \
     strip_language_badge
+from MisarParserValidation import (
+    format_docker_compose_user_messages,
+    format_docker_compose_validation_messages,
+    log_docker_compose_validation_results,
+    validate_docker_compose_files,
+)
 import sys
 from pathlib import Path
 
@@ -447,7 +453,7 @@ def detect_misar_module_language(module_build_dir, module_build_file=''):
         return 'java'
     if has_language(scopes, 'python'):
         return 'python'
-    return 'unknown'
+    return 'generic'
 
 
 def create_dependency_library_element(metamodel, module_name, library):
@@ -476,8 +482,8 @@ def create_python_project_element(metamodel, python_framework):
 
 def get_python_framework_for_module(module_build_dir, module_build_file):
     scopes = detect_language_scopes(module_build_dir)
-    framework = primary_framework(scopes, 'python', 'UNKNOWN')
-    if framework != 'UNKNOWN':
+    framework = primary_framework(scopes, 'python', 'GENERIC')
+    if framework != 'GENERIC':
         return framework
     return detect_python_framework(strip_language_badge(module_build_dir), module_build_file)
 
@@ -513,8 +519,18 @@ def _optional_entry_value(input_widget):
 
 
 def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_compose, lst_app_build,
-                        lst_module_build_dir, lst_module_build, lst_app_config_dir, txt_output_dir):
+                        lst_module_build_dir, lst_module_build, lst_app_config_dir, txt_output_dir,
+                        progress_callback=None):
     psm_ecore_hint = _optional_entry_value(txt_psm_ecore)
+
+    def report_progress(value, message):
+        if progress_callback is None:
+            return
+        try:
+            progress_callback(max(0, min(int(value), 100)), str(message))
+        except Exception:
+            pass
+
     if not txt_proj_name.get().strip():
         messagebox.showerror('Missing Values', 'please provide one value for \'Application Project Name\' !')
     elif not txt_proj_dir.get().strip():
@@ -527,6 +543,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         messagebox.showerror('Missing Values',
                              'please provide one or more value for \'Microservice Projects Build Directories\' !')
     else:
+        report_progress(0, "Collecting parser inputs...")
         start_time = datetime.now().strftime("%H:%M:%S")
         docker_compose_files = []
         app_build_files = []
@@ -555,6 +572,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             if app_config_dir.strip():
                 app_config_dirs.append(app_config_dir)
 
+        report_progress(8, "Checking selected module languages...")
         project_uses_python = any(
             has_language(detect_language_scopes(module_build_dir), 'python')
             for module_build_dir in module_build_dirs
@@ -565,6 +583,25 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         psm_instance_file_name = multi_module_project_name + "-PSM" + '.xmi'
         psm_instance_file = output_dir + "/" + psm_instance_file_name
 
+        report_progress(10, "Validating Docker Compose files...")
+        docker_validation_results = validate_docker_compose_files(docker_compose_files, log=True)
+        docker_validation_errors, docker_validation_warnings = format_docker_compose_validation_messages(docker_validation_results)
+        docker_user_errors, _docker_user_warnings = format_docker_compose_user_messages(docker_validation_results)
+
+        if docker_validation_errors:
+            raise RuntimeError(
+                "Invalid Docker Compose file(s):\n"
+                + "\n".join("- " + error for error in docker_user_errors)
+            )
+
+        if docker_validation_warnings:
+            print(
+                "misar_validation_warning = Docker Compose validation completed with {} warning(s); continuing with supported fields.".format(
+                    len(docker_validation_warnings)
+                )
+            )
+
+        report_progress(12, "Loading PSM metamodel...")
         # load metamodel from XMI file
         metamodel_resource_set = ResourceSet()
         metamodel_resource = metamodel_resource_set.get_resource(URI(psm_ecore_file))
@@ -580,6 +617,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         application.ApplicationName = multi_module_project_name
         application.ProjectPackageURL = app_root_dir
 
+        report_progress(20, "Analysing Docker Compose files...")
         # parse docker compose artifacts into containers
         application_containers = dockerComposeAnalysis(docker_compose_files, multi_module_project_name)
         """
@@ -631,6 +669,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                             if link not in application_containers[container_name]['links']:
                                 application_containers[container_name]['links'].append(link)
         """
+        report_progress(30, "Reading Dockerfile metadata...")
         # parse dockerfile artifacts to update image and ports information
         mergeDockerfileAnalysisDockerCompose(application_containers, app_root_dir)
         """
@@ -654,6 +693,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                                 application_containers[container_name]['ports'].append(expose_commands[0])
         """
 
+        report_progress(36, "Creating Docker model elements...")
         # create containers instance and append it to application instance
         createDockerPSMElements(application_containers, application, metamodel)
         """
@@ -697,9 +737,13 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
         application_project.ArtifactFileName = multi_module_project['build']
         application_project.ProjectArtifactId = multi_module_project['artifactId']
 
+        module_count = max(len(module_build_dirs), 1)
+        report_progress(42, "Discovering modules...")
         # create modules for application project
-        for module_build_dir in module_build_dirs:
+        for module_index, module_build_dir in enumerate(module_build_dirs, start=1):
             module_name = os.path.basename(module_build_dir)
+            discovery_progress = 42 + int(((module_index - 1) / module_count) * 13)
+            report_progress(discovery_progress, f"Discovering module {module_index}/{len(module_build_dirs)}: {module_name}")
             build_file = find_module_build_file(module_build_dir, module_build_files)
             java_build_file = find_java_build_file(module_build_dir, module_build_files)
             python_build_file = find_python_build_file(module_build_dir, module_build_files)
@@ -710,7 +754,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             if has_language(language_scopes, 'python'):
                 module_languages.append('python')
             if not module_languages:
-                module_languages.append('unknown')
+                module_languages.append('generic')
 
             if is_java_build_file(java_build_file):
                 pom_xml = xml_to_dict(java_build_file)
@@ -730,13 +774,18 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             multi_module_project['modules'][module_name]['java_elements'] = []
             multi_module_project['modules'][module_name]['python_elements'] = []
             multi_module_project['modules'][module_name]['language'] = 'mixed' if len(
-                [language for language in module_languages if language != 'unknown']) > 1 else module_languages[0]
+                [language for language in module_languages if language != 'generic']) > 1 else module_languages[0]
             multi_module_project['modules'][module_name]['languages'] = module_languages
             multi_module_project['modules'][module_name]['language_scopes'] = language_scopes
             multi_module_project['modules'][module_name]['framework'] = format_language_summary(language_scopes)
 
+        module_names = list(multi_module_project['modules'])
+        module_total = max(len(module_names), 1)
+        report_progress(55, "Preparing application module models...")
         # create libraries and properties instances for every module project
-        for module_name in multi_module_project['modules']:
+        for module_index, module_name in enumerate(module_names, start=1):
+            analysis_progress = 55 + int(((module_index - 1) / module_total) * 35)
+            report_progress(analysis_progress, f"Analysing module {module_index}/{len(module_names)}: {module_name}")
             print('\nmodule_name = {}'.format(module_name))
             module_build_file = multi_module_project['modules'][module_name]['build']
             module_build_dir = multi_module_project['modules'][module_name]['build_dir']
@@ -748,7 +797,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             module_libraries = []
             spring_boot_app = True
             spring_web_flux_app = False
-            python_framework = 'UNKNOWN'
+            python_framework = 'PYTHON'
 
             if has_java_module:
                 java_libraries = get_library_list([], java_build_file or module_build_file, app_root_dir)
@@ -786,8 +835,7 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
                     spring_web_flux_app
                 )
             except RuntimeError as error:
-                messagebox.showerror('PSM Python Extension Missing', str(error))
-                return
+                raise RuntimeError(str(error)) from error
 
             module_project.ParentProjectName = multi_module_project['modules'][module_name]['parent']
             module_project.ArtifactFileName = multi_module_project['modules'][module_name]['build'] or module_build_dir
@@ -1190,17 +1238,20 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             # append module to application project
             application_project.modules.append(module_project)
 
-            # append application project instance to application
+        report_progress(90, "Finalising application model...")
+        # append application project instance to application
         application.application_project = application_project
 
         # append application instance to model
         model.application = application
 
+        report_progress(94, "Writing XMI model...")
         # export instance model to XMI file
         model_resource_set = ResourceSet()
         model_resource = model_resource_set.create_resource(URI(psm_instance_file))
         model_resource.append(model)
         model_resource.save()
+        report_progress(97, "XMI model written. Adding schema metadata...")
 
         # edit PSM:RootPSM element
         xmlns_xsi = ''
@@ -1222,12 +1273,9 @@ def create_psm_instance(txt_proj_name, txt_proj_dir, txt_psm_ecore, lst_docker_c
             with open(psm_instance_file, 'w') as file:
                 file.writelines("%s\n" % line for line in file_lines)
 
-            # success message
-            messagebox.showinfo(
-                "Success",
-                "PSM model generated successfully!\n\nSaved at:\n" + str(psm_instance_file)
-            )
 
+        report_progress(99, "Finished writing model file.")
         end_time = datetime.now().strftime("%H:%M:%S")
         print(start_time)
         print(end_time)
+        return psm_instance_file

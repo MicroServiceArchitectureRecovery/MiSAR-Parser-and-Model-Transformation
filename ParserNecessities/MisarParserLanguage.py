@@ -32,20 +32,20 @@ PYTHON_DEPENDENCY_FILES = {
 
 JAVA_BUILD_FILES = {"pom.xml", "build.gradle", "build.gradle.kts"}
 
-LANGUAGE_BADGE_PATTERN = re.compile(r"\s+\[(?:Python|Java|Unknown|Mixed|Languages):.*\]$")
+LANGUAGE_BADGE_PATTERN = re.compile(r"\s+\[(?:Python|Java|Unknown|Unclassified|Generic|Mixed|Languages):.*\]$")
 
 
 @dataclass
 class LanguageScope:
     language: str
-    framework: str = "UNKNOWN"
+    framework: str = "GENERIC"
     path: str = ""
     confidence: int = 0
     evidence: list[str] = field(default_factory=list)
 
     @property
     def label(self) -> str:
-        framework_label = "" if self.framework in {"", "UNKNOWN", self.language.upper()} else f": {self.framework}"
+        framework_label = "" if self.framework in {"", "GENERIC", self.language.upper()} else f": {self.framework}"
         return f"{self.language.title()}{framework_label}"
 
 
@@ -57,18 +57,20 @@ def strip_language_badge(value: str | Path) -> str:
 def format_module_display_path(module_dir: str | Path) -> str:
     raw_path = strip_language_badge(module_dir)
     summary = format_language_summary(detect_language_scopes(raw_path))
-    return f"{raw_path} [{summary}]"
+    return f"{raw_path} [{summary}]" if summary else raw_path
 
 
 def format_language_summary(scopes: Iterable[LanguageScope]) -> str:
     scopes = list(scopes)
     if not scopes:
-        return "Unknown"
+        return ""
 
     grouped: dict[str, set[str]] = {}
     for scope in scopes:
         language = scope.language.title()
-        framework = scope.framework if scope.framework and scope.framework != "UNKNOWN" else ""
+        if language.lower() in {"unknown", "generic"}:
+            continue
+        framework = scope.framework if scope.framework and scope.framework not in {"GENERIC"} else ""
         grouped.setdefault(language, set())
         if framework:
             grouped[language].add(framework)
@@ -101,7 +103,7 @@ def has_language(scopes: Iterable[LanguageScope], language: str) -> bool:
     return any(scope.language.lower() == language for scope in scopes)
 
 
-def primary_framework(scopes: Iterable[LanguageScope], language: str, default: str = "UNKNOWN") -> str:
+def primary_framework(scopes: Iterable[LanguageScope], language: str, default: str = "GENERIC") -> str:
     language = language.lower()
     matching_scopes = [scope for scope in scopes if scope.language.lower() == language]
     if not matching_scopes:
@@ -263,7 +265,7 @@ def add_framework_evidence(frameworks: dict[str, int], text: str, framework: str
         frameworks[framework] = frameworks.get(framework, 0) + 25
 
 
-def highest_framework(frameworks: dict[str, int], default: str = "UNKNOWN") -> str:
+def highest_framework(frameworks: dict[str, int], default: str = "GENERIC") -> str:
     if not frameworks:
         return default
     return sorted(frameworks.items(), key=lambda item: item[1], reverse=True)[0][0]

@@ -1,0 +1,6 @@
+pytest>=8.0
+pyecore
+PyYAML
+xmltodict
+javalang
+GitPython
