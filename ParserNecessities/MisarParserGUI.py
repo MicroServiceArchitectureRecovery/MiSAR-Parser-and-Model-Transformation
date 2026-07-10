@@ -382,6 +382,48 @@ def notify_setup_required() -> None:
         "Please first add the project name, project build directory, and output directory.",
     )
 
+def compact_raw_path_for_display(raw_path: str) -> str:
+    """Shorten a path for display while keeping the full path internally."""
+    path_text = str(raw_path or "").strip()
+
+    if not path_text:
+        return ""
+
+    trimmed = path_text.rstrip("/\\")
+
+    if not trimmed:
+        return path_text
+
+    normalised = trimmed.replace("\\", "/")
+    parts = [part for part in normalised.split("/") if part]
+
+    if len(parts) >= 2:
+        return f"../{parts[-2]}/{parts[-1]}"
+
+    return trimmed
+
+
+def compact_path_display(value: str) -> str:
+    """Show only the parent folder and selected file/folder, preserving language badges."""
+    text = str(value or "").strip()
+
+    if not text:
+        return ""
+
+    raw_path = strip_language_badge(text)
+    language_badge = ""
+
+    if raw_path and text.startswith(raw_path):
+        language_badge = text[len(raw_path):].strip()
+
+    compact_path = compact_raw_path_for_display(raw_path or text)
+
+    if language_badge:
+        return f"{compact_path} {language_badge}"
+
+    return compact_path
+
+
 class EntrySnapshot:
     def __init__(self, value: str):
         self.value = value
@@ -589,6 +631,7 @@ class SectionHeader(ttk.Frame):
 
 class PathPicker:
     def __init__(self, master, label: str, helper: str, button_text: str, command):
+        self.raw_path = ""
         self.box = BoxFrame(master)
         parent = self.box.content
         parent.grid_columnconfigure(1, weight=1)
@@ -613,13 +656,14 @@ class PathPicker:
         self.box.grid(row=row, column=column, columnspan=columnspan, sticky=sticky, padx=padx, pady=pady)
 
     def set_path(self, value: str) -> None:
+        self.raw_path = str(value or "").strip()
         self.entry.configure(state="normal")
         self.entry.delete(0, tk.END)
-        self.entry.insert(0, value)
+        self.entry.insert(0, compact_path_display(self.raw_path))
         self.entry.configure(state="readonly")
 
     def get(self) -> str:
-        return self.entry.get().strip()
+        return self.raw_path.strip() or self.entry.get().strip()
 
     def set_error(self, message: str) -> None:
         self.error_label.configure(text=message)
@@ -745,28 +789,19 @@ class MultiPicker:
         self.delete_button.apply_theme(palette)
 
     def display_name_for_path(self, value: str) -> str:
-        """Show readable names by default while preserving full paths internally."""
-        path = Path(value)
-        name = path.name or value
-        parent = path.parent.name
-
-        if parent:
-            return f"{name} — {parent}"
-
-        return name
+        """Show compact readable paths while preserving full paths internally."""
+        return compact_path_display(value)
 
     def unique_display_value(self, display_value: str, raw_value: str, current: set[str]) -> str:
         if display_value not in current and display_value not in self.item_values:
             return display_value
 
-        path = Path(raw_value)
-        parent = path.parent.name
-        candidate = f"{path.name} — {parent}" if parent else display_value
         counter = 2
+        candidate = f"{display_value} ({counter})"
 
         while candidate in current or candidate in self.item_values:
-            candidate = f"{display_value} ({counter})"
             counter += 1
+            candidate = f"{display_value} ({counter})"
 
         return candidate
 
@@ -779,7 +814,8 @@ class MultiPicker:
             raw_text = strip_language_badge(text)
             if not raw_text or raw_text in raw_current:
                 continue
-            display_value = formatter(raw_text) if formatter else self.display_name_for_path(raw_text)
+            formatted_text = formatter(raw_text) if formatter else raw_text
+            display_value = self.display_name_for_path(formatted_text)
             display_value = self.unique_display_value(display_value, raw_text, current)
             self.listbox.insert(tk.END, display_value)
             self.item_values[display_value] = raw_text
