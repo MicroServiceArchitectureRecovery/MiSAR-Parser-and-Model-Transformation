@@ -424,6 +424,23 @@ def compact_path_display(value: str) -> str:
     return compact_path
 
 
+def copy_text_to_clipboard(widget, text: str) -> bool:
+    """Copy text to the system clipboard from any Tkinter widget."""
+    value = str(text or "").strip()
+
+    if not value:
+        return False
+
+    try:
+        root = widget.winfo_toplevel()
+        root.clipboard_clear()
+        root.clipboard_append(value)
+        root.update_idletasks()
+        return True
+    except tk.TclError:
+        return False
+
+
 class EntrySnapshot:
     def __init__(self, value: str):
         self.value = value
@@ -639,6 +656,13 @@ class PathPicker:
         self.helper = ttk.Label(parent, text=helper, style="MutedCard.TLabel", wraplength=310)
         self.entry = tk.Entry(parent, relief="flat", font=ui_font(11), width=34)
         self.entry.configure(state="readonly")
+        self.copy_menu = tk.Menu(parent, tearoff=0)
+        self.entry.bind("<Control-c>", self.copy_display_path)
+        self.entry.bind("<Command-c>", self.copy_display_path)
+        self.entry.bind("<Control-Shift-C>", self.copy_full_path)
+        self.entry.bind("<Command-Shift-C>", self.copy_full_path)
+        self.entry.bind("<Button-3>", self.show_copy_menu)
+        self.entry.bind("<Button-2>", self.show_copy_menu)
         self.button = RoundedButton(parent, button_text, command=command, variant="primary", width=124)
         self.error_label = ttk.Label(parent, text="", style="Error.TLabel")
 
@@ -664,6 +688,21 @@ class PathPicker:
 
     def get(self) -> str:
         return self.raw_path.strip() or self.entry.get().strip()
+
+    def copy_display_path(self, _event=None):
+        copy_text_to_clipboard(self.entry, self.entry.get())
+        return "break"
+
+    def copy_full_path(self, _event=None):
+        copy_text_to_clipboard(self.entry, self.raw_path or self.entry.get())
+        return "break"
+
+    def show_copy_menu(self, event):
+        self.copy_menu.delete(0, tk.END)
+        self.copy_menu.add_command(label="Copy displayed path", command=self.copy_display_path)
+        self.copy_menu.add_command(label="Copy full path", command=self.copy_full_path)
+        self.copy_menu.tk_popup(event.x_root, event.y_root)
+        return "break"
 
     def set_error(self, message: str) -> None:
         self.error_label.configure(text=message)
@@ -721,6 +760,13 @@ class MultiPicker:
         self.listbox.bind("<Button-5>", self._on_list_mousewheel)
         self.listbox.bind("<<ListboxSelect>>", self._remember_selection)
         self.listbox.bind("<Delete>", self._delete_from_keyboard)
+        self.listbox.bind("<Control-c>", self.copy_selected_display_values)
+        self.listbox.bind("<Command-c>", self.copy_selected_display_values)
+        self.listbox.bind("<Control-Shift-C>", self.copy_selected_full_paths)
+        self.listbox.bind("<Command-Shift-C>", self.copy_selected_full_paths)
+        self.listbox.bind("<Button-3>", self.show_copy_menu)
+        self.listbox.bind("<Button-2>", self.show_copy_menu)
+        self.copy_menu = tk.Menu(self.listbox, tearoff=0)
         self._last_selection: tuple[int, ...] = ()
         self.item_values: dict[str, str] = {}
         self.add_button = RoundedButton(self.actions, add_text, command=add_command, variant="primary", width=112, disabled_command=notify_setup_required)
@@ -764,6 +810,38 @@ class MultiPicker:
 
     def _delete_from_keyboard(self, _event=None):
         self.remove_selected()
+        return "break"
+
+    def selected_display_values(self) -> list[str]:
+        selected_indices = tuple(int(index) for index in self.listbox.curselection()) or self._last_selection
+        selected_indices = tuple(index for index in selected_indices if 0 <= index < self.listbox.size())
+        return [self.listbox.get(index) for index in selected_indices]
+
+    def selected_full_paths(self) -> list[str]:
+        return [
+            self.item_values.get(display_value, strip_language_badge(display_value))
+            for display_value in self.selected_display_values()
+        ]
+
+    def copy_selected_display_values(self, _event=None):
+        copy_text_to_clipboard(self.listbox, "\n".join(self.selected_display_values()))
+        return "break"
+
+    def copy_selected_full_paths(self, _event=None):
+        copy_text_to_clipboard(self.listbox, "\n".join(self.selected_full_paths()))
+        return "break"
+
+    def show_copy_menu(self, event):
+        index = self.listbox.nearest(event.y)
+        if 0 <= index < self.listbox.size() and index not in self.listbox.curselection():
+            self.listbox.selection_clear(0, tk.END)
+            self.listbox.selection_set(index)
+            self._remember_selection()
+
+        self.copy_menu.delete(0, tk.END)
+        self.copy_menu.add_command(label="Copy displayed item", command=self.copy_selected_display_values)
+        self.copy_menu.add_command(label="Copy full path", command=self.copy_selected_full_paths)
+        self.copy_menu.tk_popup(event.x_root, event.y_root)
         return "break"
 
     def set_controls_enabled(self, enabled: bool) -> None:
@@ -1079,8 +1157,8 @@ class MisarParserApp(tk.Tk):
 
         self.module_build_dir = MultiPicker(
             self.content,
-            "Microservice build directories",
-            "Required. Each folder can be scanned for dependency files.",
+            "Microservice project folders",
+            "Required. Select each microservice's source/build folder. MiSAR scans these folders for dependencies and language/framework details.",
             "Add folder",
             self.add_module_directory,
             lambda: self.delete_items(self.module_build_dir),
@@ -1475,7 +1553,7 @@ class MisarParserApp(tk.Tk):
         added = self.module_build_dir.add_items([directory], formatter=format_module_display_path)
         if added:
             self.module_build_dir.set_error("")
-            self.set_status("Microservice build directory added.")
+            self.set_status("Microservice project folder added.")
             self.offer_dependency_scan(directory, self.module_build)
             self.save_session()
         self.update_create_state()
@@ -1632,9 +1710,9 @@ class MisarParserApp(tk.Tk):
                 print("misar_validation_warning = Docker Compose warnings found; continuing with supported fields.")
                 self.set_status("Docker Compose warnings found; continuing with supported fields.")
         if self.module_build_dir.size() == 0:
-            errors.append("Microservice project build directories are missing.")
+            errors.append("Microservice project folders are missing.")
             if show_errors:
-                self.module_build_dir.set_error("Add at least one microservice build directory.")
+                self.module_build_dir.set_error("Add at least one microservice project folder.")
         if not self.output_dir.get():
             errors.append("Output directory is missing.")
             if show_errors:
