@@ -1104,8 +1104,8 @@ def install_parser_update_from_metadata(repository_metadata):
         uninstall_path(Path("MiSAR") / "Parser")
 
     if clone_parser_repository(Path("MiSAR") / "Parser", repository_metadata):
-        show_info_on_ui_thread("Success!", "The parser update completed successfully.")
-        run_on_ui_thread(refresh_launch_buttons)
+        log_event("parser_update_completed_restart_required", metadata=repository_metadata)
+        prompt_restart_after_update()
         return True
 
     show_error_on_ui_thread("Failure!", "The parser update has failed.")
@@ -2166,6 +2166,31 @@ def restart_launcher():
             "Restart MiSAR",
             "Display settings were saved. Please close and reopen MiSAR to apply them fully.",
         )
+
+
+def prompt_restart_after_update():
+    """Ask the user to restart MiSAR after updates that may include UI changes."""
+    restart_now = ask_yesno_on_ui_thread(
+        "Restart MiSAR",
+        "The MiSAR update completed successfully.\n\n"
+        "This update may include interface changes, so MiSAR needs to close and run again "
+        "before the updated UI is fully loaded.\n\n"
+        "Restart MiSAR now?",
+        default=True,
+    )
+    log_event("post_update_restart_prompt_response", restart_now=restart_now)
+
+    if restart_now:
+        run_on_ui_thread(restart_launcher)
+        return True
+
+    show_info_on_ui_thread(
+        "Restart Required",
+        "Please close and reopen MiSAR before continuing so the updated interface is loaded.",
+    )
+    run_on_ui_thread(refresh_launch_buttons)
+    set_status("Update installed. Restart MiSAR to load the updated UI.")
+    return False
 
 
 def open_launcher_settings():
