@@ -23,7 +23,7 @@ QVT Operational Transformation
 
 ![Select transformation](assets/images/pim/pim-transform.png){ width="600" }
 
-> You might don't see the MisarTransformation3 option. In that case, double-click on **QVT Operational Transformation** and it will appear in the list. Then select it and click Run.
+> You might not see the `MisarTransformation` option initially. In that case, double-click **QVT Operational Transformation**, then select the created configuration and click **Run**.
 
 ### 3. Configure Input/Output
 
@@ -49,9 +49,16 @@ Click Run
 > **This option is not required for the transformation to work.**
 
 ## View Output
-Right click generated file → Open With → Sample Reflective Ecore Model Editor
+
+Right-click the generated file, then select:
+
+```text
+Open With → Sample Reflective Ecore Model Editor
+```
 
 ![Show as model](assets/images/pim/pim-show-as.png){ width="600" }
+
+If **Sample Reflective Ecore Model Editor** is not listed, install the **Eclipse Modeling Framework SDK (EMF SDK)** using the Eclipse 2026-06 update site described in the [QVT Manual Installation Guide](qvt-manual-installation.md).
 
 ## Result
 You will see:

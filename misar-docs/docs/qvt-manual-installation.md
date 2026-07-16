@@ -110,6 +110,52 @@ Click:
 Restart Now
 ```
 
+
+## Install EMF SDK if the Reflective Ecore Editor Is Missing
+
+Some Eclipse installations can run QVTo transformations and create XMI files but do not include the **Sample Reflective Ecore Model Editor**.
+
+This is more likely when using the lighter **Eclipse IDE for Java Developers** package instead of **Eclipse Modeling Tools**.
+
+To install the missing EMF tooling:
+
+1. Open Eclipse.
+2. Go to:
+
+```text
+Help → Install New Software...
+```
+
+3. In **Work with**, enter the Eclipse 2026-06 release repository:
+
+```text
+https://download.eclipse.org/releases/2026-06
+```
+
+4. Wait for the available software list to load.
+5. Use the filter field to search for:
+
+```text
+EMF SDK
+```
+
+6. Select the **Eclipse Modeling Framework SDK** feature under the modelling components.
+7. Continue with:
+
+```text
+Next → Next → Accept the licence → Finish
+```
+
+8. Restart Eclipse when prompted.
+
+After restarting, right-click an `.ecore` or compatible `.xmi` model and check:
+
+```text
+Open With → Sample Reflective Ecore Model Editor
+```
+
+> Installing QVTo may provide enough EMF runtime dependencies to execute the transformation, but the reflective model editor may still require the EMF SDK tooling to be installed separately.
+
 ## Option 2 – Eclipse Marketplace
 
 > This method may not work in newer Eclipse versions, as QVTo may not appear in the Marketplace.
@@ -184,6 +230,7 @@ Next → Next → Accept License → Finish
 -   QVTo is still actively maintained, so newer versions may exist
     
 -   Some Eclipse distributions already include QVTo
+-   If the Sample Reflective Ecore Model Editor is missing, install the EMF SDK from `https://download.eclipse.org/releases/2026-06`
     
 -   Use the direct update-site method first
     

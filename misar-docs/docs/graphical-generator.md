@@ -20,7 +20,7 @@ These outputs help users understand the structure of the recovered system, inclu
 
 Run `python3 MiSAR.py` to open MiSAR AIO, then click **Launch** under **MiSAR Graphical Model Generator**.
 
-![MiSAR AIO](assets/images/aio/misar-aio.png){ width="500" }
+![MiSAR AIO](assets/images/aio/misar-aio.png)
 
 The Graphical Model Generator interface will then open.
 

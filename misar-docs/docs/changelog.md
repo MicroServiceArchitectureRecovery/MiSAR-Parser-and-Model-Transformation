@@ -1,5 +1,16 @@
 # Changelog
 
+## V2026-07-16
+
+- Updated the MiSAR documentation screenshots for the MiSAR v3 interface.
+- Added documentation for the new MiSAR AIO **Options** screen, including display size, automatic/manual update checks, and debug mode.
+- Added documentation for Parser session recovery and restoring previously saved paths and inputs.
+- Updated the Parser documentation to use the clearer **Microservice Project Folders** wording.
+- Documented that shortened paths remain visible in the Parser while copying retrieves the full path.
+- Clarified that users may use either Eclipse Modelling Tools or the lighter Eclipse IDE for Java Developers.
+- Added EMF SDK installation instructions using the Eclipse 2026-06 update site: `https://download.eclipse.org/releases/2026-06`.
+- Added troubleshooting guidance for a missing **Sample Reflective Ecore Model Editor**.
+
 ## V2026-05-28
 
 - Added a Mermaid sequence diagram to the welcome page to visually explain the MiSAR workflow from source code to UML output.

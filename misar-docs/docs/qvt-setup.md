@@ -6,8 +6,32 @@
 > 
 > If you don't see the QVT Settings in the project properties, it means that the QVT Operational component is not installed in your Eclipse environment. Please follow the manual installation steps described in this guide to install it [QVT Manual installation](qvt-manual-installation.md).
 
-## Install Eclipse Modeling Tools
-Download Eclipse Modeling Tools package. Latest version can be found at: [https://www.eclipse.org/downloads/packages/](https://www.eclipse.org/downloads/packages/)
+## Install Eclipse and the Required Modelling Components
+
+You can use either:
+
+- **Eclipse Modeling Tools**, which includes more modelling functionality by default; or
+- **Eclipse IDE for Java Developers**, which is usually a lighter installation.
+
+Download an Eclipse package from:
+
+[https://www.eclipse.org/downloads/packages/](https://www.eclipse.org/downloads/packages/)
+
+When using Eclipse IDE for Java Developers, install the required QVTo and EMF tooling through:
+
+```text
+Help → Install New Software...
+```
+
+For EMF SDK, use the Eclipse 2026-06 release repository:
+
+```text
+https://download.eclipse.org/releases/2026-06
+```
+
+If **Run As → QVT Operational Transformation** is missing, install QVTo using the [QVT Manual Installation Guide](qvt-manual-installation.md).
+
+If **Open With → Sample Reflective Ecore Model Editor** is missing, install the EMF SDK using the same guide.
 
 ## Import Project
 File → Open Projects from File System
@@ -49,7 +73,8 @@ Add:
 
 - In some Eclipse installations, QVTo may already be included.
 
-- If QVT Operational is not available in your Eclipse environment, please follow the manual installation steps described in this guide.
+- If QVT Operational is not available in your Eclipse environment, follow the [QVT Manual Installation Guide](qvt-manual-installation.md).
+- If the Sample Reflective Ecore Model Editor is unavailable, install the EMF SDK from the Eclipse 2026-06 update site described in the manual installation guide.
 
 ## Next Steps
 If the Setup completes successfully, you can now run the QVT transformations to create the PIM from the generated PSM. [Create PIM Guide](create-pim.md)

@@ -76,6 +76,52 @@ A success message will confirm everything is installed correctly.
 
 ![Installation success](assets/images/aio/install-success.png){ width="200" }
 
+
+## MiSAR AIO Options
+
+Click **Options** in the top-right corner of the MiSAR AIO launcher to configure display, update, and diagnostic settings.
+
+![MiSAR Options](assets/images/aio/options.png){ width="500" }
+
+### Display
+
+Use **Window size** to control how large the AIO launcher and connected MiSAR interfaces appear.
+
+Available choices include:
+
+- **Auto** – MiSAR selects a suitable size based on the detected display.
+- **Small** – useful when the launcher or Parser is too large for the screen.
+- **Default**
+- **Large**
+- **Extra large**
+
+After changing a display option, MiSAR may ask to restart so the new interface size is applied cleanly.
+
+### Updates
+
+The **Updates** section allows users to:
+
+- enable or disable automatic update checks when launching the AIO
+- manually check for the latest MiSAR version using **Check Updates**
+
+MiSAR does not install an available update unless the user confirms it.
+
+When an installed update may contain interface changes, MiSAR asks the user to restart the launcher so the updated UI is loaded.
+
+### Diagnostics
+
+The **Diagnostics** section contains the debug-mode control.
+
+Debug mode writes diagnostic logs to the local computer and can help troubleshoot:
+
+- parser launch issues
+- update behaviour
+- selected paths
+- display sizing
+- local runtime problems
+
+Debug logs are not uploaded anywhere and remain on the local computer. They can be shared with the MiSAR development team if needed.
+
 ## Notes
 - Ensure Python 3.11+ is installed
 - Ensure you have an active internet connection for automatic module installation

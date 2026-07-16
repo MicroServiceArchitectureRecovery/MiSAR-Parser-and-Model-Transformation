@@ -20,6 +20,22 @@ The MiSAR Parser application will open.
 
 ![Parser GUI](assets/images/parser/parser-gui.png)
 
+
+## Restoring a Saved Parser Session
+
+MiSAR v3 can save the paths and input values from the previous Parser session.
+
+When the Parser starts and saved session data is available, MiSAR displays the following prompt:
+
+![Saved parser session](assets/images/parser/parser-saved-session.png){ width="300" }
+
+Choose:
+
+- **Yes** to restore the previous paths and inputs.
+- **No** to continue without restoring them.
+
+Restored values can still be reviewed, changed, added, or removed before generating the PSM. Session recovery is useful when reopening the Parser after closing MiSAR or restarting the computer.
+
 ## Parser Input Fields
 
 The MiSAR Parser requires information about the multi-module microservice project that will be analysed.
@@ -31,7 +47,7 @@ The field names below match the MiSAR Parser interface.
 | **1**  | **Type Multi-Module Project Name**               | ✅        | The name of the microservice system or project being analysed. The parser automatically adds `-PSM` at the end of this name when creating the PSM model.                                                                                                                                                         |
 | **2**  | **Select Multi-Module Project Build Directory**  | ✅        | The main build directory of the project.                                                                                                                                                                                                                                                                         |
 | **3**  | **Select Docker Compose Files**                  | ✅        | The Docker Compose file or files used by the system. These help MiSAR understand the services and project structure.                                                                                                                                                                                             |
-| **4**  | **Select Module Projects Build Directories**     | ✅        | The build directories of the individual microservices. These may be populated automatically by the importer, or selected manually if MiSAR cannot detect them. MiSAR may also show detected language/framework labels next to each directory, for example `[Java: SPRING]`, `[Python: FASTAPI]`, or `[Unknown]`. |
+| **4**  | **Microservice Project Folders**                 | ✅        | The build directories of the individual microservices. These may be populated automatically by the importer, or selected manually if MiSAR cannot detect them. MiSAR may also show detected language/framework labels next to each directory, for example `[Java: SPRING]`, `[Python: FASTAPI]`, or `[Unknown]`. |
 | **5**  | **Select Directory where the PSM will be saved** | ✅        | The output folder where the generated PSM file will be saved. Only select the folder, MiSAR will create the PSM file inside it.                                                                                                                                                                                  |
 | -      | **Select Multi-Module Project POM Build Files**  | ❌        | The main Maven `pom.xml` build file or files for the multi-module project, if available.                                                                                                                                                                                                                         |
 | -      | **Select Module Projects POM Build Files**       | ❌        | The Maven `pom.xml` files for the individual module projects, if available. These may be populated automatically for Maven-based Java projects.                                                                                                                                                                  |
@@ -80,7 +96,7 @@ When prompted, click **Yes** to allow MiSAR to auto-detect the related project f
 
 After the automatic importer runs, MiSAR may populate fields such as:
 
--   **Select Module Projects Build Directories**
+-   **Microservice Project Folders**
 -   **Select Multi-Module Project POM Build Files**
 -   **Select Module Projects POM Build Files**
 -   related Docker service information used by the parser
@@ -91,9 +107,9 @@ You can still manually edit, add, or remove entries if needed.
 
 ### 4. Check or Add Module Project Build Directories
 
-After using the automatic importer, check whether **Select Module Projects Build Directories** has been filled correctly.
+After using the automatic importer, check whether **Microservice Project Folders** has been filled correctly.
 
-When module project build directories are selected, MiSAR may display the detected language and framework next to each directory.
+When microservice project folders are selected, MiSAR may display the detected language and framework next to each directory.
 
 For example:
 
@@ -106,6 +122,8 @@ For example:
 
 This label is only shown to help users understand what MiSAR has detected in each folder. The actual selected directory path is still used internally by the parser.
 
+MiSAR may shorten long paths in the visible list to keep the interface readable. Copying a selected path copies its full path, while the shortened value remains visible in the interface.
+
 If MiSAR shows `[Unknown]`, it means the folder was selected but MiSAR could not confidently identify a supported language or framework from the files inside that directory. This can happen for frontend projects, unsupported languages, incomplete services, or folders that do not contain recognisable build/dependency files.
 
 Depending on the Docker Compose file and project structure, MiSAR may not be able to automatically detect every microservice directory.
@@ -115,18 +133,18 @@ If this happens, add each microservice directory manually.
 For each microservice, select the exact folder where that microservice's source code is located.
 
 > Note:  
-> If you are using the automatic importer with a supported Java project, you usually do not need to manually add **Select Module Projects Build Directories** unless the detected values are missing or incorrect.
+> If you are using the automatic importer with a supported Java project, you usually do not need to manually add **Microservice Project Folders** unless the detected values are missing or incorrect.
 
 > **Note for non-Java projects**:  
 > The Docker Compose automatic importer currently works best with Java-based microservice projects.
 > 
-> If the project is not a Java project, you may need to add the microservice build directories manually using **Select Module Projects Build Directories**.
+> If the project is not a Java project, you may need to add the microservice build directories manually using **Microservice Project Folders**.
 > 
 > *Support for improved automatic detection for non-Java projects is currently under active development.*
 
 #### POM File Prompt
 
-During the import process in **Select Module Projects Build Directories**, MiSAR may ask whether you want to read the `pom.xml` files.
+During the import process in **Microservice Project Folders**, MiSAR may ask whether you want to read the `pom.xml` files.
 
 MiSAR initially recovered Java projects, so this prompt is useful for Maven-based Java systems.
 
@@ -177,7 +195,7 @@ A success message may also be displayed showing the file location.
     
 -   If automatic import does not detect all microservice directories, add them manually.
 
--   Module project build directories may display detected language/framework labels, such as `[Java: SPRING]`, `[Python: FASTAPI]`, `[Python: DJANGO]`, or `[Unknown]`. These labels are informational and help confirm what MiSAR detected in each selected folder.
+-   Microservice project folders may display detected language/framework labels, such as `[Java: SPRING]`, `[Python: FASTAPI]`, `[Python: DJANGO]`, or `[Unknown]`. These labels are informational and help confirm what MiSAR detected in each selected folder.
   
 - For Maven-based Java projects, allow MiSAR to read the `pom.xml` files when prompted.
     
