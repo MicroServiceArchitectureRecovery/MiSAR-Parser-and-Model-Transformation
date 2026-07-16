@@ -373,6 +373,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#restoring-a-saved-parser-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restoring a Saved Parser Session
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#parser-input-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -752,6 +763,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#restoring-a-saved-parser-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restoring a Saved Parser Session
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#parser-input-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -954,6 +976,16 @@
 <p><img alt="MiSAR AIO" src="../assets/images/aio/misar-aio.png" width="500" /></p>
 <p>The MiSAR Parser application will open.</p>
 <p><img alt="Parser GUI" src="../assets/images/parser/parser-gui.png" /></p>
+<h2 id="restoring-a-saved-parser-session">Restoring a Saved Parser Session<a class="headerlink" href="#restoring-a-saved-parser-session" title="Permanent link">&para;</a></h2>
+<p>MiSAR v3 can save the paths and input values from the previous Parser session.</p>
+<p>When the Parser starts and saved session data is available, MiSAR displays the following prompt:</p>
+<p><img alt="Saved parser session" src="../assets/images/parser/parser-saved-session.png" width="300" /></p>
+<p>Choose:</p>
+<ul>
+<li><strong>Yes</strong> to restore the previous paths and inputs.</li>
+<li><strong>No</strong> to continue without restoring them.</li>
+</ul>
+<p>Restored values can still be reviewed, changed, added, or removed before generating the PSM. Session recovery is useful when reopening the Parser after closing MiSAR or restarting the computer.</p>
 <h2 id="parser-input-fields">Parser Input Fields<a class="headerlink" href="#parser-input-fields" title="Permanent link">&para;</a></h2>
 <p>The MiSAR Parser requires information about the multi-module microservice project that will be analysed.</p>
 <p>The field names below match the MiSAR Parser interface.</p>
@@ -987,7 +1019,7 @@
 </tr>
 <tr>
 <td><strong>4</strong></td>
-<td><strong>Select Module Projects Build Directories</strong></td>
+<td><strong>Microservice Project Folders</strong></td>
 <td>✅</td>
 <td>The build directories of the individual microservices. These may be populated automatically by the importer, or selected manually if MiSAR cannot detect them. MiSAR may also show detected language/framework labels next to each directory, for example <code>[Java: SPRING]</code>, <code>[Python: FASTAPI]</code>, or <code>[Unknown]</code>.</td>
 </tr>
@@ -1045,7 +1077,7 @@
 <p>When prompted, click <strong>Yes</strong> to allow MiSAR to auto-detect the related project files.</p>
 <p>After the automatic importer runs, MiSAR may populate fields such as:</p>
 <ul>
-<li><strong>Select Module Projects Build Directories</strong></li>
+<li><strong>Microservice Project Folders</strong></li>
 <li><strong>Select Multi-Module Project POM Build Files</strong></li>
 <li><strong>Select Module Projects POM Build Files</strong></li>
 <li>related Docker service information used by the parser</li>
@@ -1053,8 +1085,8 @@
 <p><img alt="Auto importer success" src="../assets/images/parser/parser-auto-importer-success.png" /></p>
 <p>You can still manually edit, add, or remove entries if needed.</p>
 <h3 id="4-check-or-add-module-project-build-directories">4. Check or Add Module Project Build Directories<a class="headerlink" href="#4-check-or-add-module-project-build-directories" title="Permanent link">&para;</a></h3>
-<p>After using the automatic importer, check whether <strong>Select Module Projects Build Directories</strong> has been filled correctly.</p>
-<p>When module project build directories are selected, MiSAR may display the detected language and framework next to each directory.</p>
+<p>After using the automatic importer, check whether <strong>Microservice Project Folders</strong> has been filled correctly.</p>
+<p>When microservice project folders are selected, MiSAR may display the detected language and framework next to each directory.</p>
 <p>For example:</p>
 <div class="highlight"><pre><span></span><code>/path/to/book-service [Python: FASTAPI]
 /path/to/order-service [Java: SPRING]
@@ -1062,20 +1094,21 @@
 /path/to/mixed-service [Java: SPRING; Python: FASTAPI]
 </code></pre></div>
 <p>This label is only shown to help users understand what MiSAR has detected in each folder. The actual selected directory path is still used internally by the parser.</p>
+<p>MiSAR may shorten long paths in the visible list to keep the interface readable. Copying a selected path copies its full path, while the shortened value remains visible in the interface.</p>
 <p>If MiSAR shows <code>[Unknown]</code>, it means the folder was selected but MiSAR could not confidently identify a supported language or framework from the files inside that directory. This can happen for frontend projects, unsupported languages, incomplete services, or folders that do not contain recognisable build/dependency files.</p>
 <p>Depending on the Docker Compose file and project structure, MiSAR may not be able to automatically detect every microservice directory.</p>
 <p>If this happens, add each microservice directory manually.</p>
 <p>For each microservice, select the exact folder where that microservice's source code is located.</p>
 <blockquote>
 <p>Note:<br />
-If you are using the automatic importer with a supported Java project, you usually do not need to manually add <strong>Select Module Projects Build Directories</strong> unless the detected values are missing or incorrect.</p>
+If you are using the automatic importer with a supported Java project, you usually do not need to manually add <strong>Microservice Project Folders</strong> unless the detected values are missing or incorrect.</p>
 <p><strong>Note for non-Java projects</strong>:<br />
 The Docker Compose automatic importer currently works best with Java-based microservice projects.</p>
-<p>If the project is not a Java project, you may need to add the microservice build directories manually using <strong>Select Module Projects Build Directories</strong>.</p>
+<p>If the project is not a Java project, you may need to add the microservice build directories manually using <strong>Microservice Project Folders</strong>.</p>
 <p><em>Support for improved automatic detection for non-Java projects is currently under active development.</em></p>
 </blockquote>
 <h4 id="pom-file-prompt">POM File Prompt<a class="headerlink" href="#pom-file-prompt" title="Permanent link">&para;</a></h4>
-<p>During the import process in <strong>Select Module Projects Build Directories</strong>, MiSAR may ask whether you want to read the <code>pom.xml</code> files.</p>
+<p>During the import process in <strong>Microservice Project Folders</strong>, MiSAR may ask whether you want to read the <code>pom.xml</code> files.</p>
 <p>MiSAR initially recovered Java projects, so this prompt is useful for Maven-based Java systems.</p>
 <ul>
 <li>
@@ -1116,7 +1149,7 @@ The Docker Compose automatic importer currently works best with Java-based micro
 <p>If automatic import does not detect all microservice directories, add them manually.</p>
 </li>
 <li>
-<p>Module project build directories may display detected language/framework labels, such as <code>[Java: SPRING]</code>, <code>[Python: FASTAPI]</code>, <code>[Python: DJANGO]</code>, or <code>[Unknown]</code>. These labels are informational and help confirm what MiSAR detected in each selected folder.</p>
+<p>Microservice project folders may display detected language/framework labels, such as <code>[Java: SPRING]</code>, <code>[Python: FASTAPI]</code>, <code>[Python: DJANGO]</code>, or <code>[Unknown]</code>. These labels are informational and help confirm what MiSAR detected in each selected folder.</p>
 </li>
 <li>
 <p>For Maven-based Java projects, allow MiSAR to read the <code>pom.xml</code> files when prompted.</p>
