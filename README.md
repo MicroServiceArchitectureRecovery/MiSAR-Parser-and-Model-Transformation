@@ -8,9 +8,9 @@
 [![Doc Deployment](https://img.shields.io/github/actions/workflow/status/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/deploy-docs.yml?label=docs)](https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/actions)
 
 This repository contains the operational core of **MiSAR**: the All-in-One launcher, the source-code parser, the Platform Specific Model (PSM) generation workflow, and the resources used to transform a PSM into a Platform Independent Model (PIM). 
-From the All-in-One launcher, you can access the MiSAR Graphical Model Generator. But if you would like to check its source code, 
+From the All-in-One launcher, you can access the MiSAR Graphical Model Generator. But if you would like to check its source code, (https://github.com/MicroServiceArchitectureRecovery/misar-plantUML)
 
-The parser analyses implementation artefacts from a microservice system and recovers a **Platform Specific Model (PSM)**. The transformation stage then derives a **Platform Independent Model (PIM)**, which represents the recovered architecture at a higher level of abstraction.
+The parser analyses source code artefacts from a microservice system and recovers a **Platform Specific Model (PSM)**. The transformation stage then derives a **Platform Independent Model (PIM)**, which represents the recovered architecture at a higher level of abstraction.
 
 ## Repository role
 
