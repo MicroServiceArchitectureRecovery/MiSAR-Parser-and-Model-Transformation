@@ -16,7 +16,7 @@ The parser analyses source code artefacts from a microservice system and recover
 
 ```mermaid
 flowchart LR
-    A[Source code and configuration] --> B[MiSAR Parser]
+    A[Source code and configuration files] --> B[MiSAR Parser]
     B --> C[PSM]
     C --> D[QVTo Transformation]
     D --> E[PIM]
