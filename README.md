@@ -7,7 +7,8 @@
 [![Parser Tests](https://img.shields.io/github/actions/workflow/status/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/parser-tests.yml?label=tests)](https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/actions)
 [![Doc Deployment](https://img.shields.io/github/actions/workflow/status/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/deploy-docs.yml?label=docs)](https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/actions)
 
-This repository contains the operational core of **MiSAR**: the All-in-One launcher, the source-code parser, the Platform Specific Model generation workflow, and the resources used to transform a PSM into a Platform Independent Model.
+This repository contains the operational core of **MiSAR**: the All-in-One launcher, the source-code parser, the Platform Specific Model (PSM) generation workflow, and the resources used to transform a PSM into a Platform Independent Model (PIM). 
+From the All-in-One launcher, you can access the MiSAR Graphical Model Generator. But if you would like to check its source code, 
 
 The parser analyses implementation artefacts from a microservice system and recovers a **Platform Specific Model (PSM)**. The transformation stage then derives a **Platform Independent Model (PIM)**, which represents the recovered architecture at a higher level of abstraction.
 
@@ -25,9 +26,8 @@ flowchart LR
 This repository provides:
 
 - the **MiSAR All-in-One launcher** (`MiSAR.py`);
-- the **MiSAR Parser** and language-specific analysis logic;
-- PSM generation and validation;
-- transformation metamodels and QVTo resources;
+- the **MiSAR Parser** which provides the static analysis of the language and platform specific technologies and generates the PSM. 
+-  metamodels and QVTo resources, which transform a PSM model into a PIM.
 - the maintained MiSAR documentation source;
 - automated tests and supporting release configuration.
 
