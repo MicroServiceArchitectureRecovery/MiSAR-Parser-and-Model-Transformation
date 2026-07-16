@@ -1,111 +1,47 @@
-# MiSAR – Microservice Architecture Recovery Toolset
+# MiSAR Parser, Transformation Engine and AIO
 
-![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
-![Java](https://img.shields.io/badge/Java-OpenJDK%2021-orange)
-![Eclipse](https://img.shields.io/badge/Eclipse-2024-purple)
-![QVTo](https://img.shields.io/badge/QVTo-3.11.2-green)
-![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Java](https://img.shields.io/badge/Java-OpenJDK%2021-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Eclipse](https://img.shields.io/badge/Eclipse-QVTo-2C2255?logo=eclipseide&logoColor=white)](https://www.eclipse.org/)
+[![Documentation](https://img.shields.io/badge/documentation-MiSAR-2563eb?logo=readthedocs&logoColor=white)](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/)
+[![Parser Tests](https://img.shields.io/github/actions/workflow/status/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/parser-tests.yml?label=tests)](https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/actions)
+[![Doc Deployment](https://img.shields.io/github/actions/workflow/status/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/deploy-docs.yml?label=docs)](https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/actions)
 
-[![MiSAR Manual](https://img.shields.io/badge/Read%20the%20Manual-docs%2Findex.md-blue)](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/)
-[![YouTube Demo](https://img.shields.io/badge/Watch%20the%20Demo-YouTube-red)](https://www.youtube.com/watch?v=sdRDkLesyS0)
-[![GitHub stars](https://img.shields.io/github/stars/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation?style=social)](https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation/stargazers)
+This repository contains the operational core of **MiSAR**: the All-in-One launcher, the source-code parser, the Platform Specific Model generation workflow, and the resources used to transform a PSM into a Platform Independent Model.
 
-MiSAR is a research-driven toolset designed to semi-automatically recover architectural models from implemented microservice-based systems using a Model-Driven Architecture (MDA) approach.
+The parser analyses implementation artefacts from a microservice system and recovers a **Platform Specific Model (PSM)**. The transformation stage then derives a **Platform Independent Model (PIM)**, which represents the recovered architecture at a higher level of abstraction.
 
+## Repository role
 
-## Overview
-
-MiSAR transforms implementation artefacts into architectural models through the following pipeline:
-
-
-```sh
-
-Code → PSM → PIM → UML
-
+```mermaid
+flowchart LR
+    A[Source code and configuration] --> B[MiSAR Parser]
+    B --> C[PSM]
+    C --> D[QVTo Transformation]
+    D --> E[PIM]
+    E --> F[MiSAR Graphical Model Generator]
 ```
 
-- **PSM (Platform Specific Model)** → extracted from source code and configuration  
-- **PIM (Platform Independent Model)** → abstract representation of the architecture  
-- **UML / Visualisation** → optional diagrams and summaries  
+This repository provides:
 
-A full demonstration is available here:  
-👉 [https://www.youtube.com/watch?v=sdRDkLesyS0](https://www.youtube.com/watch?v=sdRDkLesyS0)
+- the **MiSAR All-in-One launcher** (`MiSAR.py`);
+- the **MiSAR Parser** and language-specific analysis logic;
+- PSM generation and validation;
+- transformation metamodels and QVTo resources;
+- the maintained MiSAR documentation source;
+- automated tests and supporting release configuration.
 
-## Supported Technologies/Frameworks
-- Java (Spring Boot / Spring Cloud)
-- Docker / docker-compose
-- Python (Flask / FastAPI / Django)
+## Documentation
 
-##  Core Components
+Begin with the maintained documentation:
 
-### 1. MiSAR Parser
-- Analyses microservice-based systems  
-- Supports:
-  - Java (Spring Boot / Spring Cloud)
-  - Docker / docker-compose
-  - XML / YAML (e.g. `pom.xml`)  
+- **[MiSAR documentation](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/)**
+- **[Installation](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/installation/)**
+- **[Create a PSM](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/create-psm/)**
+- **[QVT installation and setup](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/qvt-manual-installation/)**
+- **[Create a PIM](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/create-pim/)**
+- **[Changelog](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/changelog/)**
 
-👉 Output: **PSM (.xmi)**
+## Copyright
 
-### 2. Transformation Engine (QVT)
-- Converts PSM → PIM  
-- Uses QVT Operational (QVTo) inside Eclipse  
-
-👉 Output: **PIM (.xmi)**
-
-### 3. Graphical Model Generator
-- Generates:
-  - UML diagrams  
-  - Excel summaries  
-  - dependency views  
-
-👉 Final architecture visualisation
-
-## 📚 Documentation
-
-[Full Documentation](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/)
-
-[Installation instructions](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/installation)
-
-[Recent Improvements](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/changelog)
-
-## 🧪 Example Systems
-
-MiSAR has been evaluated on:
-
--   [MicroCompany](https://github.com/idugalic/micro-company)
-    
--   [TrainTicket](https://github.com/jo102tz/train-ticket)
-    
--   [MusicStore](https://github.com/SteeltoeOSS/Samples/tree/main/MusicStore)
-
-
-👉 Full history: `docs/changelog.md`
-
-## ⚠️ Notes
-
--   Parser is currently focused on **Java-based microservices**
--   QVT setup requires Eclipse Modeling Tools
--  MISAR only requires internet access during the initial setup to download necessary dependencies. Once set up, it can be used offline without any issues.
-
-## 🤝 Contributing
-
-Contributions are welcome:
-
-1.  Create a feature branch
-    
-2.  Submit a pull request
-    
-3.  Provide clear reproduction steps
-
-## 👨‍💻 Authors
-
-© 2020-2026 Dr Nour Ali, Brunel University London. All rights reserved.
-MiSAR is made openly available for research and evaluation purposes. The intellectual property and copyright of this tool and its associated research remain with Dr Nour Ali and Brunel University London. 
--   Contributors – Nuha Alshuqayran and students
-
-
-## 🔗 Links
-
--   Main Repository: [https://github.com/MicroServiceArchitectureRecovery/misar](https://github.com/MicroServiceArchitectureRecovery/misar)
--   Parser & Transformation: [https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation](https://github.com/MicroServiceArchitectureRecovery/MiSAR-Parser-and-Model-Transformation)
+© 2020-2026 Dr Nour Ali, Brunel University London. All rights reserved. MiSAR is made openly available for research and evaluation purposes. The intellectual property and copyright of this tool and its associated research remain with Dr Nour Ali and Brunel University London.
