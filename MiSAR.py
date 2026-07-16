@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 import os
 from datetime import datetime
 import threading
+from importlib.metadata import PackageNotFoundError, version as package_version
 
 # ===============================
 # ENVIRONMENT VARIABLES
@@ -294,8 +295,11 @@ def get_missing_modules():
 
     for import_name, package_name in REQUIRED_MODULES:
         try:
-            __import__(import_name)
-        except ModuleNotFoundError:
+            if package_name == "GitPython":
+                package_version(package_name)
+            else:
+                __import__(import_name)
+        except (ModuleNotFoundError, PackageNotFoundError):
             missing_modules.append((import_name, package_name))
 
     log_event("dependency_check_completed", missing_modules=[name for name, _ in missing_modules])
