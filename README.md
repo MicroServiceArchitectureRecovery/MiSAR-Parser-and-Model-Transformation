@@ -12,15 +12,37 @@ From the All-in-One launcher, you can access the MiSAR Graphical Model Generator
 
 The parser analyses source code artefacts from a microservice system and recovers a **Platform Specific Model (PSM)**. The transformation stage then derives a **Platform Independent Model (PIM)**, which represents the recovered architecture at a higher level of abstraction.
 
-## Repository role
+## Requirements
+
+The following software is required to use the MiSAR AIO, Parser and transformation workflow:
+
+- **Python 3.11 or later**
+- **pip**, for installing the required Python dependencies
+- **OpenJDK 21**
+- **Eclipse**
+- **QVT Operational (QVTo)**
+- **Eclipse Modeling Framework (EMF)**
+
+The AIO and Parser are executed with Python. Eclipse, QVTo, EMF and Java are required for transforming the generated Platform Specific Model into a Platform Independent Model.
+
+For current installation and setup instructions, use the [MiSAR documentation](https://microservicearchitecturerecovery.github.io/MiSAR-Parser-and-Model-Transformation/).
+
+## Repository Role
 
 ```mermaid
 flowchart LR
-    A[Source code and configuration files] --> B[MiSAR Parser]
-    B --> C[PSM]
-    C --> D[QVTo Transformation]
-    D --> E[PIM]
-    E --> F[MiSAR Graphical Model Generator]
+    INPUT[/Input:<br/>Source code, build files<br/>and configuration files/]
+    PARSER[Tool:<br/>MiSAR Parser]
+    PSM([Output:<br/>Platform Specific Model<br/>PSM])
+    QVTO[Tool:<br/>Eclipse, QVTo and EMF]
+    PIM([Output:<br/>Platform Independent Model<br/>PIM])
+    GMG[Tool:<br/>MiSAR Graphical Model Generator]
+
+    INPUT --> PARSER
+    PARSER --> PSM
+    PSM --> QVTO
+    QVTO --> PIM
+    PIM --> GMG
 ```
 
 This repository provides:
